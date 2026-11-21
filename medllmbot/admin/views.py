@@ -307,9 +307,10 @@ SORTABLE_PAGE_SIZE = 100
 
 @final
 class ServiceAdmin(AdminView, model=Service):
-    name = "Услуга"
-    name_plural = "Услуги и цены"
-    icon = "fa-solid fa-tooth"
+    # Названия без предметной области: тот же раздел — услуги клиники или товары магазина
+    name = "Позиция"
+    name_plural = "Каталог и цены"
+    icon = "fa-solid fa-list"
     category = KNOWLEDGE
 
     column_list = [Service.sort_order, Service.name, Service.price, Service.is_active]
@@ -334,7 +335,7 @@ class ServiceAdmin(AdminView, model=Service):
     }
     column_labels = {
         Service.sort_order: "Порядок",
-        Service.name: "Услуга",
+        Service.name: "Название",
         Service.price: "Цена, лей",
         Service.description: "Описание",
         Service.is_active: "Активна",
@@ -368,8 +369,8 @@ class FaqAdmin(AdminView, model=FaqItem):
 @final
 class InfoSectionAdmin(AdminView, model=InfoSection):
     name = "Раздел"
-    name_plural = "О клинике"
-    icon = "fa-solid fa-hospital"
+    name_plural = "О компании"
+    icon = "fa-solid fa-building"
     category = KNOWLEDGE
 
     column_list = [
@@ -599,7 +600,9 @@ class BotConfigAdmin(AdminView, model=BotConfig):
     # Единственная строка: создаётся автоматически, удалять нельзя
     can_create = False
     can_delete = False
+    # Профиль меняется только вместе с базой знаний (seed --reset --profile), поэтому в форме его нет
     column_list = [
+        BotConfig.profile,
         BotConfig.model,
         BotConfig.max_tokens,
         BotConfig.max_len,
@@ -660,6 +663,7 @@ class BotConfigAdmin(AdminView, model=BotConfig):
         },
     }
     column_labels = {
+        BotConfig.profile: "Профиль бизнеса",
         BotConfig.model: "Модель",
         BotConfig.max_tokens: "Лимит токенов ответа",
         BotConfig.max_len: "Макс. длина сообщения клиента",

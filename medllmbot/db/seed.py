@@ -1,26 +1,40 @@
-"""Демо-данные вымышленной клиники.
+"""Демо-данные: вымышленная стоматология (по умолчанию) или магазин электроники (`--profile shop`).
 
 - `python -m medllmbot.db.seed` заполняет базу знаний, только если она пустая: повторный запуск безопасен.
 - `python -m medllmbot.db.seed --reset` возвращает демо-сервер в исходное состояние после показа: удаляет
   клиентов, переписку, заявки и журнал, восстанавливает базу знаний, прайс-лист моделей и настройки бота.
   Итоги расходов и дневной лимит остаются — иначе сброс обнулял бы потраченное за сутки.
+- `--reset --profile shop` переключает демо на магазин: другой профиль бота, каталог и приветствие.
 """
 
 import argparse
 import asyncio
 import logging
+from dataclasses import dataclass
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from medllmbot.config import AppSettings
+from medllmbot.db.demo_shop import SHOP_FAQ, SHOP_GREETING, SHOP_PRODUCTS, SHOP_SECTIONS
 from medllmbot.db.engine import create_engine, create_sessionmaker
-from medllmbot.db.models import AuditEvent, BotConfig, ChatMessage, Client, FaqItem, InfoSection, Lead, ModelPrice, Service
-from medllmbot.db.repository import Repository
+from medllmbot.db.models import (
+    DEFAULT_GREETING,
+    AuditEvent,
+    BotConfig,
+    BusinessProfile,
+    ChatMessage,
+    Client,
+    FaqItem,
+    InfoSection,
+    Lead,
+    ModelPrice,
+    Service,
+)
 
 log = logging.getLogger(__name__)
 
-DEMO_SECTIONS = [
+DEMO_SECTIONS: list[tuple[str, str]] = [
     (
         "О клинике",
         "Demo Dental Clinic — вымышленная стоматология для демонстрации бота. "
@@ -40,7 +54,7 @@ DEMO_SECTIONS = [
     ),
 ]
 
-DEMO_SERVICES = [
+DEMO_SERVICES: list[tuple[str, int, str | None]] = [
     ("Консультация стоматолога", 200, "Бесплатна при лечении в тот же день"),
     ("Профессиональная чистка зубов (ультразвук + Air Flow)", 800, "Около 60 минут"),
     ("Отбеливание зубов ZOOM", 3500, None),
@@ -55,7 +69,7 @@ DEMO_SERVICES = [
     ("Прицельный рентгеновский снимок", 100, None),
 ]
 
-DEMO_FAQ = [
+DEMO_FAQ: list[tuple[str, str]] = [
     (
         "Как записаться?",
         "Оставьте имя и номер телефона в этом чате — администратор перезвонит и подберёт время.",
@@ -94,37 +108,67 @@ DEMO_PRICES: list[tuple[str, int, float, float, float, float]] = [
 ]
 
 
-def _add_knowledge(session: AsyncSession) -> None:
+@dataclass(frozen=True)
+class DemoSet:
+    """База знаний и приветствие демо для одного профиля бизнеса."""
+
+    sections: list[tuple[str, str]]
+    catalog: list[tuple[str, int, str | None]]
+    faq: list[tuple[str, str]]
+    greeting: str
+
+
+DEMOS: dict[BusinessProfile, DemoSet] = {
+    BusinessProfile.CLINIC: DemoSet(DEMO_SECTIONS, DEMO_SERVICES, DEMO_FAQ, DEFAULT_GREETING),
+    BusinessProfile.SHOP: DemoSet(SHOP_SECTIONS, SHOP_PRODUCTS, SHOP_FAQ, SHOP_GREETING),
+}
+
+
+def _add_knowledge(session: AsyncSession, demo: DemoSet) -> None:
     session.add_all(
-        InfoSection(title=title, content=content, sort_order=i) for i, (title, content) in enumerate(DEMO_SECTIONS)
+        InfoSection(title=title, content=content, sort_order=i) for i, (title, content) in enumerate(demo.sections)
     )
     session.add_all(
         Service(name=name, price=price, description=description, sort_order=i)
-        for i, (name, price, description) in enumerate(DEMO_SERVICES)
+        for i, (name, price, description) in enumerate(demo.catalog)
     )
-    session.add_all(FaqItem(question=question, answer=answer, sort_order=i) for i, (question, answer) in enumerate(DEMO_FAQ))
+    session.add_all(FaqItem(question=question, answer=answer, sort_order=i) for i, (question, answer) in enumerate(demo.faq))
 
 
-async def seed_demo(sessions: async_sessionmaker[AsyncSession]) -> bool:
-    """Заполняет пустую базу знаний демо-данными. Возвращает True, если что-то добавлено."""
+async def seed_demo(sessions: async_sessionmaker[AsyncSession], kind: BusinessProfile = BusinessProfile.CLINIC) -> bool:
+    """Заполняет пустую базу знаний демо-данными профиля. Возвращает True, если что-то добавлено."""
+    demo = DEMOS[kind]
     async with sessions.begin() as session:
         counts = [await session.scalar(select(func.count()).select_from(model)) for model in (InfoSection, Service, FaqItem)]
         if any(counts):
             return False
-        _add_knowledge(session)
-
-    await Repository(sessions).get_config()  # строка настроек со значениями по умолчанию
+        _add_knowledge(session, demo)
+        # Профиль — под залитые данные. Приветствие меняется только вместе с профилем:
+        # своё приветствие администратора при повторном заполнении той же демо-базы остаётся
+        config = await session.get(BotConfig, 1)
+        if config is None:
+            session.add(BotConfig(id=1, profile=kind, greeting=demo.greeting))
+        elif config.profile != kind:
+            config.profile = kind
+            config.greeting = demo.greeting
     return True
 
 
-async def reset_demo(sessions: async_sessionmaker[AsyncSession]) -> None:
-    """Возвращает демо в исходное состояние одной транзакцией. Расход и дневной лимит не трогает."""
+async def current_profile(sessions: async_sessionmaker[AsyncSession]) -> BusinessProfile | None:
+    async with sessions() as session:
+        config = await session.get(BotConfig, 1)
+        return config.profile if config else None
+
+
+async def reset_demo(sessions: async_sessionmaker[AsyncSession], kind: BusinessProfile = BusinessProfile.CLINIC) -> None:
+    """Возвращает демо профиля в исходное состояние одной транзакцией. Расход и дневной лимит не трогает."""
+    demo = DEMOS[kind]
     async with sessions.begin() as session:
         config = await session.get(BotConfig, 1)
         budget = config.daily_budget_usd if config else 0
         for model in (Lead, ChatMessage, AuditEvent, Client, InfoSection, Service, FaqItem, ModelPrice, BotConfig):
             await session.execute(delete(model))
-        _add_knowledge(session)
+        _add_knowledge(session, demo)
         session.add_all(
             ModelPrice(
                 model=model,
@@ -136,31 +180,56 @@ async def reset_demo(sessions: async_sessionmaker[AsyncSession]) -> None:
             )
             for model, from_tokens, input_price, cache_write, cache_read, output_price in DEMO_PRICES
         )
-        session.add(BotConfig(id=1, daily_budget_usd=budget))
+        session.add(BotConfig(id=1, profile=kind, greeting=demo.greeting, daily_budget_usd=budget))
 
 
-async def main(reset: bool) -> None:
+# Значение флага --profile → профиль
+PROFILE_OPTIONS: dict[str, BusinessProfile] = {kind.name.lower(): kind for kind in BusinessProfile}
+
+
+async def main(reset: bool, kind: BusinessProfile) -> None:
     engine = create_engine(AppSettings().db_path)
     try:
         sessions = create_sessionmaker(engine)
         if reset:
-            await reset_demo(sessions)
-            log.info("Демо сброшено: база знаний, цены и настройки — как после установки, клиенты и журнал удалены")
-        elif await seed_demo(sessions):
-            log.info("Демо-данные добавлены")
+            await reset_demo(sessions, kind)
+            log.info(
+                "Демо сброшено (%s): база знаний, цены и настройки — как после установки, клиенты и журнал удалены", kind
+            )
+        elif await seed_demo(sessions, kind):
+            log.info("Демо-данные добавлены (%s)", kind)
         else:
             log.info("База знаний не пустая — демо-данные не добавлялись")
+            current = await current_profile(sessions)
+            if current is not None and current != kind:
+                log.warning(
+                    "Профиль не изменён (сейчас: %s). Чтобы переключить демо: --reset --profile %s",
+                    current,
+                    kind.name.lower(),
+                )
     finally:
         await engine.dispose()
 
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    parser = argparse.ArgumentParser(description="Демо-данные вымышленной клиники")
+def parse_args(argv: list[str] | None = None) -> tuple[bool, BusinessProfile]:
+    parser = argparse.ArgumentParser(description="Демо-данные: вымышленная стоматология или магазин электроники")
     parser.add_argument(
         "--reset",
         action="store_true",
         help="удалить клиентов, переписку, заявки и журнал и вернуть базу знаний, цены и настройки к демо",
     )
-    reset: bool = parser.parse_args().reset  # pyright: ignore[reportAny]  # argparse.Namespace не типизирован
-    asyncio.run(main(reset=reset))
+    parser.add_argument(
+        "--profile",
+        choices=sorted(PROFILE_OPTIONS),
+        default=BusinessProfile.CLINIC.name.lower(),
+        help="какой бизнес показывать: clinic — стоматология, shop — магазин электроники",
+    )
+    args = parser.parse_args(argv)
+    reset: bool = args.reset  # pyright: ignore[reportAny]  # argparse.Namespace не типизирован
+    profile: str = args.profile  # pyright: ignore[reportAny]  # argparse.Namespace не типизирован
+    return reset, PROFILE_OPTIONS[profile]
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    asyncio.run(main(*parse_args()))

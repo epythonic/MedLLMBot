@@ -11,8 +11,8 @@ from sqlalchemy.exc import OperationalError
 from medllmbot.costs import TokenUsage
 from medllmbot.db.repository import CatalogPage, Repository
 from medllmbot.llm import MAX_TOOL_CALLS_PER_ROUND, MAX_TOOL_ROUNDS, ClinicLLM, LLMResult, LLMUnavailable, ToolOutput
-from medllmbot.tools import SEARCH_CATALOG, SEARCH_LIMIT, CatalogQuery, CatalogTools
-from tests.conftest import FakeClient, Sessions, make_response, make_tool_use
+from medllmbot.tools import SEARCH_LIMIT, CatalogQuery, CatalogTools
+from tests.conftest import CLINIC_TOOL, FakeClient, Sessions, make_response, make_tool_use
 
 
 @pytest.fixture
@@ -92,7 +92,7 @@ class TestCatalogTools:
         assert output.summary == "search_catalog «чистка»: ошибка БД"
 
     def test_definition_matches_validation(self) -> None:
-        schema = cast(dict[str, object], SEARCH_CATALOG["input_schema"])
+        schema = cast(dict[str, object], CLINIC_TOOL["input_schema"])
         properties = cast(dict[str, object], schema["properties"])
         assert set(properties) == set(CatalogQuery.model_fields)
         assert schema["required"] == ["query"]
@@ -107,7 +107,7 @@ class FixedTools:
 
     @property
     def definitions(self) -> tuple[anthropic.types.ToolParam, ...]:
-        return (SEARCH_CATALOG,)
+        return (CLINIC_TOOL,)
 
     async def run(self, name: str, tool_input: dict[str, object]) -> ToolOutput:
         self.calls.append((name, tool_input))
@@ -139,7 +139,7 @@ class TestToolLoop:
 
         assert tools.calls == [("search_catalog", {"query": "чистка"})]
         first, second = fake_client.messages.calls
-        assert first.tools == (SEARCH_CATALOG,)
+        assert first.tools == (CLINIC_TOOL,)
         assert first.tool_choice == {"type": "auto"}
         # Второй запрос: вопрос, ответ модели с вызовом инструмента, результат инструмента
         question, assistant_turn, tool_turn = second.messages
@@ -175,7 +175,7 @@ class TestToolLoop:
         calls = fake_client.messages.calls
         assert len(calls) == MAX_TOOL_ROUNDS + 1
         assert [c.tool_choice for c in calls] == [{"type": "auto"}] * MAX_TOOL_ROUNDS + [{"type": "none"}]
-        assert all(c.tools == (SEARCH_CATALOG,) for c in calls)  # инструменты в запросе остаются: кэш не сбрасывается
+        assert all(c.tools == (CLINIC_TOOL,) for c in calls)  # инструменты в запросе остаются: кэш не сбрасывается
         assert len(tools.calls) == MAX_TOOL_ROUNDS
         assert result.text == "Уточню у администратора."
 

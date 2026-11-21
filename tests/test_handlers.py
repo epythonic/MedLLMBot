@@ -9,7 +9,7 @@ from aiogram.methods import SendMessage
 
 from medllmbot.assistant import BUDGET_EXCEEDED, TECH_ERROR, Reply, too_long
 from medllmbot.config import BotSettings
-from medllmbot.db.models import AuditEvent, AuditOutcome, BotConfig
+from medllmbot.db.models import AuditEvent, AuditOutcome, BotConfig, BusinessProfile
 from medllmbot.handlers import (
     ALERT_PREVIEW,
     LEAD_SAVED,
@@ -21,6 +21,7 @@ from medllmbot.handlers import (
     split_message,
     start,
 )
+from medllmbot.profiles import PROFILES
 from medllmbot.security import AlertCooldown
 
 ADMIN_ID = 777
@@ -61,7 +62,7 @@ def settings() -> BotSettings:
 
 @pytest.fixture
 def config() -> BotConfig:
-    return BotConfig(max_len=500, greeting="Добро пожаловать!")
+    return BotConfig(max_len=500, greeting="Добро пожаловать!", profile=BusinessProfile.CLINIC)
 
 
 @pytest.fixture
@@ -178,6 +179,23 @@ async def test_too_long_message_with_phone_still_creates_lead(
     msg.answer.assert_awaited_once_with(f"{too_long(len(text), 500)}\n\n{LEAD_SAVED}")
     repo.create_lead.assert_awaited_once_with(42, "@ivan", "069123456", text)  # в заявке текст целиком
     bot.send_message.assert_awaited_once()
+
+
+async def test_lead_saved_text_follows_profile(
+    call: HandleText, assistant: AsyncMock, repo: AsyncMock, config: BotConfig
+) -> None:
+    # В магазине клиенту перезванивает менеджер — как в промпте и других ответах магазина
+    config.profile = BusinessProfile.SHOP
+    text = "Хочу ноутбук, мой номер 069123456 " + "а" * 600
+    assistant.reply.return_value = Reply(too_long(len(text), 500), AuditOutcome.TOO_LONG)
+    msg = make_message(text)
+
+    await call(msg)
+
+    shop_text = PROFILES[BusinessProfile.SHOP].replies.lead_saved
+    assert "менеджер перезвонит" in shop_text
+    msg.answer.assert_awaited_once_with(f"{too_long(len(text), 500)}\n\n{shop_text}")
+    repo.create_lead.assert_awaited_once()
 
 
 async def test_too_long_message_without_phone(call: HandleText, assistant: AsyncMock, repo: AsyncMock) -> None:

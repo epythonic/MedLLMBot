@@ -11,10 +11,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from medllmbot.db.engine import create_engine, create_sessionmaker
-from medllmbot.db.models import AuditEvent, Base, FaqItem, InfoSection, Service
+from medllmbot.db.models import AuditEvent, Base, BusinessProfile, FaqItem, InfoSection, Service
 from medllmbot.db.repository import Knowledge, Repository
 from medllmbot.db.seed import DEMO_FAQ, DEMO_SECTIONS, DEMO_SERVICES, seed_demo
-from medllmbot.prompts import render_info
+from medllmbot.prompts import render_info, rules
+from medllmbot.tools import search_catalog_tool
 
 CHAT_ID = 42
 
@@ -31,6 +32,9 @@ def demo_knowledge() -> Knowledge:
 
 
 DEMO_INFO = render_info(demo_knowledge())
+# Правила промпта и инструмент поиска профиля по умолчанию — стоматологии
+CLINIC_RULES = rules(BusinessProfile.CLINIC)
+CLINIC_TOOL = search_catalog_tool(BusinessProfile.CLINIC)
 
 
 def make_response(

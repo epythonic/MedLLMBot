@@ -368,6 +368,13 @@ class TestBotConfigForm:
         assert admin.post("/admin/bot-config/edit/1", data=form, follow_redirects=False).status_code == 302
         assert load_config(db).daily_budget_usd == 2
 
+    def test_profile_is_shown_but_not_editable(self, admin: TestClient) -> None:
+        # Профиль меняется только вместе с базой знаний (seed --reset --profile), не из формы
+        assert "Стоматология" in admin.get("/admin/bot-config/list").text
+        form = admin.get("/admin/bot-config/edit/1").text
+        assert re.search(r'<(?:input|select|textarea)[^>]*\bname="profile"', form) is None
+        assert re.search(r'<input[^>]*\bname="model"', form) is not None  # поле формы ищется верно
+
     @pytest.mark.parametrize("value", ["-1", "1001", "много"])
     def test_catalog_inline_limit_is_checked(self, admin: TestClient, db: Path, value: str) -> None:
         form = BOT_CONFIG_FORM | {"catalog_inline_limit": value}
@@ -680,7 +687,7 @@ class TestHelp:
 class TestRussianInterface:
     def test_buttons_are_russian(self, admin: TestClient) -> None:
         page = admin.get("/admin/service/list").text
-        assert "+ Создать: Услуга" in page
+        assert "+ Создать: Позиция" in page
         assert "Фильтры" in page
         assert "Сохранить" in admin.get("/admin/service/edit/2").text
 
@@ -756,7 +763,7 @@ class TestLeadStatusInList:
         response = admin.post(self.URL, data={"status": "DONE"}, headers=HX)
 
         assert response.status_code == 200
-        assert '<option value="DONE" selected>Записан</option>' in response.text
+        assert '<option value="DONE" selected>Выполнена</option>' in response.text
         assert "is-saved" in response.text
         lead = load_lead(db, 1)
         assert lead is not None and lead.status is LeadStatus.DONE
