@@ -1,404 +1,157 @@
-# MedLLMBot: Telegram-бот помощник стоматологии с веб-админкой
+# MedLLMBot: a Telegram assistant for a dental clinic, with a web admin panel
 
-[![CI](https://github.com/epythonic/MedLLMBot/actions/workflows/ci.yml/badge.svg)](https://github.com/epythonic/MedLLMBot/actions/workflows/ci.yml)
+[Русская версия](README.md)
 
-[English version](README.en.md)
+A demo project: a Telegram bot built on **aiogram 3** and **Claude (Anthropic API)** that answers a dental clinic's
+customers — services, prices, address, opening hours, booking — in Russian and Romanian. All data lives in **SQLite**,
+and the clinic's staff manage it in a **web admin panel** (FastAPI + SQLAdmin): price list, FAQ, leads, customers and
+bot settings. Changes take effect without a restart.
 
-Демо-проект: Telegram-бот на **aiogram 3** и **Claude (Anthropic API)**. Он отвечает клиентам стоматологической клиники на вопросы об услугах, ценах, адресе и записи, на русском и румынском языках. Все данные хранятся в **SQLite**, а управляет ими администратор клиники через **веб-админку** (FastAPI + SQLAdmin): прайс, частые вопросы, заявки, клиенты, настройки бота. Изменения подхватываются без перезапуска.
+> "Demo Dental Clinic" is fictional; all demo data is made up ([medllmbot/db/seed.py](medllmbot/db/seed.py)).
+> The admin panel and the bot's messages are in Russian, the clinic's working language.
 
-> Клиника «Demo Dental Clinic» вымышленная, все демо-данные придуманы ([medllmbot/db/seed.py](medllmbot/db/seed.py)).
+The architecture is not tied to dentistry: a knowledge base edited by staff, lead capture, an audit log, cost
+tracking and prompt-injection defences fit any business that answers customers in a messenger — an online store
+included.
 
-## Возможности
+## What it does
 
-### Бот
+**The bot**
 
-- Отвечает только по базе знаний клиники: разделы «о клинике», услуги с ценами, FAQ.
-- Помнит последние сообщения диалога, история хранится в SQLite.
-- Сверяет цены в ответе модели с прайсом. Если модель назвала выдуманную цену, клиент её не увидит.
-- Заявку с телефоном (молдавские номера в любой записи и международные с «+») сохраняет со статусом «Новая» и пересылает администратору. Заявка не теряется, даже если LLM недоступен, сообщение длиннее лимита или Telegram не принял ответ клиенту.
-- Пока модель думает, клиент видит «печатает…». Длинный ответ приходит несколькими сообщениями в пределах лимита Telegram.
-- Защищён от длинных сообщений, спама, prompt injection. Заблокированных в админке клиентов игнорирует.
-- Пишет **журнал аудита**: каждое входящее сообщение, включая отклонённые, с ответом модели, токенами, задержкой и признаками попытки перехватить управление. О подозрительных сообщениях уведомляет администратора.
-- Считает **стоимость каждого ответа** в токенах и долларах по прайс-листу моделей и копит дневные итоги для отчёта за месяц.
+- Answers only from the clinic's knowledge base (about the clinic, services with prices, FAQ) and remembers the
+  last messages of the conversation.
+- Checks every price in the model's answer against the price list in the database. If the model invents a price,
+  the customer never sees it.
+- Turns any message with a phone number into a lead and forwards it to the administrator. The lead is saved even if
+  Claude is down, the message is too long, or Telegram rejects the reply.
+- Shows "typing…" while the model thinks; long answers are split to fit Telegram's message limit.
+- Defends against long messages, spam and prompt injection; ignores customers blocked in the admin panel.
+- Writes an **audit log**: every incoming message, including rejected ones, with the raw and the delivered answer,
+  tokens, latency and attack indicators. Suspicious messages trigger a notification to the administrator.
+- Calculates the **cost of every answer** from token usage and the model price list, with daily and monthly totals.
 
-### Админка
+**The admin panel**
 
-- **Заявки:** список с фильтром по статусу (Новая / В работе / Записан / Отказ) и заметками администратора.
-- **Клиенты:** кто и когда писал, блокировка одним флажком.
-- **Переписка:** журнал диалогов только для чтения, с поиском и фильтром по чату.
-- **База знаний:** услуги и цены, частые вопросы, разделы о клинике. Порядок меняется перетаскиванием строк (SortableJS + HTMX) и сразу виден боту; записи можно отключать без удаления. Поиск по кириллице не зависит от регистра.
-- **Журнал:** все входящие сообщения с итогом обработки, сырым и отправленным ответом, токенами и задержкой. Фильтры «подозрительное» и «итог», только чтение.
-- **Расходы:** отчёт по месяцам с разбивкой по моделям и прогнозом на текущий месяц, расход по дням, прайс-лист моделей (редактируется, когда Anthropic меняет цены).
-- **Настройки бота:** модель Claude, лимиты, глубина истории, rate-limit, текст приветствия, срок хранения журнала. Значения проверяются формой и CHECK-ограничениями в БД.
-- **Формы:** ошибки ввода показываются по-русски (каталог WTForms с поправками неточных переводов), дробные цены принимаются и через точку, и через запятую.
-- **Быстрые действия на HTMX:** статус заявки меняется прямо в списке, «Заявки» и «Журнал» без перезагрузки показывают плашку о новых записях (подозрительные события подсвечены), клиента можно заблокировать со страницы записи журнала. HTMX лежит в проекте, а не на CDN, работает без `eval`, изменяющие запросы принимаются только с заголовком `HX-Request`.
-- **Справка «?»:** значок «?» стоит у каждого раздела, поля формы и колонки таблицы. При наведении показывается короткая подсказка, по клику открывается боковая панель с подробной инструкцией. Панель не закрывает страницу, её также открывают клавиши F1 и «?». На главной — схема работы бота и карта разделов, на странице «Справка» — вся документация с оглавлением. Интерфейс админки на русском.
+- Leads with statuses changed right in the list, customers with one-click blocking, read-only chat history.
+- Knowledge base: services and prices, FAQ, clinic info. Rows are reordered by drag and drop and the bot sees the
+  change immediately.
+- Audit log with "suspicious" and "outcome" filters; monthly cost report with a month-end forecast.
+- Bot settings: Claude model, limits, history depth, rate limit, greeting, log retention.
+- Contextual help: a "?" icon next to every section, form field and column opens a side panel with instructions.
+- Live updates via HTMX (vendored, no CDN, no `eval`): a banner announces new leads and log entries without a reload.
 
-## Скриншоты админки
-
-Демо-данные вымышленные.
+## Screenshots
 
 | | |
 | --- | --- |
-| ![Главная: как работает бот и карта разделов](docs/screenshots/home.png) | ![Заявки: статус меняется прямо в списке](docs/screenshots/leads.png) |
-| **Главная** — как работает бот и карта разделов | **Заявки** — статус меняется прямо в списке |
-| ![Журнал: итоги обработки и подозрительные сообщения](docs/screenshots/audit-log.png) | ![Расходы на Claude API по месяцам](docs/screenshots/costs.png) |
-| **Журнал** — итог обработки каждого сообщения, попытки атак | **Расходы** — стоимость запросов к Claude по месяцам |
-| ![Услуги: порядок меняется перетаскиванием](docs/screenshots/services.png) | ![Справка «?» в боковой панели](docs/screenshots/help-panel.png) |
-| **Услуги и цены** — порядок меняется перетаскиванием | **Справка «?»** — инструкция к разделу в боковой панели |
+| ![Home](docs/screenshots/home.png) | ![Leads](docs/screenshots/leads.png) |
+| **Home** — how the bot works, map of sections | **Leads** — status changes right in the list |
+| ![Audit log](docs/screenshots/audit-log.png) | ![Costs](docs/screenshots/costs.png) |
+| **Audit log** — outcome of every message, attack attempts | **Costs** — Claude API spend by month |
+| ![Services](docs/screenshots/services.png) | ![Help panel](docs/screenshots/help-panel.png) |
+| **Services and prices** — drag-and-drop ordering | **Help "?"** — section guide in a side panel |
 
-## Архитектура
+## Architecture
 
 ```mermaid
 flowchart LR
-    TG[Клиент в Telegram] <--> Bot
-    subgraph Bot [Бот: aiogram 3]
-        CM[ClientMiddleware<br/>учёт клиента, блокировка, настройки] --> TM[ThrottlingMiddleware]
+    TG[Customer in Telegram] <--> Bot
+    subgraph Bot [Bot: aiogram 3]
+        CM[ClientMiddleware<br/>customer, blocking, settings] --> TM[ThrottlingMiddleware]
         TM --> H[handlers] --> A[ClinicAssistant]
     end
     A <--> Claude[Claude API]
     Bot <--> DB[(SQLite<br/>WAL)]
-    Admin[Веб-админка<br/>FastAPI + SQLAdmin] <--> DB
-    Staff[Администратор клиники] --> Admin
-    Bot -- новая заявка --> Staff
+    Admin[Admin panel<br/>FastAPI + SQLAdmin] <--> DB
+    Staff[Clinic staff] --> Admin
+    Bot -- new lead --> Staff
 ```
 
-Как бот обрабатывает сообщение:
+Message pipeline: register the customer and drop blocked ones → rate limit → length and attack-indicator checks →
+knowledge base and history from the database → Claude → output checks (system-prompt leak, unknown prices,
+truncated/empty answer, refusal) → audit log → reply, admin alert, lead. An unexpected error at any step still ends
+with a polite reply to the customer.
 
-1. `ClientMiddleware` создаёт или обновляет клиента. Заблокированных отсекает и пишет в журнал, в хендлер передаёт настройки из `bot_config`.
-2. `ThrottlingMiddleware` пропускает не больше N сообщений за M секунд, отсечённые пишет в журнал. Лимиты берутся из настроек, счётчики хранятся в памяти.
-3. `ClinicAssistant` проверяет сообщение на признаки атаки и длину, затем читает из БД базу знаний и историю, собирает системный промпт и спрашивает Claude.
-4. Ответ модели проверяется на утечку системного промпта и цены не из прайса. Обычный обмен сохраняется в историю, подозрительный — нет.
-5. Любой итог записывается в журнал аудита.
-6. Хендлер отправляет ответ (длинный — частями). Если сообщение подозрительное, администратору уходит уведомление (не чаще раза в 15 минут на клиента). Если есть телефон, создаётся заявка — даже когда Telegram не принял ответ клиенту.
-7. Непредвиденная ошибка на любом шаге перехватывается: клиент получает извинение, ошибка — в логе.
+## Security
 
-`/start` и нетекстовые сообщения (фото, голосовые) тоже попадают в журнал, с итогами «Приветствие» и «Не текст».
-
-### Схема БД
-
-```mermaid
-erDiagram
-    clients ||--o{ messages : "пишет"
-    clients ||--o{ leads : "оставляет"
-    clients ||--o{ audit_log : "журнал"
-    clients {
-        bigint chat_id PK
-        string username
-        string full_name
-        bool is_blocked
-    }
-    messages {
-        int id PK
-        bigint chat_id FK
-        string role
-        text content
-    }
-    leads {
-        int id PK
-        bigint chat_id FK
-        string phone
-        enum status
-        text admin_note
-    }
-    audit_log {
-        int id PK
-        bigint chat_id FK
-        text user_text
-        enum outcome
-        bool is_suspicious
-        string flags
-        text llm_answer
-        text final_answer
-        int latency_ms
-    }
-    model_prices {
-        string model
-        int from_prompt_tokens
-        float input_per_mtok
-        float output_per_mtok
-    }
-    llm_usage_daily {
-        date day
-        string model
-        int requests
-        int cost_micro_usd
-    }
-    services {
-        int id PK
-        string name
-        int price
-        bool is_active
-        int sort_order
-    }
-    faq {
-        int id PK
-        string question
-        text answer
-    }
-    info_sections {
-        int id PK
-        string title
-        text content
-    }
-    bot_config {
-        int id PK "всегда 1"
-        string model
-        int max_len
-        int rate_limit
-        text greeting
-        int audit_retention_days
-    }
-```
-
-Схемой управляет **Alembic**. Бот и админка при старте сами применяют миграции. В Docker их заранее применяет сервис `migrate`, поэтому два процесса не обновляют схему одновременно. SQLite работает в режиме **WAL** с `busy_timeout`, поэтому бот и админка спокойно работают с одной базой одновременно. Внешние ключи включены (`PRAGMA foreign_keys`).
-
-## Защита
-
-| Угроза | Как закрыта |
+| Threat | Mitigation |
 | --- | --- |
-| Prompt injection («ты теперь другой бот») | Правила в системном промпте объявлены важнее сообщений клиента, база знаний изолирована в `<info>` |
-| Выявление атак | Эвристики на RU / RO / EN ловят просьбы забыть инструкции, смену роли, «я твой начальник / владелец клиники», попытки узнать промпт, служебную разметку и известные джейлбрейки. Такие сообщения отмечаются в журнале, администратор получает уведомление. Попытки атаки не попадают в историю, которую видит модель, поэтому многошаговая атака не накапливается |
-| Утечка системного промпта | Ответ модели сверяется с правилами промпта. Если в нём есть их дословные фрагменты, клиент получает заглушку, а в журнале остаются оба ответа. Пересказ или перевод правил эта проверка не ловит — от него защищает сам промпт |
-| Выдуманные цены и скидки | `PriceChecker` сверяет цены из ответа с актуальным прайсом в БД (понимает «1 200 лей», «1.200 lei», «900 леев») |
-| Спам и расход API | Rate-limit на каждый чат, лимит длины сообщения до запроса к API, блокировка клиентов в админке. Дневной лимит расходов на всех: после него бот до полуночи UTC отвечает без Claude, заявки сохраняются, администратор получает уведомление |
-| Медицинские советы | Бот не ставит диагнозы и при острой боли направляет на приём |
-| Сбой API | Тайм-аут 30 с и одна повторная попытка SDK — клиент не ждёт дольше минуты. Дальше он получает вежливую заглушку, а заявка всё равно сохраняется. Любая непредвиденная ошибка (например, занятая база) тоже заканчивается ответом клиенту, а не молчанием |
-| Обрезанный или пустой ответ, отказ модели | Проверяется `stop_reason`: ответ, упёршийся в `max_tokens` или в окно контекста, пустой ответ и отказ (`refusal`) клиенту не отправляются — он получает нейтральную фразу, а в журнале остаются исходный ответ и итог («Ответ обрезан», «Пустой ответ», «Отказ модели») |
-| Доступ к админке | Логин и пароль из `.env`, сравнение за постоянное время. После 5 неудачных попыток с одного адреса вход закрыт на 15 минут. Сессия в подписанной cookie (HttpOnly, SameSite=Lax, 8 часов, `Secure` при `ADMIN_HTTPS_ONLY=true`); смена пароля завершает все сессии. Заголовки CSP, `X-Frame-Options: DENY`, `nosniff`, страницы с данными не кэшируются. В Docker порт открыт только на `127.0.0.1` |
-| Персональные данные в журнале | Срок хранения настраивается в админке (по умолчанию 90 дней), бот удаляет старые записи каждые 6 часов |
-| Утечка секретов | Токены только в `.env`, в коде используются как `SecretStr`. `.env` исключён из git и из Docker-образа |
+| Prompt injection | System-prompt rules take precedence over customer messages; the knowledge base is isolated in `<info>`. RU / RO / EN heuristics flag attempts (ignore instructions, role change, "I am your boss", prompt extraction, markup, known jailbreaks); flagged messages never enter the model's history, so multi-turn attacks don't accumulate |
+| System-prompt leak | Answers containing verbatim fragments of the rules are replaced with a neutral reply (paraphrases are not detected — the prompt itself is the defence) |
+| Invented prices and discounts | Every price in the answer is checked against the current price list |
+| Spam and API spend | Per-chat rate limit, message length limit before any API call, customer blocking, and a global daily spend limit after which the bot answers without Claude |
+| API failures | 30 s timeout, one SDK retry, then a polite fallback; the lead is still saved |
+| Admin access | Credentials from `.env`, constant-time comparison, lock-out after 5 failed logins per IP for 15 minutes, signed HttpOnly session cookie (8 hours, `Secure` behind HTTPS), CSP and `X-Frame-Options`, no caching of pages with personal data |
+| Personal data | Log retention is configurable (90 days by default); daily cost totals contain no personal data |
 
-## Стек
+## Tech stack
 
-Python 3.14, aiogram 3, Anthropic Python SDK, SQLAlchemy 2 (async) + aiosqlite, Alembic, FastAPI + SQLAdmin, pydantic-settings, pytest, ruff, basedpyright, uv, Docker Compose, GitHub Actions.
+Python 3.14, aiogram 3, Anthropic Python SDK, SQLAlchemy 2 (async) + aiosqlite, Alembic, FastAPI + SQLAdmin,
+HTMX, pydantic-settings, pytest, ruff, basedpyright (recommended mode, zero warnings), uv, Docker Compose, GitHub Actions.
 
-## Структура
-
-```text
-medllmbot/
-├── __main__.py        # запуск бота: миграции → polling
-├── main.py            # сборка зависимостей бота
-├── config.py          # секреты и пути из окружения (pydantic-settings)
-├── handlers.py        # хендлеры Telegram
-├── middlewares.py     # ClientMiddleware, ThrottlingMiddleware
-├── assistant.py       # база знаний + история → LLM → проверка цен → сохранение
-├── llm.py             # обёртка над Anthropic API, обработка ошибок
-├── guards.py          # RateLimiter, PriceChecker, поиск телефона
-├── security.py        # детектор prompt injection, проверка утечки промпта
-├── maintenance.py     # фоновая очистка журнала по сроку хранения
-├── costs.py           # прайс-лист, стоимость запроса, отчёт по месяцам
-├── prompts.py         # системный промпт и рендер базы знаний
-├── db/
-│   ├── models.py      # модели SQLAlchemy
-│   ├── repository.py  # все запросы бота к БД
-│   ├── engine.py      # движок SQLite: WAL, foreign keys, busy_timeout, lower() с кириллицей
-│   ├── migrate.py     # python -m medllmbot.db.migrate
-│   ├── seed.py        # python -m medllmbot.db.seed — демо-данные
-│   └── migrations/    # Alembic
-└── admin/
-    ├── __main__.py    # python -m medllmbot.admin
-    ├── app.py         # FastAPI + SQLAdmin
-    ├── auth.py        # вход по логину и паролю, защита от перебора, сессия
-    ├── reports.py     # страница «Отчёт по месяцам»
-    ├── help.py        # справка «?»: подсказки полей, итоги обработки, признаки атак
-    ├── live.py        # быстрые действия на HTMX: маршруты фрагментов
-    ├── fragments.py   # HTML-фрагменты для HTMX
-    ├── forms.py       # базовая форма разделов: ошибки по-русски, числа с запятой
-    ├── static/        # htmx-2.0.11.min.js, sortable-1.15.7.min.js (+ лицензии)
-    ├── templates/     # отчёт, тексты справки (help/), доработки шаблонов SQLAdmin (sqladmin/)
-    └── views.py       # разделы админки
-tests/                 # 463 тестов, без сети и реальных ключей
-```
-
-## Быстрый старт
-
-1. Установите [uv](https://docs.astral.sh/uv/) и зависимости:
-
-   ```bash
-   uv sync
-   ```
-
-2. Создайте файл `.env` из образца и впишите в него свои значения:
-
-   ```bash
-   cp .env.example .env
-   ```
-
-   Нужны токен бота от @BotFather, ваш chat id (узнать у @userinfobot), ключ из Anthropic Console, пароль админки
-   (от 8 символов) и секретный ключ (от 32 символов). Ключ можно сгенерировать так:
-   `python -c "import secrets; print(secrets.token_urlsafe(32))"`. Если чего-то не хватает, бот и админка
-   при запуске перечислят, какие переменные не заданы.
-
-3. Создайте БД и заполните её демо-данными:
-
-   ```bash
-   uv run python -m medllmbot.db.migrate
-   uv run python -m medllmbot.db.seed
-   ```
-
-4. Запустите бота и админку в двух терминалах:
-
-   ```bash
-   uv run python -m medllmbot          # бот
-   uv run python -m medllmbot.admin    # админка: http://127.0.0.1:8000/admin
-   ```
-
-Администратор должен один раз нажать /start у бота, иначе Telegram не даст боту написать ему первым.
-
-## Запуск в Docker
+## Quick start
 
 ```bash
-docker compose up -d --build                                  # migrate → bot + admin
-docker compose run --rm migrate python -m medllmbot.db.seed   # демо-данные (один раз)
-docker compose logs -f bot
+uv sync
+cp .env.example .env      # fill in: Telegram token, your chat id, Anthropic key, admin password and secret key
+uv run python -m medllmbot.db.migrate
+uv run python -m medllmbot.db.seed      # demo data
+uv run python -m medllmbot              # the bot
+uv run python -m medllmbot.admin        # the admin panel: http://127.0.0.1:8000/admin
 ```
 
-Админка доступна на <http://127.0.0.1:8000/admin>. База хранится в volume `bot-storage` и переживает пересборку контейнеров.
+If a variable is missing, the bot and the admin panel list what to fix instead of printing a traceback.
 
-## Демо на сервере
-
-Для показа хватает маленького VPS (1 vCPU, 1 ГБ RAM) с Docker и домена, направленного A-записью на сервер.
-Бот работает через long polling, поэтому снаружи нужны только порты 80 и 443 — для HTTPS админки
-(Caddy сам получает и продлевает сертификат Let's Encrypt).
-
-### Как изменения попадают на сервер
-
-```mermaid
-flowchart LR
-    PR[Pull request] --> C1[CI: test, docker]
-    C1 -->|зелёный| M[Слияние в main]
-    M --> C2[CI: test, docker] --> K[config:<br/>ключи из Environment demo]
-    K --> D[deploy: SSH → deploy/deploy.sh]
-    D --> S[Сервер: git pull, .env,<br/>docker compose up --build,<br/>проверка здоровья]
-```
-
-- В `main` нельзя запушить напрямую — только слить PR с зелёными проверками `test` и `docker` (защита ветки).
-- После слияния CI проверяет ключи из GitHub Environment `demo`, собирает из них `.env` и по SSH запускает
-  на сервере [deploy/deploy.sh](deploy/deploy.sh): свежий `main`, новый `.env`, пересборка контейнеров,
-  ожидание, пока админка станет здоровой. Если что-то не поднялось, деплой красный, а в логе — последние строки
-  контейнера.
-- Ключ CI на сервере привязан к этому скрипту (`command=` в `authorized_keys`): другую команду им не выполнить.
-  Отпечаток сервера закреплён в секрете — подмену хоста SSH не пропустит.
-- Секреты приложения хранятся только в GitHub Environment `demo`; `.env` на сервере перезаписывается
-  при каждом деплое, поэтому ключи меняют в GitHub.
-
-### Первоначальная настройка (один раз)
-
-**На сервере** (пользователь в группе `docker`):
+Docker:
 
 ```bash
-curl -fsSL https://get.docker.com | sh
-sudo usermod -aG docker "$USER"          # перелогиньтесь после этой команды
-sudo git clone https://github.com/epythonic/MedLLMBot.git /opt/MedLLMBot
-sudo chown -R "$USER" /opt/MedLLMBot
+docker compose up -d --build
+docker compose run --rm migrate python -m medllmbot.db.seed
 ```
 
-**Ключ для деплоя** — на своей машине:
+## Demo server
+
+A small VPS (1 vCPU, 1 GB RAM) with Docker and a domain pointing at it is enough. Add `DOMAIN=…` and
+`ADMIN_HTTPS_ONLY=true` to `.env`, then:
 
 ```bash
-ssh-keygen -t ed25519 -N "" -C "github-actions-deploy" -f medllmbot-deploy
-ssh-keyscan -t ed25519 ВАШ_СЕРВЕР   # сверьте отпечаток: на сервере ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
+docker compose --profile https up -d --build        # bot + admin + Caddy with automatic Let's Encrypt HTTPS
+docker compose run --rm migrate python -m medllmbot.db.seed
 ```
 
-Открытый ключ `medllmbot-deploy.pub` добавьте на сервер в `~/.ssh/authorized_keys` одной строкой:
-
-```text
-command="/opt/MedLLMBot/deploy/deploy.sh",no-port-forwarding,no-agent-forwarding,no-X11-forwarding,no-pty ssh-ed25519 AAAA… github-actions-deploy
-```
-
-**В GitHub** — Settings → Environments → New environment `demo`, секреты:
-
-| Секрет | Что положить |
-| --- | --- |
-| `TG_TOKEN`, `ADMIN_ID`, `ANTHROPIC_API_KEY` | ключи бота, как в `.env.example` |
-| `ADMIN_PASSWORD`, `ADMIN_SECRET_KEY` | пароль админки (от 8 символов) и ключ сессии (от 32) |
-| `DEPLOY_HOST`, `DEPLOY_USER` | адрес сервера и пользователь из `authorized_keys` |
-| `DEPLOY_SSH_KEY` | содержимое закрытого ключа `medllmbot-deploy` |
-| `DEPLOY_KNOWN_HOSTS` | вывод `ssh-keyscan` из шага выше |
-
-И переменные (Environment variables): `DOMAIN` — домен демо, `ADMIN_USERNAME` — логин админки (по умолчанию `admin`).
-
-**Защита ветки** `main` — Settings → Branches или одной командой:
+Set **daily spend limit** in the admin panel ("Bot settings"): once it is reached, the bot stops calling Claude
+until midnight UTC, still saves leads and notifies the administrator. After a demo, reset everything to the
+initial state (customers, chats, leads and the log are removed; spend totals and the limit are kept):
 
 ```bash
-gh api -X PUT repos/epythonic/MedLLMBot/branches/main/protection --input - <<'JSON'
-{
-  "required_status_checks": {"strict": true, "contexts": ["test", "docker"]},
-  "enforce_admins": true,
-  "required_pull_request_reviews": {"required_approving_review_count": 0},
-  "restrictions": null,
-  "allow_force_pushes": false,
-  "allow_deletions": false
-}
-JSON
+docker compose run --rm migrate python -m medllmbot.db.seed --reset
 ```
 
-**Включите деплой**: Settings → Secrets and variables → Actions → Variables → `DEPLOY_ENABLED` = `true`.
-Пока переменной нет, CI только проверяет код, а `config` и `deploy` пропускаются.
+### Continuous deployment
 
-Первый деплой — любой PR, слитый в `main`. Демо-данные после первого запуска:
+`main` accepts changes only through pull requests with green `test` and `docker` checks. After a merge, CI
+validates the keys stored in the GitHub Environment `demo`, builds `.env` from them and runs
+[deploy/deploy.sh](deploy/deploy.sh) on the server over SSH: fast-forward to `main`, rebuild the containers,
+wait until the admin panel is healthy. The CI key is bound to that script in `authorized_keys`, and the server's
+host key is pinned. Setup steps are in the Russian README, section «Демо на сервере».
+
+## Development
 
 ```bash
-cd /opt/MedLLMBot && docker compose run --rm migrate python -m medllmbot.db.seed
+uv run pytest
+uv run ruff check . && uv run ruff format --check .
+uv run basedpyright
 ```
 
-### Расходы и сброс демо
+Tests never touch the network: the Anthropic client and Telegram objects are replaced with fakes. CI runs linting,
+type checking and tests on Python 3.14, checks the demo server keys, and builds the Docker image.
 
-- В админке «Настройки бота» → **Лимит расходов в сутки, $** (для демо хватит 1–2 $), а в
-  [Anthropic Console](https://console.anthropic.com) поставьте месячный лимит на ключ — вторую линию защиты.
-- После показа верните демо в исходное состояние. Команда удаляет клиентов, переписку, заявки и журнал,
-  восстанавливает базу знаний, прайс-лист моделей и настройки; итоги расходов и дневной лимит остаются:
+## Limitations of the demo
 
-  ```bash
-  docker compose run --rm migrate python -m medllmbot.db.seed --reset
-  ```
+- Long polling only (no webhook); rate-limit and login counters live in one process's memory.
+- A single admin account without roles.
+- Edited messages are not re-read; two quick messages from the same customer are processed in parallel.
 
-  Чтобы демо сбрасывалось каждую ночь, добавьте в crontab сервера:
+## License
 
-  ```text
-  0 3 * * * cd /opt/MedLLMBot && docker compose run --rm migrate python -m medllmbot.db.seed --reset
-  ```
-
-## Переменные окружения
-
-| Переменная | По умолчанию | Описание |
-| --- | --- | --- |
-| `TG_TOKEN` | — | Токен бота от @BotFather |
-| `ADMIN_ID` | — | Chat id администратора для уведомлений о заявках |
-| `ANTHROPIC_API_KEY` | — | Ключ Anthropic API |
-| `ADMIN_USERNAME` | `admin` | Логин админки |
-| `ADMIN_PASSWORD` | — | Пароль админки, не короче 8 символов |
-| `ADMIN_SECRET_KEY` | — | Ключ подписи cookie сессии, не короче 32 символов |
-| `ADMIN_HOST` / `ADMIN_PORT` | `127.0.0.1` / `8000` | Адрес админки |
-| `DOMAIN` | — | Домен демо-сервера для HTTPS через Caddy (только с `--profile https`) |
-| `ADMIN_HTTPS_ONLY` | `false` | `true`, если админка открыта по HTTPS через reverse proxy: cookie сессии получит флаг `Secure` |
-| `DB_PATH` | `storage/bot.db` | Путь к SQLite |
-
-Модель Claude, лимиты и приветствие задаются не здесь, а в админке, в разделе «Настройки бота». По умолчанию: `claude-haiku-5-5`, ответ до 1024 токенов, сообщение до 1024 символов, история из 8 сообщений, 10 сообщений за 60 секунд, журнал хранится 90 дней, дневного лимита расходов нет.
-
-## Разработка
-
-```bash
-uv run pytest                                          # тесты
-uv run ruff check . && uv run ruff format --check .    # линтер
-uv run basedpyright                                     # проверка типов
-uv run alembic revision --autogenerate -m "описание"   # миграция после правки моделей
-```
-
-Тесты не ходят в сеть: клиент Anthropic и объекты Telegram заменены фейками. Отдельные тесты проверяют, что миграции совпадают с моделями и что правки из админки сразу видит бот. CI в GitHub Actions на каждый push запускает на Python 3.14 линтер, проверку типов (basedpyright), тесты, проверку ключей демо-сервера из GitHub Environment `demo` и сборку Docker-образа.
-
-## Заметки
-
-- **Кэширование промпта.** Системный промпт помечен `cache_control`. Байты промпта меняются, только когда админ правит базу знаний. Но кэш срабатывает только когда префикс не короче минимума модели. У Haiku 5.5 это 512 токенов, и демо-промпт (около 2600 символов) должен проходить порог. У Haiku 4.5 минимум 4096 токенов, и демо-база знаний до него не дотягивает. Попадания в кэш видны в логах (`cache_read=`) и в журнале запросов.
-- **Стоимость — оценка, а не счёт.** Считается по токенам из ответа API и ценам из прайс-листа (стартовые цены взяты с [официальной страницы](https://platform.claude.com/docs/en/about-claude/pricing) на 10.11.2026). Учитываются вход, выход (включая размышления модели), запись и чтение кэша, а также тариф Haiku 5.5 для промптов длиннее 100 000 токенов. Налоги и скидки по договору не учитываются. Месяцы считаются по UTC, как в биллинге Anthropic. Деньги хранятся в целых микродолларах, без ошибок округления. Изменение цены в админке не пересчитывает прошлые запросы. Дневные итоги не содержат персональных данных и не удаляются вместе со старым журналом.
-- **Детектор атак — сигнал, а не защита.** Эвристики обходятся перефразированием. Защищают правила системного промпта и проверки ответа на выходе (цены, утечка), а журнал и уведомления помогают заметить попытки и заблокировать клиента.
-- **Ограничения демо-версии:**
-  - только long polling (без webhook);
-  - rate-limit и счётчик попыток входа хранятся в памяти одного процесса (для нескольких реплик их нужно перенести в Redis);
-  - у админки одна учётная запись, без ролей; выход стирает cookie в браузере, но украденная cookie живёт до конца сессии (8 часов) или до смены пароля;
-  - исправленное (отредактированное) сообщение бот не перечитывает, а два быстрых сообщения одного клиента обрабатывает параллельно.
-
-## Лицензия
-
-[MIT](LICENSE). Вендорные библиотеки в `medllmbot/admin/static/` — со своими лицензиями рядом (htmx — 0BSD, SortableJS — MIT).
+[MIT](LICENSE). Vendored libraries in `medllmbot/admin/static/` ship with their own licenses (htmx — 0BSD, SortableJS — MIT).
