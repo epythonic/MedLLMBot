@@ -33,3 +33,4 @@ Claude outputs/
 
 # Инструкции для AI-агентов — только локально
 CLAUDE.md
+.claude/
