@@ -88,6 +88,18 @@ class PriceBook:
             return None
         return cost if cost <= MAX_MICRO_USD else None
 
+    def total_micro_usd(self, model: str, requests: Iterable[TokenUsage]) -> int | None:
+        """Стоимость ответа из нескольких запросов (поиск по каталогу): тариф — по длине каждого запроса,
+        как в счёте Anthropic. None, если хотя бы один запрос не посчитать.
+        """
+        total = 0
+        for usage in requests:
+            cost = self.cost_micro_usd(model, usage)
+            if cost is None:
+                return None
+            total += cost
+        return total if total <= MAX_MICRO_USD else None
+
 
 def format_usd(micro_usd: int | None) -> str:
     if micro_usd is None:

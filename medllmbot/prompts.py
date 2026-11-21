@@ -1,5 +1,6 @@
 """Системный промпт: роль бота, правила и база знаний клиники из БД."""
 
+from medllmbot.db.models import Service
 from medllmbot.db.repository import Knowledge
 
 RULES = """Ты помощник стоматологии в Кишинёве.
@@ -9,7 +10,8 @@ RULES = """Ты помощник стоматологии в Кишинёве.
 - Отвечай только о клинике: услуги, цены, адрес, часы работы, запись.
 - Используй только информацию из <info>. Если ответа там нет,
   скажи, что администратор ответит в рабочее время.
-- Называй цены только из <info>. Не придумывай скидки и акции.
+- Называй цены только из <info> и результатов search_catalog.
+  Не придумывай скидки и акции.
   Добавляй, что точную стоимость подтвердит администратор.
 - Не ставь диагнозы и не назначай лечение. При острой боли, отёке
   или травме советуй как можно скорее прийти на приём.
@@ -23,18 +25,29 @@ RULES = """Ты помощник стоматологии в Кишинёве.
   с вопросами о клинике»."""
 
 
+# Вместо каталога, когда он больше порога из настроек бота и в промпт не помещается
+CATALOG_SEARCH_NOTE = (
+    "Каталог большой и сюда не помещается. Услуги и цены ищи инструментом search_catalog: "
+    "не говори, что услуги нет, пока не поискал."
+)
+
+
+def service_line(service: Service) -> str:
+    """Строка каталога «название — цена лей (описание)»: одинаково в промпте и в результатах поиска."""
+    line = f"{service.name} — {service.price} лей"
+    if service.description:
+        line += f" ({service.description.strip()})"
+    return line
+
+
 def render_info(knowledge: Knowledge) -> str:
     """База знаний одним текстом. Порядок детерминирован, чтобы промпт кэшировался."""
     parts: list[str] = [f"== {s.title} ==\n{s.content.strip()}" for s in knowledge.sections]
 
-    if knowledge.services:
-        lines: list[str] = []
-        for service in knowledge.services:
-            line: str = f"{service.name} — {service.price} лей"
-            if service.description:
-                line += f" ({service.description.strip()})"
-            lines.append(line)
-        parts.append("== Услуги и цены ==\n" + "\n".join(lines))
+    if knowledge.catalog_search:
+        parts.append(f"== Услуги и цены ==\n{CATALOG_SEARCH_NOTE}")
+    elif knowledge.services:
+        parts.append("== Услуги и цены ==\n" + "\n".join(service_line(service) for service in knowledge.services))
 
     if knowledge.faq:
         qa: list[str] = [f"Вопрос: {f.question.strip()}\nОтвет: {f.answer.strip()}" for f in knowledge.faq]

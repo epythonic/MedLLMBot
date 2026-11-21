@@ -10,6 +10,7 @@ from medllmbot.guards import PriceChecker
 from medllmbot.llm import ClinicLLM, LLMResult, LLMUnavailable
 from medllmbot.prompts import RULES, build_system_prompt, render_info
 from medllmbot.security import LEAK_CODE, LeakDetector, detect_injection
+from medllmbot.tools import CatalogTools
 
 TECH_ERROR = "Извините, произошла техническая ошибка. Администратор свяжется с вами."
 # Отказ модели, обрезанный или пустой ответ, утечка системного промпта
@@ -53,11 +54,13 @@ class ClinicAssistant:
     llm: ClinicLLM
     repo: Repository
     leaks: LeakDetector
+    tools: CatalogTools
 
     def __init__(self, llm: ClinicLLM, repo: Repository) -> None:
         self.llm = llm
         self.repo = repo
         self.leaks = LeakDetector(RULES)
+        self.tools = CatalogTools(repo)
 
     async def reply(self, chat_id: int, text: str, config: BotConfig) -> Reply:
         """Ответ клиенту. Исключений API не бросает: любой исход попадает в журнал."""
@@ -72,8 +75,14 @@ class ClinicAssistant:
             reply = Reply(BUDGET_EXCEEDED, AuditOutcome.BUDGET_EXCEEDED, flags)
             return await self._log(chat_id, text, reply)
 
-        # База знаний читается на каждый вопрос: правки из админки видны сразу
-        info: str = render_info(knowledge=await self.repo.load_knowledge())
+        # База знаний читается на каждый вопрос: правки из админки видны сразу.
+        # Большой каталог в промпт не идёт: модель ищет в нём инструментом
+        knowledge = await self.repo.load_knowledge(catalog_inline_limit=config.catalog_inline_limit)
+        info: str = render_info(knowledge)
+        prices = PriceChecker(info)
+        if knowledge.catalog_search:
+            # Цену из каталога модель могла взять из поиска или из прошлого ответа в истории — допустима любая
+            prices.add_known(await self.repo.catalog_prices())
         history: list[MessageParam] = await self.repo.load_history(chat_id=chat_id, limit=config.history_limit)
         try:
             result = await self.llm.ask(
@@ -82,18 +91,20 @@ class ClinicAssistant:
                 text=text,
                 model=config.model,
                 max_tokens=config.max_tokens,
+                tools=self.tools if knowledge.catalog_search else None,
             )
-        except LLMUnavailable:
+        except LLMUnavailable as e:
             reply = Reply(TECH_ERROR, AuditOutcome.LLM_ERROR, flags)
-            return await self._log(chat_id, text, reply, model=config.model)
+            # Сбой после поиска по каталогу: уже выполненные запросы оплачены — они идут в журнал и в расход
+            return await self._log(chat_id, text, reply, result=e.partial, model=config.model)
 
-        reply = self._check_answer(result, info, flags)
+        reply = self._check_answer(result, prices, flags)
         # Попытки атаки не возвращаем в контекст модели: многошаговая атака не накопится
         if not reply.suspicious:
             await self.repo.save_pair(chat_id=chat_id, question=text, answer=reply.text)
         return await self._log(chat_id, text, reply, result=result)
 
-    def _check_answer(self, result: LLMResult, info: str, flags: tuple[str, ...]) -> Reply:
+    def _check_answer(self, result: LLMResult, prices: PriceChecker, flags: tuple[str, ...]) -> Reply:
         if self.leaks.leaks(result.text):
             return Reply(FALLBACK_ANSWER, AuditOutcome.LEAK_BLOCKED, (*flags, LEAK_CODE))
         if result.refused:
@@ -102,9 +113,10 @@ class ClinicAssistant:
         # лимит поднимают в настройках бота (журнал покажет итог «Ответ обрезан»)
         if result.truncated:
             return Reply(FALLBACK_ANSWER, AuditOutcome.TRUNCATED, flags)
-        if not result.text:
+        # Модель так и не ответила, а просила инструмент: её текст — вступление вроде «Сейчас посмотрю»
+        if not result.text or result.stop_reason == "tool_use":
             return Reply(FALLBACK_ANSWER, AuditOutcome.EMPTY, flags)
-        if PriceChecker(info).has_unknown_price(text=result.text):
+        if prices.has_unknown_price(text=result.text):
             return Reply(PRICE_FALLBACK, AuditOutcome.PRICE_REPLACED, flags)
         return Reply(result.text, AuditOutcome.ANSWERED, flags)
 
@@ -129,5 +141,6 @@ class ClinicAssistant:
             event.cache_read_tokens = result.cache_read_tokens
             event.cache_write_tokens = result.cache_write_tokens
             event.latency_ms = result.latency_ms
-        await self.repo.log_event(event)
+            event.tool_calls = "\n".join(result.tool_calls) or None
+        await self.repo.log_event(event, requests=result.usages if result is not None else ())
         return reply

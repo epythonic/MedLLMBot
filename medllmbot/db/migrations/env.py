@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from medllmbot.config import AppSettings
 from medllmbot.db.engine import database_url
+from medllmbot.db.fts import include_name
 from medllmbot.db.models import Base
 
 config = context.config
@@ -32,13 +33,19 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         render_as_batch=True,  # SQLite не умеет большинство ALTER TABLE
+        include_name=include_name,  # индекс FTS создаётся вручную, autogenerate его не трогает
     )
     with context.begin_transaction():
         context.run_migrations()
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata, render_as_batch=True)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        render_as_batch=True,
+        include_name=include_name,  # индекс FTS создаётся вручную, autogenerate его не трогает
+    )
     with context.begin_transaction():
         context.run_migrations()
 

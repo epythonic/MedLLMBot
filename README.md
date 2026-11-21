@@ -24,6 +24,11 @@ included.
   last messages of the conversation.
 - Checks every price in the model's answer against the price list in the database. If the model invents a price,
   the customer never sees it.
+- **Searches a large catalog on its own** (tool use): when there are more active services than the threshold in the
+  settings, the price list stays out of the prompt and Claude calls a `search_catalog` tool backed by an SQLite FTS5
+  full-text index, getting up to 10 matching items. The search handles other word forms ("чистку" finds "Чистка"),
+  filters by price and never executes FTS syntax from the query. A small catalog still goes into the prompt in full —
+  cheaper and faster.
 - Turns any message with a phone number into a lead and forwards it to the administrator. The lead is saved even if
   Claude is down, the message is too long, or Telegram rejects the reply.
 - Shows "typing…" while the model thinks; long answers are split to fit Telegram's message limit.
@@ -38,7 +43,7 @@ included.
 - Knowledge base: services and prices, FAQ, clinic info. Rows are reordered by drag and drop and the bot sees the
   change immediately.
 - Audit log with "suspicious" and "outcome" filters; monthly cost report with a month-end forecast.
-- Bot settings: Claude model, limits, history depth, rate limit, greeting, log retention.
+- Bot settings: Claude model, limits, history depth, rate limit, catalog-in-prompt threshold, greeting, log retention.
 - Contextual help: a "?" icon next to every section, form field and column opens a side panel with instructions.
 - Live updates via HTMX (vendored, no CDN, no `eval`): a banner announces new leads and log entries without a reload.
 
@@ -70,7 +75,7 @@ flowchart LR
 ```
 
 Message pipeline: register the customer and drop blocked ones → rate limit → length and attack-indicator checks →
-knowledge base and history from the database → Claude → output checks (system-prompt leak, unknown prices,
+knowledge base and history from the database → Claude (searching a large catalog with a tool) → output checks (system-prompt leak, unknown prices,
 truncated/empty answer, refusal) → audit log → reply, admin alert, lead. An unexpected error at any step still ends
 with a polite reply to the customer.
 
@@ -80,7 +85,7 @@ with a polite reply to the customer.
 | --- | --- |
 | Prompt injection | System-prompt rules take precedence over customer messages; the knowledge base is isolated in `<info>`. RU / RO / EN heuristics flag attempts (ignore instructions, role change, "I am your boss", prompt extraction, markup, known jailbreaks); flagged messages never enter the model's history, so multi-turn attacks don't accumulate |
 | System-prompt leak | Answers containing verbatim fragments of the rules are replaced with a neutral reply (paraphrases are not detected — the prompt itself is the defence) |
-| Invented prices and discounts | Every price in the answer is checked against the current price list |
+| Invented prices and discounts | Every price in the answer is checked against the current price list, including when the catalog is searched with a tool instead of sent in the prompt |
 | Spam and API spend | Per-chat rate limit, message length limit before any API call, customer blocking, and a global daily spend limit after which the bot answers without Claude |
 | API failures | 30 s timeout, one SDK retry, then a polite fallback; the lead is still saved |
 | Admin access | Credentials from `.env`, constant-time comparison, lock-out after 5 failed logins per IP for 15 minutes, signed HttpOnly session cookie (8 hours, `Secure` behind HTTPS), CSP and `X-Frame-Options`, no caching of pages with personal data |

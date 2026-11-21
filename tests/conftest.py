@@ -1,4 +1,4 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
@@ -6,7 +6,7 @@ from typing import cast
 
 import pytest
 from anthropic import AsyncAnthropic
-from anthropic.types import MessageParam, TextBlockParam
+from anthropic.types import MessageParam, TextBlockParam, ToolChoiceParam, ToolParam
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
@@ -57,6 +57,23 @@ def make_response(
     )
 
 
+def make_tool_use(
+    tool_input: dict[str, object],
+    *,
+    name: str = "search_catalog",
+    tool_id: str = "toolu_1",
+    text: str = "",
+    input_tokens: int = 10,
+    output_tokens: int = 5,
+) -> SimpleNamespace:
+    """Ответ, в котором модель вызывает инструмент (stop_reason tool_use)."""
+    content: list[SimpleNamespace] = [SimpleNamespace(type="text", text=text)] if text else []
+    content.append(SimpleNamespace(type="tool_use", id=tool_id, name=name, input=tool_input))
+    response = make_response("", "tool_use", input_tokens=input_tokens, output_tokens=output_tokens)
+    response.content = content
+    return response
+
+
 @dataclass(frozen=True)
 class LLMCall:
     """Аргументы одного вызова messages.create."""
@@ -65,18 +82,26 @@ class LLMCall:
     max_tokens: int
     system: list[TextBlockParam]
     messages: list[MessageParam]
+    tools: Sequence[ToolParam] | None = None
+    tool_choice: ToolChoiceParam | None = None
 
 
 class FakeMessages:
-    """Подменяет client.messages: запоминает запросы, отдаёт заданный ответ или ошибку."""
+    """Подменяет client.messages: запоминает запросы, отдаёт заданный ответ или ошибку.
+
+    `responses` — очередь ответов для диалога с инструментами (исключение в очереди выбрасывается);
+    когда она пуста, отдаётся `response`.
+    """
 
     calls: list[LLMCall]
     response: SimpleNamespace
+    responses: list[SimpleNamespace | Exception]
     error: Exception | None
 
     def __init__(self) -> None:
         self.calls = []
         self.response = make_response("Чистка зубов стоит 800 лей.")
+        self.responses = []
         self.error = None
 
     async def create(
@@ -86,10 +111,18 @@ class FakeMessages:
         max_tokens: int,
         system: list[TextBlockParam],
         messages: list[MessageParam],
+        tools: Sequence[ToolParam] | None = None,
+        tool_choice: ToolChoiceParam | None = None,
     ) -> SimpleNamespace:
-        self.calls.append(LLMCall(model, max_tokens, system, messages))
+        # Копия списка: клиент дописывает в него следующие раунды, а тест проверяет каждый запрос отдельно
+        self.calls.append(LLMCall(model, max_tokens, system, list(messages), tools, tool_choice))
         if self.error is not None:
             raise self.error
+        if self.responses:
+            queued = self.responses.pop(0)
+            if isinstance(queued, Exception):
+                raise queued
+            return queued
         return self.response
 
 

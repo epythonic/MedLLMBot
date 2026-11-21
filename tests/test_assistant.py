@@ -3,7 +3,7 @@ from datetime import UTC, date, datetime, timedelta
 import anthropic
 import httpx2 as httpx
 import pytest
-from sqlalchemy import update
+from sqlalchemy import select, update
 
 from medllmbot.assistant import (
     BUDGET_EXCEEDED,
@@ -16,8 +16,9 @@ from medllmbot.assistant import (
 from medllmbot.db.models import AuditOutcome, BotConfig, ModelPrice, Service, UsageDaily
 from medllmbot.db.repository import Repository
 from medllmbot.llm import ClinicLLM
-from medllmbot.prompts import RULES
-from tests.conftest import CHAT_ID, FakeClient, Sessions, load_audit, make_response
+from medllmbot.prompts import CATALOG_SEARCH_NOTE, RULES
+from medllmbot.tools import SEARCH_CATALOG
+from tests.conftest import CHAT_ID, FakeClient, Sessions, load_audit, make_response, make_tool_use
 
 
 @pytest.fixture
@@ -420,3 +421,180 @@ async def test_zero_budget_means_no_limit(assistant: ClinicAssistant, sessions: 
     await add_spend(sessions, 10**12)
 
     assert (await assistant.reply(CHAT_ID, "Привет", config)).outcome is AuditOutcome.ANSWERED
+
+
+# ---------- Большой каталог: поиск инструментом ----------
+
+
+@pytest.fixture
+async def search_config(seeded_repo: Repository, sessions: Sessions) -> BotConfig:
+    """Порог 0: каталог не идёт в промпт, модель ищет в нём инструментом."""
+    async with sessions.begin() as s:
+        await s.execute(update(BotConfig).values(catalog_inline_limit=0))
+    return await seeded_repo.get_config()
+
+
+async def test_small_catalog_is_in_prompt_without_tools(
+    assistant: ClinicAssistant, fake_client: FakeClient, config: BotConfig
+) -> None:
+    await assistant.reply(CHAT_ID, "Сколько стоит чистка?", config)
+    [call] = fake_client.messages.calls
+    assert call.tools is None
+    assert CATALOG_SEARCH_NOTE not in call.system[0]["text"]
+
+
+async def test_large_catalog_is_searched_with_tool(
+    assistant: ClinicAssistant, fake_client: FakeClient, sessions: Sessions, search_config: BotConfig
+) -> None:
+    fake_client.messages.responses = [
+        make_tool_use({"query": "чистка"}),
+        make_response("Профессиональная чистка стоит 800 лей."),
+    ]
+    reply = await assistant.reply(CHAT_ID, "Сколько стоит чистка?", search_config)
+
+    first, second = fake_client.messages.calls
+    system = first.system[0]["text"]
+    assert CATALOG_SEARCH_NOTE in system
+    assert "— 800 лей" not in system  # прайса в промпте нет
+    assert "== Контакты ==" in system  # остальная база знаний — на месте
+    assert first.tools == (SEARCH_CATALOG,)
+    tool_turn = second.messages[-1]["content"]
+    assert not isinstance(tool_turn, str)
+    assert "Профессиональная чистка зубов (ультразвук + Air Flow) — 800 лей" in str(tool_turn)
+
+    assert (reply.text, reply.outcome) == ("Профессиональная чистка стоит 800 лей.", AuditOutcome.ANSWERED)
+    [event] = await load_audit(sessions)
+    assert event.tool_calls == "search_catalog «чистка» → найдено 1"
+    assert event.llm_answer == reply.text
+
+
+async def test_catalog_price_passes_without_search(
+    assistant: ClinicAssistant, fake_client: FakeClient, search_config: BotConfig
+) -> None:
+    # Цену из каталога модель могла запомнить из прошлого ответа: она настоящая, заменять её не нужно
+    fake_client.messages.response = make_response("Имплант стоит 9500 лей, коронка отдельно.")
+    reply = await assistant.reply(CHAT_ID, "А имплант сколько, напомните?", search_config)
+    assert reply.outcome is AuditOutcome.ANSWERED
+
+
+async def test_invented_price_is_replaced_in_search_mode(
+    assistant: ClinicAssistant, fake_client: FakeClient, search_config: BotConfig
+) -> None:
+    fake_client.messages.responses = [make_tool_use({"query": "чистка"}), make_response("Чистка стоит 750 лей.")]
+    reply = await assistant.reply(CHAT_ID, "Сколько стоит чистка?", search_config)
+    assert (reply.text, reply.outcome) == (PRICE_FALLBACK, AuditOutcome.PRICE_REPLACED)
+
+
+async def test_search_tokens_are_summed_in_audit(
+    assistant: ClinicAssistant, fake_client: FakeClient, sessions: Sessions, search_config: BotConfig
+) -> None:
+    fake_client.messages.responses = [
+        make_tool_use({"query": "чистка"}, input_tokens=300, output_tokens=40),
+        make_response("Чистка стоит 800 лей.", input_tokens=400, output_tokens=20),
+    ]
+    await assistant.reply(CHAT_ID, "Сколько стоит чистка?", search_config)
+    [event] = await load_audit(sessions)
+    # Стоимость потом считается от этих сумм (в тестовой БД цен моделей нет — их добавляет миграция)
+    assert (event.input_tokens, event.output_tokens) == (700, 60)
+
+
+async def test_answer_without_search_has_no_tool_calls(
+    assistant: ClinicAssistant, sessions: Sessions, search_config: BotConfig
+) -> None:
+    await assistant.reply(CHAT_ID, "Где вы находитесь?", search_config)
+    [event] = await load_audit(sessions)
+    assert event.tool_calls is None
+
+
+async def _add_tiered_price(sessions: Sessions) -> None:
+    """Тариф с порогом: промпт от 100 001 токена — в 5 раз дороже, как у claude-haiku-5-5."""
+    async with sessions.begin() as s:
+        s.add_all(
+            [
+                ModelPrice(
+                    model="claude-haiku-5-5",
+                    from_prompt_tokens=0,
+                    input_per_mtok=1.0,
+                    output_per_mtok=5.0,
+                    cache_write_per_mtok=1.25,
+                    cache_read_per_mtok=0.1,
+                ),
+                ModelPrice(
+                    model="claude-haiku-5-5",
+                    from_prompt_tokens=100_001,
+                    input_per_mtok=5.0,
+                    output_per_mtok=25.0,
+                    cache_write_per_mtok=6.25,
+                    cache_read_per_mtok=0.5,
+                ),
+            ]
+        )
+
+
+async def test_search_cost_uses_tier_of_each_request(
+    assistant: ClinicAssistant, fake_client: FakeClient, sessions: Sessions, search_config: BotConfig
+) -> None:
+    # Каждый запрос — 60 000 токенов, вместе — 120 000: Anthropic считает оба по базовому тарифу
+    await _add_tiered_price(sessions)
+    fake_client.messages.responses = [
+        make_tool_use({"query": "чистка"}, input_tokens=60_000, output_tokens=100),
+        make_response("Чистка стоит 800 лей.", input_tokens=60_000, output_tokens=100),
+    ]
+    await assistant.reply(CHAT_ID, "Сколько стоит чистка?", search_config)
+
+    [event] = await load_audit(sessions)
+    assert event.cost_micro_usd == 2 * (60_000 * 1 + 100 * 5)
+    async with sessions() as s:
+        [day] = (await s.scalars(select(UsageDaily))).all()
+    assert (day.requests, day.input_tokens, day.cost_micro_usd) == (1, 120_000, event.cost_micro_usd)
+
+
+async def test_api_failure_after_search_keeps_spent_tokens(
+    assistant: ClinicAssistant, fake_client: FakeClient, sessions: Sessions, search_config: BotConfig
+) -> None:
+    # Первый запрос оплачен, второй упал: расход и дневной лимит должны его учесть
+    await _add_tiered_price(sessions)
+    request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+    fake_client.messages.responses = [
+        make_tool_use({"query": "чистка"}, input_tokens=300, output_tokens=40),
+        anthropic.APIConnectionError(request=request),
+    ]
+    reply = await assistant.reply(CHAT_ID, "Сколько стоит чистка?", search_config)
+    assert (reply.text, reply.outcome) == (TECH_ERROR, AuditOutcome.LLM_ERROR)
+
+    [event] = await load_audit(sessions)
+    assert (event.input_tokens, event.output_tokens) == (300, 40)
+    assert event.tool_calls == "search_catalog «чистка» → найдено 1"
+    assert event.cost_micro_usd == 300 * 1 + 40 * 5
+    async with sessions() as s:
+        [day] = (await s.scalars(select(UsageDaily))).all()
+    assert (day.input_tokens, day.cost_micro_usd) == (300, event.cost_micro_usd)
+
+
+async def test_unfinished_tool_use_is_not_sent(
+    assistant: ClinicAssistant, fake_client: FakeClient, search_config: BotConfig
+) -> None:
+    # Даже в последнем раунде модель снова просит инструмент: её «Сейчас посмотрю» клиенту не уходит
+    fake_client.messages.response = make_tool_use({"query": "чистка"}, text="Сейчас посмотрю.")
+    reply = await assistant.reply(CHAT_ID, "Сколько стоит чистка?", search_config)
+    assert (reply.text, reply.outcome) == (FALLBACK_ANSWER, AuditOutcome.EMPTY)
+
+
+async def test_tool_crash_still_logs_and_answers(
+    assistant: ClinicAssistant,
+    fake_client: FakeClient,
+    seeded_repo: Repository,
+    sessions: Sessions,
+    search_config: BotConfig,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def crash(*_args: object, **_kwargs: object) -> object:
+        raise RuntimeError("неожиданная ошибка")
+
+    monkeypatch.setattr(seeded_repo, "search_catalog", crash)
+    fake_client.messages.responses = [make_tool_use({"query": "чистка"}), make_response("Уточню у администратора.")]
+    reply = await assistant.reply(CHAT_ID, "Сколько стоит чистка?", search_config)
+
+    assert reply.outcome is AuditOutcome.ANSWERED
+    [event] = await load_audit(sessions)
+    assert event.tool_calls == "search_catalog: ошибка"

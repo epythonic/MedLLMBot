@@ -12,6 +12,8 @@ async def test_pragmas(engine: AsyncEngine) -> None:
     async with engine.connect() as conn:
         assert await conn.scalar(text("PRAGMA foreign_keys")) == 1
         assert await conn.scalar(text("PRAGMA busy_timeout")) == 5000
+        # Без него INSERT OR REPLACE ломает полнотекстовый индекс каталога (test_catalog.py)
+        assert await conn.scalar(text("PRAGMA recursive_triggers")) == 1
 
 
 async def test_lower_understands_cyrillic(engine: AsyncEngine) -> None:

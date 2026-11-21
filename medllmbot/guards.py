@@ -2,7 +2,7 @@
 
 import re
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import ClassVar
 
 # Цены вида «800 лей», «1 200 lei», «12.000 lei», «500 MDL», «900 леев». Разделитель тысяч —
@@ -30,6 +30,10 @@ class PriceChecker:
 
     def __init__(self, info: str) -> None:
         self.known_prices = find_prices(info)
+
+    def add_known(self, prices: Iterable[int]) -> None:
+        """Цены, которых нет в тексте базы знаний: каталог, по которому модель ищет инструментом."""
+        self.known_prices |= {str(price) for price in prices}
 
     def has_unknown_price(self, text: str) -> bool:
         """True, если в тексте есть цена, которой нет в базе знаний."""

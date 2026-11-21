@@ -70,6 +70,17 @@ class TestPriceBook:
     def test_long_context_tier(self, book: PriceBook, prompt_tokens: int, expected: Price) -> None:
         assert book.find("claude-haiku-5-5", prompt_tokens) == expected
 
+    def test_several_requests_priced_one_by_one(self, book: PriceBook) -> None:
+        # Ответ с поиском по каталогу: два запроса по 60 000 токенов. Вместе 120 000, но тариф —
+        # по каждому запросу, как в счёте Anthropic, поэтому дорогой тариф не применяется
+        requests = [usage(60_000, 100), usage(60_000, 100)]
+        assert book.total_micro_usd("claude-haiku-5-5", requests) == 2 * round(60_000 * 0.10 + 100 * 0.50)
+        assert book.cost_micro_usd("claude-haiku-5-5", usage(120_000, 200)) == round(120_000 * 0.50 + 200 * 2.50)
+
+    def test_several_requests_without_price(self, book: PriceBook) -> None:
+        assert book.total_micro_usd("claude-unknown", [usage(10), usage(10)]) is None
+        assert book.total_micro_usd("claude-haiku-5-5", []) == 0
+
     def test_tier_counts_cached_tokens(self, book: PriceBook) -> None:
         # Порог считается по всему промпту, включая чтение из кэша
         cost = book.cost_micro_usd("claude-haiku-5-5", usage(1, cache_read=100_000))

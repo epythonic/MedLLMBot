@@ -101,6 +101,13 @@ def _audit_suspicious(model: AuditEvent, _attr: object) -> Markup | str:
     return SUSPICIOUS_BADGE if model.is_suspicious else ""
 
 
+def _audit_tool_calls(model: AuditEvent, _attr: object) -> Markup | str:
+    """Каждый вызов инструмента — с новой строки (текст экранируется)."""
+    if not model.tool_calls:
+        return ""
+    return Markup("<br>").join(model.tool_calls.splitlines())
+
+
 # ---------- Фильтры с русскими подписями ----------
 # В SQLAdmin варианты «All / Yes / No» зашиты в коде фильтров и не переводятся.
 
@@ -441,6 +448,7 @@ class AuditEventAdmin(AdminView, model=AuditEvent):
         AuditEvent.outcome: _audit_outcome,
         AuditEvent.flags: _audit_flags,
         AuditEvent.cost_micro_usd: _audit_cost,
+        AuditEvent.tool_calls: _audit_tool_calls,
     }
     column_labels = {
         AuditEvent.id: "№",
@@ -460,6 +468,7 @@ class AuditEventAdmin(AdminView, model=AuditEvent):
         AuditEvent.cache_write_tokens: "Токены в кэш",
         AuditEvent.cost_micro_usd: "Стоимость, USD",
         AuditEvent.latency_ms: "Задержка, мс",
+        AuditEvent.tool_calls: "Поиск по каталогу",
     }
 
 
@@ -598,6 +607,7 @@ class BotConfigAdmin(AdminView, model=BotConfig):
         BotConfig.rate_limit,
         BotConfig.rate_window,
         BotConfig.daily_budget_usd,
+        BotConfig.catalog_inline_limit,
         BotConfig.updated_at,
     ]
     form_columns = [
@@ -610,6 +620,7 @@ class BotConfigAdmin(AdminView, model=BotConfig):
         BotConfig.greeting,
         BotConfig.audit_retention_days,
         BotConfig.daily_budget_usd,
+        BotConfig.catalog_inline_limit,
     ]
     form_args = {
         "model": {
@@ -639,6 +650,10 @@ class BotConfigAdmin(AdminView, model=BotConfig):
             "validators": [NumberRange(min=0, max=10_000)],
             "description": "Долларов в сутки (UTC), 0 — без лимита. После лимита бот отвечает без Claude, заявки сохраняются",
         },
+        "catalog_inline_limit": {
+            "validators": [NumberRange(min=0, max=1000)],
+            "description": "Каталог больше этого числа активных услуг бот не читает целиком, а ищет в нём. 0 — всегда поиск",
+        },
         "audit_retention_days": {
             "validators": [NumberRange(min=1, max=3650)],
             "description": "Записи журнала старше этого срока удаляются автоматически",
@@ -654,6 +669,7 @@ class BotConfigAdmin(AdminView, model=BotConfig):
         BotConfig.greeting: "Приветствие (/start)",
         BotConfig.audit_retention_days: "Хранить журнал, дней",
         BotConfig.daily_budget_usd: "Лимит расходов в сутки, $",
+        BotConfig.catalog_inline_limit: "Каталог в промпте, до позиций",
         BotConfig.updated_at: "Изменено",
     }
 

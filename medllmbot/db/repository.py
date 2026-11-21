@@ -5,11 +5,12 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from anthropic.types import AssistantMessageParam, MessageParam, UserMessageParam
-from sqlalchemy import String, delete, func, select, type_coerce
+from sqlalchemy import ColumnClause, ColumnElement, String, column, delete, func, literal_column, select, table, type_coerce
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from medllmbot.costs import Price, PriceBook, TokenUsage, UsageRow
+from medllmbot.db import fts
 from medllmbot.db.models import (
     AuditEvent,
     BotConfig,
@@ -41,6 +42,19 @@ class Knowledge:
     sections: list[InfoSection]
     services: list[Service]
     faq: list[FaqItem]
+    # Каталог больше порога и в `services` не загружен: модель ищет в нём инструментом search_catalog
+    catalog_search: bool = False
+
+
+@dataclass(frozen=True)
+class CatalogPage:
+    """Результат поиска по каталогу: первые позиции и сколько подошло всего."""
+
+    services: list[Service]
+    total: int
+
+
+_FTS = table(fts.FTS_TABLE, column("rowid"))
 
 
 async def _active[M: (InfoSection, Service, FaqItem)](session: AsyncSession, model: type[M]) -> list[M]:
@@ -195,15 +209,21 @@ class Repository:
 
     # ---------- Журнал аудита ----------
 
-    async def log_event(self, event: AuditEvent) -> None:
+    async def log_event(self, event: AuditEvent, requests: Sequence[TokenUsage] = ()) -> None:
         """Пишет событие. Если был запрос к модели — считает его стоимость и добавляет
         к дневным итогам расхода в той же транзакции.
+
+        `requests` — токены каждого запроса, если ответ занял несколько (поиск по каталогу): тариф по длине
+        промпта выбирается для каждого запроса отдельно. Без них стоимость считается по токенам события.
         """
         async with self.sessions.begin() as session:
             usage = _token_usage(event)
             if usage is not None and event.model is not None:
                 prices = PriceBook(_to_price(row) for row in await session.scalars(select(ModelPrice)))
-                event.cost_micro_usd = prices.cost_micro_usd(event.model, usage)
+                if requests:
+                    event.cost_micro_usd = prices.total_micro_usd(event.model, requests)
+                else:
+                    event.cost_micro_usd = prices.cost_micro_usd(event.model, usage)
                 await _add_daily_usage(session, event.model, usage, event.cost_micro_usd)
             session.add(event)
 
@@ -266,13 +286,63 @@ class Repository:
 
     # ---------- База знаний и настройки ----------
 
-    async def load_knowledge(self) -> Knowledge:
+    async def load_knowledge(self, catalog_inline_limit: int | None = None) -> Knowledge:
+        """База знаний для промпта. Если активных услуг больше `catalog_inline_limit`, каталог
+        не загружается целиком — модель ищет в нём через `search_catalog`. None — без порога.
+        """
         async with self.sessions() as session:
+            catalog_search = False
+            if catalog_inline_limit is not None:
+                active = await session.scalar(select(func.count()).where(Service.is_active.is_(True)))
+                catalog_search = (active or 0) > catalog_inline_limit
             return Knowledge(
                 sections=await _active(session, InfoSection),
-                services=await _active(session, Service),
+                services=[] if catalog_search else await _active(session, Service),
                 faq=await _active(session, FaqItem),
+                catalog_search=catalog_search,
             )
+
+    async def catalog_prices(self) -> set[int]:
+        """Все цены активных услуг — для проверки цен в ответе, когда каталога нет в промпте."""
+        async with self.sessions() as session:
+            prices = await session.scalars(select(Service.price).where(Service.is_active.is_(True)).distinct())
+            return set(prices)
+
+    async def search_catalog(
+        self,
+        query: str,
+        *,
+        min_price: int | None = None,
+        max_price: int | None = None,
+        limit: int = 10,
+    ) -> CatalogPage:
+        """Активные услуги по словам запроса (полнотекстовый индекс) и диапазону цен.
+
+        Самые подходящие — первыми (bm25). Запрос без слов возвращает каталог по порядку из админки.
+        """
+        conditions: list[ColumnElement[bool]] = [Service.is_active.is_(True)]
+        if min_price is not None:
+            conditions.append(Service.price >= min_price)
+        if max_price is not None:
+            conditions.append(Service.price <= max_price)
+
+        found = select(Service).where(*conditions)
+        match = fts.match_query(query)
+        if match is None:
+            found = found.order_by(Service.sort_order, Service.id)
+        else:
+            index: ColumnClause[object] = literal_column(fts.FTS_TABLE)  # сама таблица FTS: MATCH и bm25 берут её имя
+            found = (
+                found.join(_FTS, _FTS.c.rowid == Service.id)
+                .where(index.op("MATCH")(match))
+                # Вес совпадения в названии — 10, в описании — 1: услуга с нужным словом в названии выше
+                .order_by(func.bm25(index, 10.0, 1.0), Service.sort_order, Service.id)
+            )
+
+        async with self.sessions() as session:
+            total = await session.scalar(select(func.count()).select_from(found.order_by(None).subquery()))
+            services = list(await session.scalars(found.limit(limit)))
+        return CatalogPage(services, total or 0)
 
     async def reorder[M: (InfoSection, Service, FaqItem)](self, model: type[M], ids: Sequence[int]) -> bool:
         """Порядок после перетаскивания в админке: шаг 10, чтобы вручную было куда вставить запись.
