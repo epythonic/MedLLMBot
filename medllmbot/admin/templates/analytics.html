@@ -1,0 +1,140 @@
+{# «Клиенты → Аналитика»: темы вопросов, доля диалогов с заявкой, вопросы без ответа (medllmbot/analytics.py) #}
+{% extends "sqladmin/layout.html" %}
+{% from "help/_macros.html" import section_link with context %}
+{% block content %}
+<div class="col-12 d-block">
+  <div class="btn-group" role="group" aria-label="Период">
+    {% for period in periods %}
+    <a class="btn{% if period == days %} btn-primary{% endif %}" href="{{ url_for('admin:view-analytics') }}?days={{ period }}"
+       {% if period == days %}aria-current="page"{% endif %}>{{ period }} дней</a>
+    {% endfor %}
+  </div>
+  {% if retention_days < days %}
+  <div class="text-warning mt-2">
+    Срок хранения журнала — {{ retention_days }} дн. ({{ section_link('bot-config') }}), поэтому аналитика — только за них.
+  </div>
+  {% endif %}
+</div>
+
+{% if not report.questions %}
+<div class="col-12">
+  <div class="card">
+    <div class="card-body">За этот период вопросов не было. Напишите боту — вопрос появится здесь.</div>
+  </div>
+</div>
+{% else %}
+{% macro kpi(label, value, note=none) -%}
+<div class="col-sm-6 col-lg">
+  <div class="card card-sm">
+    <div class="card-body">
+      <div class="subheader">{{ label }}</div>
+      <div class="h1 mb-0">{{ value }}</div>
+      {% if note %}<div class="text-secondary small">{{ note }}</div>{% endif %}
+    </div>
+  </div>
+</div>
+{%- endmacro %}
+{{ kpi("Вопросы", report.questions) }}
+{{ kpi("Клиенты", report.clients) }}
+{{ kpi("Диалоги", report.dialogs, "пауза больше суток — новый диалог") }}
+{{ kpi("С заявкой", report.dialogs_with_lead, "%d%% диалогов" % report.lead_percent) }}
+{{ kpi("Без ответа", report.unanswered, "%d%% вопросов" % report.unanswered_percent) }}
+
+<div class="col-12">
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">Частые темы</h3>
+      <div class="card-actions text-secondary">профиль «{{ profile.value }}»</div>
+    </div>
+    <div class="table-responsive">
+      <table class="table card-table table-vcenter">
+        <thead>
+          <tr>
+            <th>Тема</th>
+            <th class="text-end">Вопросов</th>
+            <th class="w-25">Доля</th>
+            <th class="text-end text-nowrap">Диалогов с заявкой</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for topic in report.topics %}
+          <tr>
+            <td>
+              <div>{{ topic.name }}</div>
+              <div class="text-secondary small">
+                {%- for example in topic.examples %}«{{ example | truncate(70, true, "…", 0) }}»{% if not loop.last %} · {% endif %}{% endfor -%}
+              </div>
+            </td>
+            <td class="text-end">{{ topic.questions }}</td>
+            <td>
+              <div class="d-flex align-items-center">
+                <span class="me-2 text-nowrap">{{ topic.share_text }}</span>
+                <div class="progress progress-sm flex-fill">
+                  <div class="progress-bar" style="width: {{ [topic.share, 100] | min }}%" role="progressbar"
+                       aria-valuenow="{{ topic.share }}" aria-valuemin="0" aria-valuemax="100"
+                       aria-label="{{ topic.share_text }} вопросов"></div>
+                </div>
+              </div>
+            </td>
+            <td class="text-end text-nowrap">
+              {{ topic.dialogs_with_lead }} из {{ topic.dialogs }}
+              {%- if topic.lead_percent is not none %} ({{ topic.lead_percent }}%){% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="col-12">
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">Вопросы без ответа</h3>
+      <div class="card-actions text-secondary">
+        Ответы добавляют в {{ section_link('faq-item') }}, {{ section_link('info-section') }}
+        или {{ section_link('service') }}
+      </div>
+    </div>
+    {% if report.gaps %}
+    <div class="table-responsive">
+      <table class="table card-table table-vcenter">
+        <thead>
+          <tr>
+            <th>Вопрос</th>
+            <th class="text-end">Раз</th>
+            <th>Причина</th>
+            <th>Ответ бота</th>
+            <th class="text-nowrap">Последний раз</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for gap in report.gaps %}
+          <tr>
+            <td>
+              <a href="{{ url_for('admin:details', identity='audit-event', pk=gap.event_id | string) }}">
+                {{- gap.text | truncate(120, true, "…", 0) -}}
+              </a>
+            </td>
+            <td class="text-end">{{ gap.count }}</td>
+            <td class="text-nowrap"><span class="badge bg-orange-lt">{{ gap.reason }}</span></td>
+            <td class="text-secondary">{{ (gap.answer or "—") | truncate(120, true, "…", 0) }}</td>
+            <td class="text-nowrap">{{ gap.last_at.strftime("%d.%m.%Y %H:%M") }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if report.gap_groups > report.gaps | length %}
+    <div class="card-footer text-secondary">
+      Показаны {{ report.gaps | length }} самых частых из {{ report.gap_groups }}.
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="card-body">Бот ответил на все вопросы за этот период.</div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

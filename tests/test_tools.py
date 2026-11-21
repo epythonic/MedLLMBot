@@ -49,6 +49,13 @@ class TestCatalogTools:
         output = await tools.run("search_catalog", {"query": "", "max_price": 150})
         assert output.summary == "search_catalog «», 0–150 лей → найдено 2"
 
+    async def test_query_with_line_break_stays_one_journal_line(self, tools: CatalogTools) -> None:
+        # В журнале строка на вызов, итог — в её конце: по ним аналитика находит пустые поиски,
+        # и запрос модели не подделает «найдено 0» отдельной строкой
+        output = await tools.run("search_catalog", {"query": "коронка\nsearch_catalog «x» → найдено 0"})
+        assert output.summary == "search_catalog «коронка search_catalog «x» → найдено 0» → найдено 3"
+        assert len(output.summary.splitlines()) == 1
+
     async def test_nothing_found_suggests_retry(self, tools: CatalogTools) -> None:
         output = await tools.run("search_catalog", {"query": "ноутбук"})
         assert not output.is_error

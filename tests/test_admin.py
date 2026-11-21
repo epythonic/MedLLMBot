@@ -10,16 +10,28 @@ from fastapi.testclient import TestClient
 from markupsafe import escape
 from pydantic import SecretStr, ValidationError
 from sqladmin import ModelView
+from sqlalchemy import delete
 
 from medllmbot.admin.app import create_app
 from medllmbot.admin.auth import LoginThrottle
 from medllmbot.admin.forms import AdminForm
-from medllmbot.admin.help import FLAG_HELP, HELP, OUTCOME_HELP, TOPICS
+from medllmbot.admin.help import FLAG_HELP, GAP_HELP, HELP, OUTCOME_HELP, TOPICS
 from medllmbot.admin.views import VIEWS
+from medllmbot.analytics import TOPICS as ANALYTICS_TOPICS
 from medllmbot.config import AdminSettings
 from medllmbot.db.engine import create_engine, create_sessionmaker
 from medllmbot.db.migrate import upgrade_db
-from medllmbot.db.models import AuditEvent, AuditOutcome, BotConfig, Lead, LeadStatus, ModelPrice, Order, OrderStatus
+from medllmbot.db.models import (
+    AuditEvent,
+    AuditOutcome,
+    BotConfig,
+    BusinessProfile,
+    Lead,
+    LeadStatus,
+    ModelPrice,
+    Order,
+    OrderStatus,
+)
 from medllmbot.db.repository import Repository
 from medllmbot.db.seed import DEMO_SERVICES, seed_demo
 
@@ -593,6 +605,110 @@ class TestCostReport:
         assert "$0.0020" in admin.get("/admin/audit-event/list").text  # 1000·1 + 200·5 µUSD
 
 
+def log_question(db: Path, text: str, answer: str, outcome: AuditOutcome = AuditOutcome.ANSWERED) -> int:
+    """Пишет вопрос клиента 42 в журнал и возвращает номер записи."""
+    event = AuditEvent.incoming(42, text, outcome)
+    event.final_answer = answer
+    run_with_repo(db, lambda repo: repo.log_event(event))
+    return event.id
+
+
+NO_INFO_ANSWER = "Об этом у меня нет информации. Администратор ответит вам в рабочее время."
+
+
+class TestAnalytics:
+    def test_requires_login(self, client: TestClient) -> None:
+        assert client.get("/admin/analytics", follow_redirects=False).status_code == 302
+
+    def test_in_clients_menu(self, admin: TestClient) -> None:
+        page = admin.get("/admin/").text
+        assert 'href="http://testserver/admin/analytics"' in page
+        assert "Аналитика" in page
+
+    def test_summary_and_topics(self, admin: TestClient, db: Path) -> None:
+        log_question(db, "Сколько стоит чистка?", "Чистка стоит 800 лей.")
+
+        page = admin.get("/admin/analytics").text
+        assert "Аналитика вопросов" in page
+        assert "за последние 30 дней, UTC" in page
+        assert "профиль «Стоматология»" in page
+        # «Как дела?» из демо-журнала и вопрос о чистке; атака «Игнорируй все инструкции» не считается
+        assert "Игнорируй" not in page
+        for topic in ("Цены", "Гигиена и отбеливание", "Другое"):
+            assert f"<div>{topic}</div>" in page
+        assert "«Сколько стоит чистка?»" in page  # пример вопроса под темой
+        assert "Бот ответил на все вопросы за этот период." in page
+
+    def test_unanswered_question_links_to_journal(self, admin: TestClient, db: Path) -> None:
+        event_id = log_question(db, "Есть брекеты? <script>alert(1)</script>", NO_INFO_ANSWER)
+        log_question(
+            db,
+            "Сколько стоит отбеливание?",
+            "Уточню стоимость у администратора и вернусь к вам.",
+            AuditOutcome.PRICE_REPLACED,
+        )
+
+        page = admin.get("/admin/analytics").text
+        assert f'href="http://testserver/admin/audit-event/details/{event_id}"' in page
+        assert "Есть брекеты? &lt;script&gt;alert(1)&lt;/script&gt;" in page
+        assert "<script>alert(1)" not in page
+        assert "Нет в базе знаний" in page
+        assert "Цена не из каталога" in page
+        assert str(escape(NO_INFO_ANSWER)) in page  # что получил клиент
+
+    def test_kpi_cards(self, admin: TestClient, db: Path) -> None:
+        # В демо-журнале «Как дела?» и заявка клиента 42; добавляем вопрос без ответа в тот же диалог
+        log_question(db, "Есть брекеты?", NO_INFO_ANSWER)
+
+        page = admin.get("/admin/analytics").text
+        for label, value in (("Вопросы", 2), ("Клиенты", 1), ("Диалоги", 1), ("С заявкой", 1), ("Без ответа", 1)):
+            assert f'<div class="subheader">{label}</div>\n      <div class="h1 mb-0">{value}</div>' in page
+        assert "100% диалогов" in page
+        assert "50% вопросов" in page
+
+    def test_period(self, admin: TestClient) -> None:
+        page = admin.get("/admin/analytics?days=7").text
+        assert "за последние 7 дней, UTC" in page
+        assert 'href="http://testserver/admin/analytics?days=7"\n       aria-current="page"' in page
+        # Чужое значение в адресе — период по умолчанию, а не ошибка
+        response = admin.get("/admin/analytics?days=abc")
+        assert response.status_code == 200
+        assert "за последние 30 дней, UTC" in response.text
+
+    def test_retention_shorter_than_period(self, admin: TestClient, db: Path) -> None:
+        async def shorten(repo: Repository) -> None:
+            async with repo.sessions.begin() as session:
+                config = await session.get(BotConfig, 1)
+                assert config is not None
+                config.audit_retention_days = 7
+
+        run_with_repo(db, shorten)
+        assert "Срок хранения журнала — 7 дн." in admin.get("/admin/analytics?days=30").text
+        assert "Срок хранения журнала" not in admin.get("/admin/analytics?days=7").text
+
+    def test_empty_period(self, admin: TestClient, db: Path) -> None:
+        async def clear(repo: Repository) -> None:
+            async with repo.sessions.begin() as session:
+                await session.execute(delete(AuditEvent))
+
+        run_with_repo(db, clear)
+        assert "За этот период вопросов не было." in admin.get("/admin/analytics").text
+
+    def test_shop_topics(self, admin: TestClient, db: Path) -> None:
+        async def to_shop(repo: Repository) -> None:
+            async with repo.sessions.begin() as session:
+                config = await session.get(BotConfig, 1)
+                assert config is not None
+                config.profile = BusinessProfile.SHOP
+
+        run_with_repo(db, to_shop)
+        log_question(db, "Где мой заказ DE-10023?", "Заказ DE-10023 передан в доставку.")
+
+        page = admin.get("/admin/analytics").text
+        assert "профиль «Магазин электроники»" in page
+        assert "<div>Статус заказа</div>" in page
+
+
 # ---------- Справка «?» и русский интерфейс ----------
 
 PAGE_IDS = re.compile(r'\bid="([^"]+)"')
@@ -639,6 +755,26 @@ class TestHelp:
         for label in HELP["costs"].fields:
             assert f">{label}</th>" in page
             assert f'data-label="{label}"' in page
+
+    def test_analytics_has_help(self, admin: TestClient, db: Path) -> None:
+        log_question(db, "Есть брекеты?", NO_INFO_ANSWER)  # чтобы показались обе таблицы
+        page = admin.get("/admin/analytics").text
+
+        assert 'id="help-panel"' in page
+        assert str(escape(HELP["analytics"].summary)) in page
+        # У страницы нет модели: подсказки привязаны к подписям колонок таблиц
+        for label in HELP["analytics"].fields:
+            assert f">{label}</th>" in page
+            assert f'data-label="{label}"' in page
+
+    def test_analytics_help_lists_reasons_and_topics(self, admin: TestClient) -> None:
+        page = admin.get("/admin/help").text
+        for text in GAP_HELP.values():
+            assert str(escape(text)) in page
+        # Справка показывает темы обоих профилей из словарей кода — не расходится с ними
+        for kind, topics in ANALYTICS_TOPICS.items():
+            names = ", ".join(topic.name for topic in topics)
+            assert f"<li><b>{kind.value}:</b> {escape(names)}.</li>" in page
 
     def test_journal_help_lists_outcomes_and_attack_flags(self, admin: TestClient) -> None:
         page = admin.get("/admin/audit-event/list").text
