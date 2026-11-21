@@ -51,6 +51,9 @@ class Client(Base):
     username: Mapped[str | None] = mapped_column(String(64))
     full_name: Mapped[str] = mapped_column(String(256), default="", server_default="")
     is_blocked: Mapped[bool] = mapped_column(default=False, server_default=false())
+    # Клиента ведёт живой оператор (администратор в Telegram): до этого времени (UTC) бот молчит
+    # и пересылает сообщения ему. None — отвечает бот (medllmbot/operator.py)
+    operator_until: Mapped[datetime | None] = mapped_column()
     first_seen_at: Mapped[datetime] = mapped_column(server_default=func.now())
     last_seen_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
@@ -131,6 +134,9 @@ class AuditOutcome(enum.Enum):
     NOT_TEXT = "Не текст"  # фото, голосовое, стикер
     RATE_LIMITED = "Rate-limit"
     BLOCKED = "Клиент заблокирован"
+    HANDOFF = "Позвал оператора"  # клиент попросил человека — бот передал диалог администратору
+    TO_OPERATOR = "Переслано оператору"  # диалог ведёт оператор: сообщение ушло ему, Claude не вызывался
+    FROM_OPERATOR = "Ответ оператора"  # администратор ответил клиенту из Telegram; текст — в user_text
 
     @override
     def __str__(self) -> str:
@@ -184,6 +190,22 @@ class AuditEvent(Base):
     @override
     def __str__(self) -> str:
         return f"Событие #{self.id} — {self.outcome}"
+
+
+@final
+class OperatorRelay(Base):
+    """Сообщение бота в чате администратора, относящееся к клиенту: ответ на него уйдёт этому клиенту.
+
+    Номера сообщений уникальны только внутри чата, поэтому ключ — чат и номер: если ADMIN_ID сменится,
+    ответ нового администратора не уйдёт клиенту из пересылок старого.
+    """
+
+    __tablename__ = "operator_relays"
+
+    admin_chat_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
+    admin_message_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
+    chat_id: Mapped[int] = mapped_column(ForeignKey("clients.chat_id", ondelete="CASCADE"))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
 
 # ---------- Расходы на API ----------
@@ -389,6 +411,7 @@ class BotConfig(Base):
         CheckConstraint("audit_retention_days > 0", name="retention_positive"),
         CheckConstraint("daily_budget_usd >= 0", name="budget_non_negative"),
         CheckConstraint("catalog_inline_limit >= 0", name="catalog_limit_non_negative"),
+        CheckConstraint("operator_hours > 0", name="operator_hours_positive"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, default=1)
@@ -415,6 +438,9 @@ class BotConfig(Base):
     # Каталог до стольких позиций идёт в промпт целиком; больше — модель ищет в нём инструментом
     # search_catalog. Маленький каталог в промпте дешевле и быстрее, большой туда не поместится; 0 — всегда поиск
     catalog_inline_limit: Mapped[int] = mapped_column(default=50, server_default="50")
+    # Сколько часов бот молчит после просьбы клиента позвать человека, если оператор не ответил;
+    # каждый ответ оператора продлевает срок
+    operator_hours: Mapped[int] = mapped_column(default=12, server_default="12")
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
     @override

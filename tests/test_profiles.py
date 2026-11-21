@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import re
+from dataclasses import fields
 from pathlib import Path
 
 import anthropic
@@ -214,8 +215,8 @@ def test_every_profile_has_own_replies() -> None:
     for kind in BusinessProfile:
         staff = PROFILES[kind].staff
         replies = PROFILES[kind].replies
-        texts = (replies.tech_error, replies.fallback, replies.price_fallback, replies.budget_exceeded, replies.lead_saved)
-        # Сотрудник назван так же, как в промпте профиля
+        texts = [getattr(replies, f.name) for f in fields(replies)]
+        # Сотрудник назван так же, как в промпте профиля — во всех готовых ответах
         assert all(staff[:5] in text.lower() for text in texts), kind
 
 

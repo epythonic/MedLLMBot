@@ -40,6 +40,11 @@ the store's own system (CMS, ERP) in a real project.
   cheaper and faster.
 - Turns any message with a phone number into a lead and forwards it to the administrator. The lead is saved even if
   Claude is down, the message is too long, or Telegram rejects the reply.
+- **Hands the conversation to a live operator:** when a customer asks for a human ("позовите менеджера",
+  "vreau să vorbesc cu un om" or /operator), the administrator gets a Telegram notification with the recent messages
+  and answers right from Telegram by replying to the bot's message. While the operator has the dialog, the bot stays
+  silent and forwards the customer's messages, photos included, without calling Claude. A "return to bot" button or a
+  timeout from the settings hands the dialog back.
 - Shows "typing…" while the model thinks; long answers are split to fit Telegram's message limit.
 - Defends against long messages, spam and prompt injection; ignores customers blocked in the admin panel.
 - Writes an **audit log**: every incoming message, including rejected ones, with the raw and the delivered answer,
