@@ -5,13 +5,14 @@ from collections.abc import Iterable
 import pytest
 from sqladmin import ModelView
 
-from medllmbot.admin.help import FLAG_HELP, HELP, OUTCOME_HELP, TOPICS, help_topic
+from medllmbot.admin.help import FLAG_HELP, GAP_HELP, HELP, OUTCOME_HELP, TOPICS, help_topic
 from medllmbot.admin.views import VIEWS
+from medllmbot.analytics import GapReason
 from medllmbot.db.models import AuditOutcome
 from medllmbot.security import FLAG_LABELS
 
-# Своя страница админки без модели — «Расходы → Отчёт по месяцам»
-CUSTOM_PAGES = {"costs"}
+# Свои страницы админки без модели — «Расходы → Отчёт по месяцам» и «Клиенты → Аналитика»
+CUSTOM_PAGES = {"costs", "analytics"}
 
 
 def _names(attrs: Iterable[object]) -> set[str]:
@@ -65,6 +66,11 @@ def test_hints_are_filled() -> None:
 
 def test_every_outcome_is_explained() -> None:
     assert set(OUTCOME_HELP) == set(AuditOutcome)
+
+
+def test_every_gap_reason_is_explained() -> None:
+    assert set(GAP_HELP) == set(GapReason)
+    assert all(text.strip() for text in GAP_HELP.values())
 
 
 def test_every_attack_flag_has_example() -> None:

@@ -52,6 +52,10 @@ the store's own system (CMS, ERP) in a real project.
 - Knowledge base: services and prices, FAQ, clinic info. Rows are reordered by drag and drop and the bot sees the
   change immediately.
 - Audit log with "suspicious" and "outcome" filters; monthly cost report with a month-end forecast.
+- Question analytics: what customers ask about (topics by Russian and Romanian keywords), the share of conversations
+  that end with a lead, and the questions the bot could not answer, each with a reason and a link to the log entry —
+  a to-do list for the knowledge base. Computed from the audit log for 7, 30 or 90 days without calling Claude, so it
+  costs nothing and customer messages are not sent anywhere else.
 - Bot settings: Claude model, limits, history depth, rate limit, catalog-in-prompt threshold, greeting, log retention.
 - Contextual help: a "?" icon next to every section, form field and column opens a side panel with instructions.
 - Live updates via HTMX (vendored, no CDN, no `eval`): a banner announces new leads and log entries without a reload.
@@ -153,7 +157,7 @@ If the demo is reset nightly by cron, add the profile there too, or the demo tur
 validates the keys stored in the GitHub Environment `demo`, builds `.env` from them and runs
 [deploy/deploy.sh](deploy/deploy.sh) on the server over SSH: fast-forward to `main`, rebuild the containers,
 wait until the admin panel is healthy. The CI key is bound to that script in `authorized_keys`, and the server's
-host key is pinned. Setup steps are in the Russian README, section [«Демо на сервере»](README_ru.md#демо-на-сервере).
+host key is pinned. Setup steps are in the Russian README, section [«Demo on server»](README_ru.md#демо-на-сервере).
 
 ## Development
 

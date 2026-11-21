@@ -16,10 +16,11 @@ from starlette.middleware.base import RequestResponseEndpoint
 
 from medllmbot.admin.auth import AdminAuth
 from medllmbot.admin.forms import LOCALE
-from medllmbot.admin.help import FLAG_HELP, OUTCOME_HELP, HelpView, help_topic
+from medllmbot.admin.help import FLAG_HELP, GAP_HELP, OUTCOME_HELP, HelpView, help_topic
 from medllmbot.admin.live import make_live_view
-from medllmbot.admin.reports import make_cost_report_view
+from medllmbot.admin.reports import make_analytics_view, make_cost_report_view
 from medllmbot.admin.views import VIEWS
+from medllmbot.analytics import TOPICS
 from medllmbot.config import AdminSettings
 from medllmbot.costs import format_usd
 from medllmbot.db.engine import create_engine, create_sessionmaker
@@ -106,10 +107,17 @@ def create_app(settings: AdminSettings, engine: AsyncEngine | None = None) -> Fa
     # Справка «?»: шаблон sqladmin/layout.html находит справку раздела через help_topic.
     # Тип globals Jinja выводит из своего словаря по умолчанию, поэтому расширяем его явно
     template_globals = cast(dict[str, object], admin.templates.env.globals)
-    template_globals.update(help_topic=help_topic, outcome_help=OUTCOME_HELP, flag_help=FLAG_HELP)
+    template_globals.update(
+        help_topic=help_topic,
+        outcome_help=OUTCOME_HELP,
+        flag_help=FLAG_HELP,
+        gap_help=GAP_HELP,
+        analytics_topics=TOPICS,
+    )
     for view in VIEWS:
         admin.add_view(view)
     repo = Repository(create_sessionmaker(engine))
+    admin.add_view(make_analytics_view(repo))  # встаёт в конец категории «Клиенты»
     admin.add_view(make_cost_report_view(repo))
     admin.add_view(make_live_view(repo))
     admin.add_view(HelpView)

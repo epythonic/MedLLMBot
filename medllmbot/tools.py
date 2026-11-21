@@ -21,6 +21,8 @@ SEARCH_LIMIT = 10  # позиций в одном ответе инструме�
 MAX_PRICE = 10**9  # верхняя граница фильтра цены: защита от переполнения в SQLite
 
 SEARCH_CATALOG_NAME = "search_catalog"
+# Итог поиска в журнале: «search_catalog «чистка» → найдено 2». По нему аналитика находит пустые поиски
+FOUND = "→ найдено"
 
 
 @cache
@@ -61,8 +63,8 @@ class CatalogQuery(BaseModel):
     max_price: int | None = Field(default=None, ge=0, le=MAX_PRICE)
 
     def describe(self) -> str:
-        """Запрос для журнала: «чистка», 500–1000 лей."""
-        text = f"«{self.query}»"
+        """Запрос для журнала: «чистка», 500–1000 лей. Одной строкой: в журнале строка на вызов."""
+        text = f"«{' '.join(self.query.split())}»"
         if self.min_price is not None or self.max_price is not None:
             low = self.min_price if self.min_price is not None else 0
             text += f", {low}–{self.max_price} лей" if self.max_price is not None else f", от {low} лей"
@@ -108,7 +110,7 @@ class CatalogTools:
         except SQLAlchemyError:
             log.exception("Поиск по каталогу не удался")
             return ToolOutput("Поиск временно недоступен.", f"{name} {params.describe()}: ошибка БД", is_error=True)
-        return ToolOutput(render_page(page), f"{name} {params.describe()} → найдено {page.total}")
+        return ToolOutput(render_page(page), f"{name} {params.describe()} {FOUND} {page.total}")
 
 
 # ---------- Статус заказа ----------

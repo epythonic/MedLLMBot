@@ -1,6 +1,6 @@
 """Все запросы бота к БД. Каждый метод открывает свою короткую сессию."""
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -13,6 +13,7 @@ from medllmbot.costs import Price, PriceBook, TokenUsage, UsageRow
 from medllmbot.db import fts
 from medllmbot.db.models import (
     AuditEvent,
+    AuditOutcome,
     BotConfig,
     ChatMessage,
     Client,
@@ -53,6 +54,27 @@ class CatalogPage:
 
     services: list[Service]
     total: int
+
+
+@dataclass(frozen=True)
+class QuestionRow:
+    """Сообщение клиента из журнала — для аналитики вопросов (`medllmbot/analytics.py`)."""
+
+    event_id: int
+    chat_id: int
+    created_at: datetime  # UTC
+    text: str
+    outcome: AuditOutcome
+    answer: str | None  # что получил клиент
+    tool_calls: str | None
+
+
+@dataclass(frozen=True)
+class LeadRow:
+    """Когда клиент оставил телефон — для доли диалогов с заявкой."""
+
+    chat_id: int
+    created_at: datetime  # UTC
 
 
 _FTS = table(fts.FTS_TABLE, column("rowid"))
@@ -265,6 +287,44 @@ class Repository:
         async with self.sessions.begin() as session:
             deleted = (await session.scalars(stmt)).all()
         return len(deleted)
+
+    # ---------- Аналитика ----------
+
+    async def questions_since(self, since: datetime, outcomes: Iterable[AuditOutcome]) -> list[QuestionRow]:
+        """Сообщения клиентов из журнала начиная с `since` (UTC) с итогами из `outcomes`, старые — первыми.
+
+        Сообщения с признаками атаки не входят: это не спрос клиентов, их разбирают в «Журнале».
+        """
+        stmt = (
+            select(
+                AuditEvent.id,
+                AuditEvent.chat_id,
+                AuditEvent.created_at,
+                AuditEvent.user_text,
+                AuditEvent.outcome,
+                AuditEvent.final_answer,
+                AuditEvent.tool_calls,
+            )
+            .where(
+                AuditEvent.created_at >= since,
+                AuditEvent.outcome.in_(list(outcomes)),
+                AuditEvent.is_suspicious.is_(False),
+            )
+            .order_by(AuditEvent.id)
+        )
+        async with self.sessions() as session:
+            rows = (await session.execute(stmt)).all()
+        return [
+            QuestionRow(event_id, chat_id, created_at, text, outcome, answer, tool_calls)
+            for event_id, chat_id, created_at, text, outcome, answer, tool_calls in rows
+        ]
+
+    async def leads_since(self, since: datetime) -> list[LeadRow]:
+        """Заявки начиная с `since` (UTC), старые — первыми."""
+        stmt = select(Lead.chat_id, Lead.created_at).where(Lead.created_at >= since).order_by(Lead.id)
+        async with self.sessions() as session:
+            rows = (await session.execute(stmt)).all()
+        return [LeadRow(chat_id, created_at) for chat_id, created_at in rows]
 
     # ---------- Расходы ----------
 
