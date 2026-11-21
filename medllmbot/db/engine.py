@@ -26,6 +26,9 @@ def _sqlite_pragmas(dbapi_connection: DBAPIConnection, _record: ConnectionPoolEn
     # WAL позволяет боту писать, пока админка читает (два процесса — одна БД)
     cursor.execute("PRAGMA journal_mode = WAL")
     cursor.execute("PRAGMA busy_timeout = 5000")
+    # INSERT OR REPLACE удаляет старую строку; без этого флага триггер удаления не срабатывает
+    # и полнотекстовый индекс каталога (db/fts.py) расходится с таблицей
+    cursor.execute("PRAGMA recursive_triggers = ON")
     cursor.close()
 
 

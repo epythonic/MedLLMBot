@@ -3,9 +3,10 @@
 import enum
 from collections.abc import Sequence
 from datetime import date, datetime
-from typing import ClassVar, Self, final, override
+from typing import ClassVar, Self, cast, final, override
 
 from sqlalchemy import (
+    DDL,
     BigInteger,
     CheckConstraint,
     Enum,
@@ -13,13 +14,17 @@ from sqlalchemy import (
     Index,
     MetaData,
     String,
+    Table,
     Text,
     UniqueConstraint,
+    event,
     false,
     func,
     true,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+from medllmbot.db import fts
 
 # Явные имена ограничений нужны Alembic для batch-миграций в SQLite
 NAMING_CONVENTION: dict[str, str] = {
@@ -162,6 +167,8 @@ class AuditEvent(Base):
     cache_write_tokens: Mapped[int | None] = mapped_column()
     cost_micro_usd: Mapped[int | None] = mapped_column()  # None — нет цены на модель
     latency_ms: Mapped[int | None] = mapped_column()
+    # Вызовы инструментов модели по строке на вызов: «search_catalog «чистка» → найдено 2»
+    tool_calls: Mapped[str | None] = mapped_column(Text)
 
     @classmethod
     def incoming(cls, chat_id: int, user_text: str, outcome: AuditOutcome, flags: Sequence[str] = ()) -> Self:
@@ -276,6 +283,14 @@ class Service(Base):
         return f"{self.name} — {self.price} лей"
 
 
+# Полнотекстовый индекс каталога для create_all (в тестах); в рабочей БД его создаёт миграция
+_services = cast(Table, Service.__table__)
+for _statement in fts.CREATE:
+    event.listen(_services, "after_create", DDL(_statement))
+for _statement in fts.DROP:
+    event.listen(_services, "before_drop", DDL(_statement))
+
+
 @final
 class FaqItem(Base):
     __tablename__ = "faq"
@@ -314,6 +329,7 @@ class BotConfig(Base):
         ),
         CheckConstraint("audit_retention_days > 0", name="retention_positive"),
         CheckConstraint("daily_budget_usd >= 0", name="budget_non_negative"),
+        CheckConstraint("catalog_inline_limit >= 0", name="catalog_limit_non_negative"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, default=1)
@@ -331,6 +347,9 @@ class BotConfig(Base):
     # Сколько долларов в сутки (UTC) можно потратить на Claude; 0 — без лимита. Защита публичного демо
     # от спама из многих чатов: rate-limit ограничивает каждый чат, а этот лимит — все вместе
     daily_budget_usd: Mapped[int] = mapped_column(default=0, server_default="0")
+    # Каталог до стольких позиций идёт в промпт целиком; больше — модель ищет в нём инструментом
+    # search_catalog. Маленький каталог в промпте дешевле и быстрее, большой туда не поместится; 0 — всегда поиск
+    catalog_inline_limit: Mapped[int] = mapped_column(default=50, server_default="50")
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
     @override

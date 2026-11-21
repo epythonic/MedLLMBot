@@ -47,6 +47,14 @@ class TestPriceChecker:
     def test_text_without_prices(self, prices: PriceChecker) -> None:
         assert not prices.has_unknown_price("Мы работаем с 9:00 до 19:00, 5 дней в неделю.")
 
+    def test_catalog_prices_outside_prompt(self) -> None:
+        # Большой каталог в промпт не идёт: его цены добавляются отдельно и тоже считаются известными
+        prices = PriceChecker("== Услуги и цены ==\nИщи инструментом.")
+        assert prices.has_unknown_price("Ноутбук стоит 12 999 лей.")
+        prices.add_known([12999, 450])
+        assert not prices.has_unknown_price("Ноутбук стоит 12 999 лей, мышь — 450 lei.")
+        assert prices.has_unknown_price("Ноутбук стоит 11 999 лей.")
+
 
 class TestPhone:
     @pytest.mark.parametrize(
