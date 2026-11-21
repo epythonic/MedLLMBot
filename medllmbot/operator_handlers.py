@@ -20,7 +20,7 @@ from medllmbot.config import BotSettings
 from medllmbot.db.models import AuditEvent, AuditOutcome, BotConfig
 from medllmbot.db.repository import Repository
 from medllmbot.guards import extract_phone
-from medllmbot.handlers import client_name, forward_lead, notify_admin, send, split_message, start
+from medllmbot.handlers import client_name, forward_lead, message_language, notify_admin, send, split_message, start
 from medllmbot.middlewares import incoming_event
 from medllmbot.operator import (
     ALREADY_ENDED,
@@ -43,6 +43,7 @@ from medllmbot.operator import (
     with_operator,
 )
 from medllmbot.profiles import PROFILES
+from medllmbot.text import Language, language_of
 
 log = logging.getLogger(__name__)
 
@@ -76,6 +77,19 @@ async def relay_to_admin(bot: Bot, repo: Repository, admin_id: int, chat_id: int
             return False
         await repo.add_relay(sent.chat.id, sent.message_id, chat_id)
     return True
+
+
+async def dialog_language(repo: Repository, chat_id: int) -> Language:
+    """Язык клиента по его последним сообщениям в истории — для ответа, который бот пишет сам, без его сообщения.
+
+    Сообщения, по которым язык не понять («0102», «S8?»), пропускаются; ничего не нашлось — русский.
+    """
+    history = await repo.load_history(chat_id, limit=HISTORY_IN_NOTICE)
+    for message in reversed(history):
+        content = message["content"]
+        if message["role"] == "user" and isinstance(content, str) and (language := language_of(content)) is not None:
+            return language
+    return Language.RU
 
 
 def fits_history(text: str, config: BotConfig) -> bool:
@@ -151,7 +165,7 @@ async def to_operator(msg: Message, bot: Bot, repo: Repository, settings: BotSet
     if not delivered:
         # Администратор недоступен: клиент не должен ждать молча — дальше снова отвечает бот
         await repo.end_operator(msg.chat.id, utcnow())
-        answer = PROFILES[config.profile].replies.tech_error
+        answer = PROFILES[config.profile].replies_in(message_language(msg)).tech_error
         event.final_answer = answer
         await send(msg, answer)
     await repo.log_event(event)
@@ -170,7 +184,7 @@ async def call_operator(msg: Message, bot: Bot, repo: Repository, settings: BotS
     if msg.chat.id == settings.admin_id or settings.admin_id < 0:
         raise SkipHandler
     text = msg.text or ""
-    replies = PROFILES[config.profile].replies
+    replies = PROFILES[config.profile].replies_in(message_language(msg))
     history = await repo.load_history(msg.chat.id, limit=HISTORY_IN_NOTICE)
     notice = handoff_notice(client_label(client_name(msg), msg.chat.id), text, history, config.operator_hours)
     event = incoming_event(msg, AuditOutcome.HANDOFF)
@@ -205,7 +219,7 @@ async def return_to_bot(callback: CallbackQuery, bot: Bot, repo: Repository, set
     active = await repo.end_operator(chat_id, utcnow())
     if active:
         config = await repo.get_config()
-        text = PROFILES[config.profile].replies.operator_ended
+        text = PROFILES[config.profile].replies_in(await dialog_language(repo, chat_id)).operator_ended
         try:
             await bot.send_message(chat_id, text)
         except TelegramAPIError:

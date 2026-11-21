@@ -167,3 +167,22 @@ def test_operator_handoff_keeps_client_data(tmp_path: Path) -> None:
     assert counts == [1, 1, 1]
     assert until is None  # существующие клиенты — с ботом
     assert hours == 12
+
+
+def test_existing_greeting_stays_for_everyone(tmp_path: Path) -> None:
+    # До поля greeting_ro приветствие было одно, часто сразу на двух языках: его и получают все клиенты
+    db = tmp_path / "bot.db"
+    command.upgrade(alembic_config(db), "15280f8b2e3f")
+    engine = sa.create_engine(f"sqlite:///{db}")
+    with engine.begin() as conn:
+        conn.execute(
+            sa.text(
+                "INSERT INTO bot_config (id, model, max_tokens, max_len, history_limit, rate_limit, "
+                "rate_window, greeting) VALUES (1, 'claude-haiku-5-5', 1024, 1024, 8, 10, 60, 'Привет!\n\nBună!')"
+            )
+        )
+    upgrade_db(db)
+    with engine.connect() as conn:
+        row = conn.execute(sa.text("SELECT greeting, greeting_ro FROM bot_config")).one()
+    engine.dispose()
+    assert tuple(row) == ("Привет!\n\nBună!", None)

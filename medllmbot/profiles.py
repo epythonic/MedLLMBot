@@ -8,11 +8,15 @@
 from dataclasses import dataclass
 
 from medllmbot.db.models import BusinessProfile
+from medllmbot.text import Language
 
 
 @dataclass(frozen=True)
 class Replies:
-    """Готовые ответы бота без модели: в них сотрудник называется так же, как в промпте профиля."""
+    """Готовые ответы бота без модели: в них сотрудник называется так же, как в промпте профиля.
+
+    У профиля два набора — русский и румынский: клиент получает заготовку на языке своего сообщения.
+    """
 
     tech_error: str  # API недоступен или непредвиденная ошибка
     fallback: str  # отказ модели, обрезанный или пустой ответ, утечка промпта
@@ -35,8 +39,13 @@ class Profile:
     off_topic: str  # ответ на посторонние темы, с переносом строки
     catalog_title: str  # заголовок каталога в базе знаний
     search_examples: str  # примеры запросов для search_catalog
-    replies: Replies
+    replies: Replies  # по-русски
+    replies_ro: Replies  # те же ответы по-румынски
     orders: bool = False  # есть ли заказы, статус которых бот узнаёт инструментом order_status
+
+    def replies_in(self, language: Language) -> Replies:
+        """Готовые ответы на языке клиента."""
+        return self.replies_ro if language is Language.RO else self.replies
 
 
 PROFILES: dict[BusinessProfile, Profile] = {
@@ -62,6 +71,16 @@ PROFILES: dict[BusinessProfile, Profile] = {
             operator_started="Передал ваш вопрос администратору — он ответит здесь же, в этом чате, в рабочее время. "
             "Пишите ему прямо сюда.",
             operator_ended="Администратор завершил разговор. Если появятся вопросы — пишите, я отвечу.",
+        ),
+        replies_ro=Replies(
+            tech_error="Ne pare rău, a apărut o eroare tehnică. Administratorul vă va contacta.",
+            fallback="Voi verifica cu administratorul și revin cu un răspuns.",
+            price_fallback="Voi verifica prețul cu administratorul și revin cu un răspuns.",
+            budget_exceeded="Acum nu pot răspunde detaliat. Administratorul vă va răspunde în timpul programului de lucru.",
+            lead_saved="Am salvat numărul de telefon — administratorul vă va suna în timpul programului de lucru.",
+            operator_started="Am transmis întrebarea dvs. administratorului — vă va răspunde aici, în acest chat, "
+            "în timpul programului de lucru. Scrieți-i direct aici.",
+            operator_ended="Administratorul a încheiat conversația. Dacă mai aveți întrebări, scrieți-mi — vă răspund.",
         ),
     ),
     BusinessProfile.SHOP: Profile(
@@ -98,6 +117,16 @@ PROFILES: dict[BusinessProfile, Profile] = {
             operator_started="Передал ваш вопрос менеджеру — он ответит здесь же, в этом чате, в рабочее время. "
             "Пишите ему прямо сюда.",
             operator_ended="Менеджер завершил разговор. Если появятся вопросы — пишите, я отвечу.",
+        ),
+        replies_ro=Replies(
+            tech_error="Ne pare rău, a apărut o eroare tehnică. Managerul vă va contacta.",
+            fallback="Voi verifica cu managerul și revin cu un răspuns.",
+            price_fallback="Voi verifica prețul cu managerul și revin cu un răspuns.",
+            budget_exceeded="Acum nu pot răspunde detaliat. Managerul vă va răspunde în timpul programului de lucru.",
+            lead_saved="Am salvat numărul de telefon — managerul vă va suna în timpul programului de lucru.",
+            operator_started="Am transmis întrebarea dvs. managerului — vă va răspunde aici, în acest chat, "
+            "în timpul programului de lucru. Scrieți-i direct aici.",
+            operator_ended="Managerul a încheiat conversația. Dacă mai aveți întrebări, scrieți-mi — vă răspund.",
         ),
         orders=True,
     ),

@@ -18,10 +18,18 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from medllmbot.config import AppSettings
-from medllmbot.db.demo_shop import SHOP_FAQ, SHOP_GREETING, SHOP_ORDERS, SHOP_PRODUCTS, SHOP_SECTIONS
+from medllmbot.db.demo_shop import (
+    SHOP_FAQ,
+    SHOP_GREETING,
+    SHOP_GREETING_RO,
+    SHOP_ORDERS,
+    SHOP_PRODUCTS,
+    SHOP_SECTIONS,
+)
 from medllmbot.db.engine import create_engine, create_sessionmaker
 from medllmbot.db.models import (
     DEFAULT_GREETING,
+    DEFAULT_GREETING_RO,
     AuditEvent,
     BotConfig,
     BusinessProfile,
@@ -114,12 +122,13 @@ DEMO_PRICES: list[tuple[str, int, float, float, float, float]] = [
 
 @dataclass(frozen=True)
 class DemoSet:
-    """База знаний и приветствие демо для одного профиля бизнеса."""
+    """База знаний и приветствия демо для одного профиля бизнеса."""
 
     sections: list[tuple[str, str]]
     catalog: list[tuple[str, int, str | None]]
     faq: list[tuple[str, str]]
     greeting: str
+    greeting_ro: str
     # Заказы магазина: (номер, имя, телефон, статус, состав, сумма, дата доставки — дней от сегодня)
     orders: list[tuple[str, str, str, OrderStatus, str, int, int | None]] = field(
         default_factory=list[tuple[str, str, str, OrderStatus, str, int, int | None]]
@@ -127,8 +136,8 @@ class DemoSet:
 
 
 DEMOS: dict[BusinessProfile, DemoSet] = {
-    BusinessProfile.CLINIC: DemoSet(DEMO_SECTIONS, DEMO_SERVICES, DEMO_FAQ, DEFAULT_GREETING),
-    BusinessProfile.SHOP: DemoSet(SHOP_SECTIONS, SHOP_PRODUCTS, SHOP_FAQ, SHOP_GREETING, SHOP_ORDERS),
+    BusinessProfile.CLINIC: DemoSet(DEMO_SECTIONS, DEMO_SERVICES, DEMO_FAQ, DEFAULT_GREETING, DEFAULT_GREETING_RO),
+    BusinessProfile.SHOP: DemoSet(SHOP_SECTIONS, SHOP_PRODUCTS, SHOP_FAQ, SHOP_GREETING, SHOP_GREETING_RO, SHOP_ORDERS),
 }
 
 
@@ -165,14 +174,14 @@ async def seed_demo(sessions: async_sessionmaker[AsyncSession], kind: BusinessPr
         if any(counts):
             return False
         _add_knowledge(session, demo)
-        # Профиль — под залитые данные. Приветствие меняется только вместе с профилем:
-        # своё приветствие администратора при повторном заполнении той же демо-базы остаётся
+        # Профиль — под залитые данные. Приветствия меняются только вместе с профилем:
+        # свои приветствия администратора при повторном заполнении той же демо-базы остаются
         config = await session.get(BotConfig, 1)
         if config is None:
-            session.add(BotConfig(id=1, profile=kind, greeting=demo.greeting))
+            session.add(BotConfig(id=1, profile=kind, greeting=demo.greeting, greeting_ro=demo.greeting_ro))
         elif config.profile != kind:
             config.profile = kind
-            config.greeting = demo.greeting
+            config.greeting, config.greeting_ro = demo.greeting, demo.greeting_ro
     return True
 
 
@@ -202,7 +211,9 @@ async def reset_demo(sessions: async_sessionmaker[AsyncSession], kind: BusinessP
             )
             for model, from_tokens, input_price, cache_write, cache_read, output_price in DEMO_PRICES
         )
-        session.add(BotConfig(id=1, profile=kind, greeting=demo.greeting, daily_budget_usd=budget))
+        session.add(
+            BotConfig(id=1, profile=kind, greeting=demo.greeting, greeting_ro=demo.greeting_ro, daily_budget_usd=budget)
+        )
 
 
 # Значение флага --profile → профиль

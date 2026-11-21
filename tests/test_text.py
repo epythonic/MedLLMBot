@@ -1,9 +1,9 @@
-"""Очистка ответа модели от Markdown: Telegram без parse_mode показывает разметку клиенту как есть."""
+"""Обработка текста: очистка ответа модели от Markdown и язык клиента для готовых ответов."""
 
 import pytest
 
 from evals.shop.grading import MARKDOWN
-from medllmbot.text import plain_text
+from medllmbot.text import Language, language_of, plain_text, reply_language
 
 
 @pytest.mark.parametrize(
@@ -41,3 +41,41 @@ def test_markdown_removed(answer: str, plain: str) -> None:
 )
 def test_plain_text_unchanged(answer: str) -> None:
     assert plain_text(answer) == answer
+
+
+@pytest.mark.parametrize(
+    ("text", "language"),
+    [
+        ("Сколько стоит чистка?", Language.RU),
+        ("Сколько стоит Brisko Clean S8 Pro Max?", Language.RU),  # латинская марка в русском вопросе
+        ("Cât costă o curățare?", Language.RO),
+        ("cat costa o curatare?", Language.RO),  # без диакритики — по частым словам
+        ("Buna ziua! Unde este comanda mea DE-10022?", Language.RO),
+        ("Aveți livrare în Bălți?", Language.RO),
+        ("Cât costă Робот-пылесос Brisko?", Language.RO),  # русское название из каталога в румынском вопросе
+        ("S8?", None),
+        ("0102", None),
+        ("/operator", None),
+        ("skolko stoit chistka", None),  # русский латиницей — не румынский
+        ("moi telefon 069123456", None),
+        ("How much is it?", None),
+        ("", None),
+    ],
+)
+def test_language_of(text: str, language: Language | None) -> None:
+    assert language_of(text) is language
+
+
+@pytest.mark.parametrize(
+    ("text", "telegram_language", "language"),
+    [
+        ("Cât costă?", "ru", Language.RO),  # язык сообщения важнее языка Telegram
+        ("Сколько стоит?", "ro", Language.RU),
+        ("S8?", "ro", Language.RO),
+        ("S8?", "ro-MD", Language.RO),
+        ("S8?", "en", Language.RU),
+        ("S8?", None, Language.RU),
+    ],
+)
+def test_reply_language(text: str, telegram_language: str | None, language: Language) -> None:
+    assert reply_language(text, telegram_language) is language

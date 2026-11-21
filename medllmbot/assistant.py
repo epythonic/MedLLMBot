@@ -12,13 +12,14 @@ from medllmbot.orders import DatabaseOrders, LookupLimits, OrderBackend
 from medllmbot.profiles import PROFILES, Replies
 from medllmbot.prompts import build_system_prompt, render_info, rules
 from medllmbot.security import LEAK_CODE, LeakDetector, detect_injection
-from medllmbot.text import plain_text
+from medllmbot.text import Language, plain_text, reply_language
 from medllmbot.tools import CatalogTools, OrderTools, Toolbox
 
 # Готовые ответы — у каждого профиля свои (profiles.py). Константы — ответы профиля по умолчанию:
 # обработчик непредвиденных ошибок не знает настроек, а тесты сравнивают с ними ответы стоматологии
 _DEFAULT = PROFILES[BusinessProfile.CLINIC].replies
 TECH_ERROR = _DEFAULT.tech_error
+TECH_ERROR_RO = PROFILES[BusinessProfile.CLINIC].replies_ro.tech_error
 # Отказ модели, обрезанный или пустой ответ, утечка системного промпта
 FALLBACK_ANSWER = _DEFAULT.fallback
 # Если модель назвала цену, которой нет в базе знаний
@@ -40,8 +41,23 @@ def _chars(count: int) -> str:
     return f"{count} {word}"
 
 
-def too_long(length: int, limit: int) -> str:
+def _chars_ro(count: int) -> str:
+    """«1 caracter», «5 caractere», «20 de caractere»: в румынском «de» — после чисел, которые кончаются
+    на 00 или на 20–99 («101 caractere», но «120 de caractere»).
+    """
+    if count == 1:
+        return "1 caracter"
+    rest = count % 100
+    return f"{count} de caractere" if count and (rest == 0 or rest >= 20) else f"{count} caractere"
+
+
+def too_long(length: int, limit: int, language: Language = Language.RU) -> str:
     """Ответ на слишком длинное сообщение: клиент видит, сколько написал и сколько можно."""
+    if language is Language.RO:
+        return (
+            f"Mesajul este prea lung: {_chars_ro(length)}, iar limita este de {_chars_ro(limit)}. "
+            "Vă rog să scrieți întrebarea mai pe scurt."
+        )
     return f"Сообщение слишком длинное: {_chars(length)}, а можно не больше {limit}. Пожалуйста, напишите вопрос короче."
 
 
@@ -73,14 +89,19 @@ class ClinicAssistant:
         # Профиль меняется в БД без перезапуска, поэтому детектор утечки — свой для каждого профиля
         self._leaks = {kind: LeakDetector(rules(kind)) for kind in BusinessProfile}
 
-    async def reply(self, chat_id: int, text: str, config: BotConfig) -> Reply:
-        """Ответ клиенту. Исключений API не бросает: любой исход попадает в журнал."""
+    async def reply(self, chat_id: int, text: str, config: BotConfig, language: Language | None = None) -> Reply:
+        """Ответ клиенту. Исключений API не бросает: любой исход попадает в журнал.
+
+        `language` — язык готовых ответов; по умолчанию — язык сообщения (`text.reply_language`).
+        """
         flags = detect_injection(text)
-        replies = PROFILES[config.profile].replies
+        if language is None:
+            language = reply_language(text)
+        replies = PROFILES[config.profile].replies_in(language)
 
         # Слишком длинное сообщение: не тратим деньги на API
         if len(text) > config.max_len:
-            reply = Reply(too_long(len(text), config.max_len), AuditOutcome.TOO_LONG, flags)
+            reply = Reply(too_long(len(text), config.max_len, language), AuditOutcome.TOO_LONG, flags)
             return await self._log(chat_id, text, reply)
 
         if config.daily_budget_usd and await self.repo.spent_today_micro_usd() >= config.daily_budget_usd * 1_000_000:
