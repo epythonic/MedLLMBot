@@ -88,6 +88,11 @@ def test_normalize_folds_case_yo_and_romanian_diacritics() -> None:
         ("Cât costă albirea?", {"Цены", "Гигиена и отбеливание"}),
         ("Tratați copiii?", {"Лечение зубов", "Детская стоматология"}),
         ("Care este adresa și orarul?", {"Адрес и часы работы"}),
+        # Раньше попадало в «Другое»: в теме не было румынского «где вы находитесь»
+        ("Unde vă aflați?", {"Адрес и часы работы"}),
+        ("Unde se află clinica?", {"Адрес и часы работы"}),
+        ("Unde sunteți?", {"Адрес и часы работы"}),
+        ("Care este locația clinicii?", {"Адрес и часы работы"}),
         ("Pot plăti cu cardul?", {"Оплата и рассрочка"}),
         ("Почём чистка?", {"Цены", "Гигиена и отбеливание"}),
         ("Это дорого, есть дешевле?", {"Цены"}),
@@ -126,6 +131,7 @@ def test_clinic_topics(text: str, expected: set[str]) -> None:
         ("Livrare în Bălți?", {"Доставка и самовывоз"}),
         ("Aveți în stoc aspiratorul?", {"Наличие"}),
         ("Unde este comanda mea?", {"Статус заказа"}),
+        ("Unde vă aflați?", {"Адрес и часы работы"}),
         ("Ce garanție are telefonul?", {"Гарантия и ремонт"}),
     ],
 )
@@ -171,6 +177,10 @@ def test_shop_topics(text: str, expected: set[str]) -> None:
         (BusinessProfile.SHOP, "Preț ridicat", {"Цены"}),
         (BusinessProfile.SHOP, "Am o pretenție", {OTHER}),
         (BusinessProfile.CLINIC, "Можно удаленно проконсультироваться?", {OTHER}),
+        # «Afla» — ещё и «узнать»: о месте, только если перед ним «unde»
+        (BusinessProfile.CLINIC, "Unde pot afla prețul?", {"Цены"}),
+        (BusinessProfile.SHOP, "Cum pot afla statusul comenzii?", {"Статус заказа"}),
+        (BusinessProfile.CLINIC, "Vreau să aflu mai multe despre implant", {"Имплантация и протезирование"}),
     ],
 )
 def test_no_false_topics(kind: BusinessProfile, text: str, expected: set[str]) -> None:

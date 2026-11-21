@@ -44,6 +44,10 @@ panel starts, and every schema change ships as an Alembic migration.
   information. The catalog section in the prompt is now called «Товары, услуги и цены».
 - Markdown in the model's answer is stripped before the customer sees it, so Telegram no longer shows asterisks.
   The audit log keeps the model's answer unchanged.
+- Question analytics files the Romanian "where are you?" questions under «Адрес и часы работы», not «Другое».
+  Examples: «Unde vă aflați?», «Unde se află clinica?», «Unde sunteți?», «locația».
+  «Afla» also means "to find out", so it counts as a location word only after «unde»: «Cum pot afla statusul
+  comenzii?» stays an order-status question.
 
 ## [0.1.0] - 2026-11-21
 
