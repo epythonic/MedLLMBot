@@ -2,7 +2,8 @@
 
 - `python -m medllmbot.db.seed` заполняет базу знаний, только если она пустая: повторный запуск безопасен.
 - `python -m medllmbot.db.seed --reset` возвращает демо-сервер в исходное состояние после показа: удаляет
-  клиентов, переписку, заявки и журнал, восстанавливает базу знаний, прайс-лист моделей и настройки бота.
+  клиентов, переписку, заявки, заказы и журнал, восстанавливает базу знаний, демо-заказы магазина, прайс-лист
+  моделей и настройки бота.
   Итоги расходов и дневной лимит остаются — иначе сброс обнулял бы потраченное за сутки.
 - `--reset --profile shop` переключает демо на магазин: другой профиль бота, каталог и приветствие.
 """
@@ -10,13 +11,14 @@
 import argparse
 import asyncio
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from medllmbot.config import AppSettings
-from medllmbot.db.demo_shop import SHOP_FAQ, SHOP_GREETING, SHOP_PRODUCTS, SHOP_SECTIONS
+from medllmbot.db.demo_shop import SHOP_FAQ, SHOP_GREETING, SHOP_ORDERS, SHOP_PRODUCTS, SHOP_SECTIONS
 from medllmbot.db.engine import create_engine, create_sessionmaker
 from medllmbot.db.models import (
     DEFAULT_GREETING,
@@ -29,6 +31,8 @@ from medllmbot.db.models import (
     InfoSection,
     Lead,
     ModelPrice,
+    Order,
+    OrderStatus,
     Service,
 )
 
@@ -116,11 +120,15 @@ class DemoSet:
     catalog: list[tuple[str, int, str | None]]
     faq: list[tuple[str, str]]
     greeting: str
+    # Заказы магазина: (номер, имя, телефон, статус, состав, сумма, дата доставки — дней от сегодня)
+    orders: list[tuple[str, str, str, OrderStatus, str, int, int | None]] = field(
+        default_factory=list[tuple[str, str, str, OrderStatus, str, int, int | None]]
+    )
 
 
 DEMOS: dict[BusinessProfile, DemoSet] = {
     BusinessProfile.CLINIC: DemoSet(DEMO_SECTIONS, DEMO_SERVICES, DEMO_FAQ, DEFAULT_GREETING),
-    BusinessProfile.SHOP: DemoSet(SHOP_SECTIONS, SHOP_PRODUCTS, SHOP_FAQ, SHOP_GREETING),
+    BusinessProfile.SHOP: DemoSet(SHOP_SECTIONS, SHOP_PRODUCTS, SHOP_FAQ, SHOP_GREETING, SHOP_ORDERS),
 }
 
 
@@ -133,13 +141,27 @@ def _add_knowledge(session: AsyncSession, demo: DemoSet) -> None:
         for i, (name, price, description) in enumerate(demo.catalog)
     )
     session.add_all(FaqItem(question=question, answer=answer, sort_order=i) for i, (question, answer) in enumerate(demo.faq))
+    today = datetime.now(UTC).date()
+    session.add_all(
+        Order(
+            number=number,
+            customer_name=name,
+            phone=phone,
+            status=status,
+            items=items,
+            total=total,
+            delivery_date=today + timedelta(days=days) if days is not None else None,
+        )
+        for number, name, phone, status, items, total, days in demo.orders
+    )
 
 
 async def seed_demo(sessions: async_sessionmaker[AsyncSession], kind: BusinessProfile = BusinessProfile.CLINIC) -> bool:
     """Заполняет пустую базу знаний демо-данными профиля. Возвращает True, если что-то добавлено."""
     demo = DEMOS[kind]
     async with sessions.begin() as session:
-        counts = [await session.scalar(select(func.count()).select_from(model)) for model in (InfoSection, Service, FaqItem)]
+        knowledge_models = (InfoSection, Service, FaqItem, Order)
+        counts = [await session.scalar(select(func.count()).select_from(model)) for model in knowledge_models]
         if any(counts):
             return False
         _add_knowledge(session, demo)
@@ -166,7 +188,7 @@ async def reset_demo(sessions: async_sessionmaker[AsyncSession], kind: BusinessP
     async with sessions.begin() as session:
         config = await session.get(BotConfig, 1)
         budget = config.daily_budget_usd if config else 0
-        for model in (Lead, ChatMessage, AuditEvent, Client, InfoSection, Service, FaqItem, ModelPrice, BotConfig):
+        for model in (Lead, ChatMessage, AuditEvent, Client, InfoSection, Service, FaqItem, Order, ModelPrice, BotConfig):
             await session.execute(delete(model))
         _add_knowledge(session, demo)
         session.add_all(
@@ -216,7 +238,7 @@ def parse_args(argv: list[str] | None = None) -> tuple[bool, BusinessProfile]:
     parser.add_argument(
         "--reset",
         action="store_true",
-        help="удалить клиентов, переписку, заявки и журнал и вернуть базу знаний, цены и настройки к демо",
+        help="удалить клиентов, переписку, заявки, заказы и журнал и вернуть базу знаний, цены и настройки к демо",
     )
     parser.add_argument(
         "--profile",

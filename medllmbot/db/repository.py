@@ -21,6 +21,7 @@ from medllmbot.db.models import (
     Lead,
     LeadStatus,
     ModelPrice,
+    Order,
     Service,
     UsageDaily,
 )
@@ -206,6 +207,14 @@ class Repository:
         async with self.sessions() as session:
             last_id, count = (await session.execute(stmt)).one()
         return NewRecords(last_id, count)
+
+    # ---------- Заказы магазина ----------
+
+    async def find_order(self, key: str) -> Order | None:
+        """Заказ по ключу номера — только буквы и цифры: «DE10023» находит «DE-10023» (orders.order_key)."""
+        stored_key = func.replace(func.upper(Order.number), "-", "")
+        async with self.sessions() as session:
+            return await session.scalar(select(Order).where(stored_key == key.upper()).limit(1))
 
     # ---------- Журнал аудита ----------
 
