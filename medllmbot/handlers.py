@@ -1,12 +1,13 @@
 """Хендлеры Telegram: приветствие, текстовые вопросы, прочие сообщения."""
 
+import asyncio
 import logging
 
 from aiogram import Bot, F, Router
 from aiogram.enums import ChatType
-from aiogram.exceptions import TelegramAPIError
+from aiogram.exceptions import TelegramAPIError, TelegramRetryAfter
 from aiogram.filters import CommandStart
-from aiogram.types import ErrorEvent, Message
+from aiogram.types import ErrorEvent, InlineKeyboardMarkup, Message
 from aiogram.utils.chat_action import ChatActionSender
 
 from medllmbot.assistant import TECH_ERROR, ClinicAssistant
@@ -31,20 +32,29 @@ ALERT_PREVIEW = 500
 TELEGRAM_LIMIT = 4096
 # Уведомление об исчерпанном лимите расходов одно на всех клиентов — ключ общий
 BUDGET_ALERT_KEY = 0
+# Сколько секунд подождать, если Telegram просит писать администратору реже (flood control): дольше
+# держать обработку сообщения не стоит
+MAX_RETRY_AFTER = 30
 
-router = Router(name="clinic")
-# Бот работает только в личных сообщениях
-router.message.filter(F.chat.type == ChatType.PRIVATE)
+
+def create_router() -> Router:
+    """Роутер сообщений клиентов. Новый на каждый диспетчер: роутер aiogram подключается только к одному."""
+    router = Router(name="clinic")
+    # Бот работает только в личных сообщениях
+    router.message.filter(F.chat.type == ChatType.PRIVATE)
+    router.message.register(start, CommandStart())
+    router.message.register(handle_text, F.text)
+    router.message.register(other)  # фото, голосовые, стикеры
+    router.errors.register(on_error)
+    return router
 
 
-@router.message(CommandStart())
 async def start(msg: Message, config: BotConfig, repo: Repository) -> None:
     """Приветствие, когда клиент нажимает «Старт». Текст редактируется в админке."""
     await log_reply(repo, msg, AuditOutcome.GREETING, config.greeting)
     await send(msg, config.greeting)
 
 
-@router.message(F.text)
 async def handle_text(
     msg: Message,
     bot: Bot,
@@ -135,30 +145,47 @@ def client_name(msg: Message) -> str:
     return f"@{user.username}" if user.username else user.full_name
 
 
-async def notify_admin(bot: Bot, admin_id: int, text: str) -> None:
-    try:
-        await bot.send_message(admin_id, text)
-    except TelegramAPIError:
-        # Например, администратор ещё не нажал /start у бота
-        log.exception("Не удалось отправить сообщение администратору")
+async def notify_admin(
+    bot: Bot, admin_id: int, text: str, reply_markup: InlineKeyboardMarkup | None = None
+) -> Message | None:
+    """Сообщение администратору. None — не дошло: ошибка в лог, обработка продолжается.
+
+    Если Telegram просит подождать (много сообщений подряд), ждёт и пробует ещё раз.
+    """
+    for attempt in range(2):
+        try:
+            if reply_markup is None:
+                return await bot.send_message(admin_id, text)
+            return await bot.send_message(admin_id, text, reply_markup=reply_markup)
+        except TelegramRetryAfter as error:
+            if attempt or error.retry_after > MAX_RETRY_AFTER:
+                log.warning("Telegram просит подождать %s с, сообщение администратору не отправлено", error.retry_after)
+                return None
+            await asyncio.sleep(error.retry_after)
+        except TelegramAPIError:
+            # Например, администратор ещё не нажал /start у бота
+            log.exception("Не удалось отправить сообщение администратору")
+            return None
+    return None
 
 
 async def forward_lead(msg: Message, bot: Bot, repo: Repository, admin_id: int, phone: str) -> None:
     """Сохраняет заявку и пересылает её администратору."""
     client = client_name(msg)
-    text = msg.text or ""
+    text = msg.text or msg.caption or ""  # телефон бывает в подписи к фото
     lead = await repo.create_lead(msg.chat.id, client, phone, text)
-    await notify_admin(bot, admin_id, f"Новая заявка #{lead.id} от {client}\nТелефон: {phone}\n\n{preview(text)}")
+    sent = await notify_admin(bot, admin_id, f"Новая заявка #{lead.id} от {client}\nТелефон: {phone}\n\n{preview(text)}")
+    if sent is not None:
+        # Ответ администратора на уведомление о заявке уйдёт клиенту — как живой оператор
+        await repo.add_relay(sent.chat.id, sent.message_id, msg.chat.id)
 
 
-@router.message()
 async def other(msg: Message, repo: Repository) -> None:
     """Фото, голосовые, стикеры и т.п."""
     await log_reply(repo, msg, AuditOutcome.NOT_TEXT, TEXT_ONLY)
     await send(msg, TEXT_ONLY)
 
 
-@router.errors()
 async def on_error(event: ErrorEvent) -> bool:
     """Последняя линия: непредвиденная ошибка (например, база занята) — клиент всё равно получает ответ."""
     log.error("Ошибка при обработке обновления %s", event.update.update_id, exc_info=event.exception)

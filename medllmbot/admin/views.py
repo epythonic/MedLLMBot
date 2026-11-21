@@ -5,6 +5,7 @@
 # библиотеке, отключаем одно правило и только в этом файле.
 # pyright: reportUnknownVariableType=false
 
+from datetime import UTC, datetime
 from typing import ClassVar, cast, final, override
 
 from markupsafe import Markup
@@ -36,6 +37,7 @@ from medllmbot.db.models import (
     Service,
     UsageDaily,
 )
+from medllmbot.operator import with_operator
 from medllmbot.orders import normalize_number, order_key
 from medllmbot.security import FLAG_LABELS
 
@@ -237,6 +239,14 @@ class LeadAdmin(AdminView, model=Lead):
     }
 
 
+def _operator_until(model: Client, _attr: object) -> str:
+    """Срок оператора, пока он не прошёл; прошедший срок — это уже бот."""
+    until = model.operator_until
+    if until is None or not with_operator(until, datetime.now(UTC).replace(tzinfo=None)):
+        return "—"
+    return f"{until:%d.%m.%Y %H:%M} UTC"
+
+
 @final
 class ClientAdmin(AdminView, model=Client):
     name = "Клиент"
@@ -251,6 +261,7 @@ class ClientAdmin(AdminView, model=Client):
         Client.username,
         Client.full_name,
         Client.is_blocked,
+        Client.operator_until,
         Client.first_seen_at,
         Client.last_seen_at,
     ]
@@ -260,11 +271,14 @@ class ClientAdmin(AdminView, model=Client):
     column_filters = [YesNoFilter(Client.is_blocked, title="Заблокирован")]
     column_details_exclude_list = [Client.messages, Client.leads]
     form_columns = [Client.is_blocked]
+    column_formatters = {Client.operator_until: _operator_until}
+    column_formatters_detail = {Client.operator_until: _operator_until}
     column_labels = {
         Client.chat_id: "Chat ID",
         Client.username: "Username",
         Client.full_name: "Имя",
         Client.is_blocked: "Заблокирован",
+        Client.operator_until: "С оператором до",
         Client.first_seen_at: "Первое сообщение",
         Client.last_seen_at: "Последнее сообщение",
     }
@@ -728,6 +742,7 @@ class BotConfigAdmin(AdminView, model=BotConfig):
         BotConfig.rate_window,
         BotConfig.daily_budget_usd,
         BotConfig.catalog_inline_limit,
+        BotConfig.operator_hours,
         BotConfig.updated_at,
     ]
     form_columns = [
@@ -741,6 +756,7 @@ class BotConfigAdmin(AdminView, model=BotConfig):
         BotConfig.audit_retention_days,
         BotConfig.daily_budget_usd,
         BotConfig.catalog_inline_limit,
+        BotConfig.operator_hours,
     ]
     form_args = {
         "model": {
@@ -774,6 +790,11 @@ class BotConfigAdmin(AdminView, model=BotConfig):
             "validators": [NumberRange(min=0, max=1000)],
             "description": "Каталог больше этого числа активных услуг бот не читает целиком, а ищет в нём. 0 — всегда поиск",
         },
+        "operator_hours": {
+            "validators": [NumberRange(min=1, max=720)],
+            "description": "Столько часов бот молчит после просьбы клиента позвать человека, если оператор не ответил. "
+            "Каждый ответ оператора продлевает срок",
+        },
         "audit_retention_days": {
             "validators": [NumberRange(min=1, max=3650)],
             "description": "Записи журнала старше этого срока удаляются автоматически",
@@ -791,6 +812,7 @@ class BotConfigAdmin(AdminView, model=BotConfig):
         BotConfig.audit_retention_days: "Хранить журнал, дней",
         BotConfig.daily_budget_usd: "Лимит расходов в сутки, $",
         BotConfig.catalog_inline_limit: "Каталог в промпте, до позиций",
+        BotConfig.operator_hours: "Оператор ведёт диалог, часов",
         BotConfig.updated_at: "Изменено",
     }
 

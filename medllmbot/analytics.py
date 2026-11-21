@@ -21,6 +21,7 @@ from typing import Self, override
 from medllmbot.db.models import AuditOutcome, BusinessProfile
 from medllmbot.db.repository import LeadRow, QuestionRow, Repository
 from medllmbot.guards import extract_phone
+from medllmbot.text import normalize
 from medllmbot.tools import FOUND, ORDER_STATUS_NAME, SEARCH_CATALOG_NAME
 
 PERIODS: tuple[int, ...] = (7, 30, 90)  # периоды страницы аналитики, дней
@@ -32,25 +33,21 @@ MAX_EXAMPLES = 3  # последних вопросов под название�
 OTHER = "Другое"
 CONTACTS = "Оставили телефон"
 
-# Не вопросы: приветствие, не текст и сообщения, которые бот пропустил без ответа
+# Не вопросы к боту: приветствие, не текст, сообщения, которые бот пропустил без ответа, и разговор
+# с живым оператором — его ведёт человек. Сама просьба позвать оператора — вопрос, она считается отдельно
 NOT_QUESTIONS: frozenset[AuditOutcome] = frozenset(
-    {AuditOutcome.GREETING, AuditOutcome.NOT_TEXT, AuditOutcome.RATE_LIMITED, AuditOutcome.BLOCKED}
+    {
+        AuditOutcome.GREETING,
+        AuditOutcome.NOT_TEXT,
+        AuditOutcome.RATE_LIMITED,
+        AuditOutcome.BLOCKED,
+        AuditOutcome.TO_OPERATOR,
+        AuditOutcome.FROM_OPERATOR,
+    }
 )
 QUESTION_OUTCOMES: tuple[AuditOutcome, ...] = tuple(o for o in AuditOutcome if o not in NOT_QUESTIONS)
 # Клиент получил заготовку «Уточню у администратора…» вместо ответа модели
 _NO_ANSWER: frozenset[AuditOutcome] = frozenset({AuditOutcome.REFUSAL, AuditOutcome.EMPTY, AuditOutcome.TRUNCATED})
-
-# Сравнение без регистра, «ё» и румынских диакритик: «Приём» = «прием», «preț» = «pret».
-# Типографский апостроф Claude — обычный: «don’t» = «don't»
-_FOLD = str.maketrans({"ё": "е", "ă": "a", "â": "a", "î": "i", "ș": "s", "ş": "s", "ț": "t", "ţ": "t", "’": "'"})
-
-
-def normalize(text: str) -> str:
-    """Текст для сравнения: строчные буквы, «ё» → «е», румынские буквы без диакритики и обычный апостроф,
-    одиночные пробелы.
-    """
-    return " ".join(text.lower().translate(_FOLD).split())
-
 
 # ---------- Темы ----------
 
@@ -360,6 +357,7 @@ class Analytics:
     topics: tuple[TopicStat, ...]  # самые частые сверху, «Оставили телефон» и «Другое» — последними
     gaps: tuple[Gap, ...]  # не больше MAX_GAPS самых частых
     gap_groups: int  # всего разных вопросов без ответа, кроме тех, на которые бот потом ответил
+    handoffs: int = 0  # сколько раз клиенты просили живого человека
 
     @property
     def lead_percent(self) -> int | None:
@@ -479,6 +477,7 @@ def build_analytics(questions: Sequence[QuestionRow], leads: Sequence[LeadRow], 
         topics=_topic_stats(questions, topics, dialogs, [topic.name for topic in dictionary]),
         gaps=tuple(gaps[:MAX_GAPS]),
         gap_groups=len(gaps),
+        handoffs=sum(question.outcome is AuditOutcome.HANDOFF for question in questions),
     )
 
 

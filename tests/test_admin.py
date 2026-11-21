@@ -3,6 +3,7 @@
 import asyncio
 import re
 from collections.abc import Awaitable, Callable, Iterator
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -268,6 +269,21 @@ def test_lead_filter_by_status(admin: TestClient) -> None:
     assert "069123456" not in admin.get("/admin/lead/list?status=DONE").text
 
 
+@pytest.mark.parametrize("hours", [2, -1])
+def test_client_list_shows_live_operator(admin: TestClient, db: Path, hours: int) -> None:
+    until = datetime.now(UTC).replace(tzinfo=None) + timedelta(hours=hours)
+
+    async def hand_over(repo: Repository) -> None:
+        await repo.start_operator(42, until)
+
+    run_with_repo(db, hand_over)
+    page = admin.get("/admin/client/list").text
+    assert "С оператором до" in page
+    # Срок показывается, пока не прошёл; прошедший срок — это уже бот, в колонке «—»
+    shown = f"{until:%d.%m.%Y %H:%M} UTC</td>" in page
+    assert shown is (hours > 0)
+
+
 def test_blocking_client_stops_bot(admin: TestClient, db: Path) -> None:
     admin.post("/admin/client/edit/42", data={"is_blocked": "y"})
 
@@ -394,6 +410,17 @@ class TestBotConfigForm:
         form = BOT_CONFIG_FORM | {"catalog_inline_limit": value}
         assert admin.post("/admin/bot-config/edit/1", data=form).status_code == 400
         assert load_config(db).catalog_inline_limit == 50
+
+    @pytest.mark.parametrize("value", ["0", "721", "много"])
+    def test_operator_hours_is_checked(self, admin: TestClient, db: Path, value: str) -> None:
+        form = BOT_CONFIG_FORM | {"operator_hours": value}
+        assert admin.post("/admin/bot-config/edit/1", data=form).status_code == 400
+        assert load_config(db).operator_hours == 12
+
+    def test_operator_hours_saved(self, admin: TestClient, db: Path) -> None:
+        form = BOT_CONFIG_FORM | {"operator_hours": "24"}
+        assert admin.post("/admin/bot-config/edit/1", data=form, follow_redirects=False).status_code == 302
+        assert load_config(db).operator_hours == 24
 
     def test_catalog_inline_limit_zero_means_always_search(self, admin: TestClient, db: Path) -> None:
         form = BOT_CONFIG_FORM | {"catalog_inline_limit": "0"}

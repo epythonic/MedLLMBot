@@ -8,6 +8,7 @@ from aiogram import BaseMiddleware
 from aiogram.enums import ChatType, ContentType
 from aiogram.types import Message, TelegramObject
 
+from medllmbot.config import BotSettings
 from medllmbot.db.models import AuditEvent, AuditOutcome, BotConfig
 from medllmbot.db.repository import Repository
 from medllmbot.guards import RateLimiter
@@ -60,7 +61,8 @@ class ClientMiddleware(BaseMiddleware):
 class ThrottlingMiddleware(BaseMiddleware):
     """Молча отбрасывает сообщения, если клиент пишет слишком часто.
 
-    Должна стоять после ClientMiddleware: лимиты берутся из `config`.
+    Должна стоять после ClientMiddleware: лимиты берутся из `config`. Администратора не ограничивает:
+    отвечая клиентам как оператор, он может писать часто.
     """
 
     repo: Repository
@@ -73,9 +75,17 @@ class ThrottlingMiddleware(BaseMiddleware):
     @override
     async def __call__(self, handler: Handler, event: TelegramObject, data: dict[str, object]) -> object:
         config = data.get("config")
+        settings = data.get("settings")
+        is_admin = (
+            isinstance(event, Message)
+            and isinstance(settings, BotSettings)
+            and event.from_user is not None
+            and event.from_user.id == settings.admin_id
+        )
         if (
             isinstance(event, Message)
             and isinstance(config, BotConfig)
+            and not is_admin
             and self.limiter.too_many(event.chat.id, config.rate_limit, config.rate_window)
         ):
             log.info("Rate limit: chat %s", event.chat.id)

@@ -5,7 +5,19 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from anthropic.types import AssistantMessageParam, MessageParam, UserMessageParam
-from sqlalchemy import ColumnClause, ColumnElement, String, column, delete, func, literal_column, select, table, type_coerce
+from sqlalchemy import (
+    ColumnClause,
+    ColumnElement,
+    String,
+    column,
+    delete,
+    func,
+    literal_column,
+    select,
+    table,
+    type_coerce,
+    update,
+)
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -22,6 +34,7 @@ from medllmbot.db.models import (
     Lead,
     LeadStatus,
     ModelPrice,
+    OperatorRelay,
     Order,
     Service,
     UsageDaily,
@@ -193,8 +206,9 @@ class Repository:
         async with self.sessions() as session:
             rows = (await session.execute(stmt)).all()
         history = [_to_message(role, content) for role, content in reversed(rows)]
-        # При нечётном лимите срез может начаться с ответа бота, а API ждёт первым сообщение клиента
-        if history and history[0]["role"] != "user":
+        # Срез может начаться с ответов бота (нечётный лимит, несколько ответов оператора подряд),
+        # а API ждёт первым сообщение клиента
+        while history and history[0]["role"] != "user":
             history = history[1:]
         return history
 
@@ -229,6 +243,58 @@ class Repository:
         async with self.sessions() as session:
             last_id, count = (await session.execute(stmt)).one()
         return NewRecords(last_id, count)
+
+    # ---------- Живой оператор ----------
+
+    async def operator_until(self, chat_id: int) -> datetime | None:
+        """До какого времени (UTC) клиента ведёт оператор; None — отвечает бот. Срок мог уже пройти."""
+        async with self.sessions() as session:
+            return await session.scalar(select(Client.operator_until).where(Client.chat_id == chat_id))
+
+    async def start_operator(self, chat_id: int, until: datetime) -> None:
+        """Передаёт клиента оператору до `until` (UTC): до этого времени бот молчит."""
+        async with self.sessions.begin() as session:
+            await session.execute(update(Client).where(Client.chat_id == chat_id).values(operator_until=until))
+
+    async def end_operator(self, chat_id: int, now: datetime) -> bool:
+        """Возвращает клиента боту. True — клиента вёл оператор и срок ещё не прошёл."""
+        async with self.sessions.begin() as session:
+            client = await session.get(Client, chat_id)
+            if client is None or client.operator_until is None:
+                return False
+            active = client.operator_until > now
+            client.operator_until = None
+        return active
+
+    async def add_relay(self, admin_chat_id: int, admin_message_id: int, chat_id: int) -> None:
+        """Запоминает сообщение бота в чате администратора: ответ на него уйдёт клиенту `chat_id`."""
+        stmt = (
+            insert(OperatorRelay)
+            .values(admin_chat_id=admin_chat_id, admin_message_id=admin_message_id, chat_id=chat_id)
+            .on_conflict_do_update(
+                index_elements=[OperatorRelay.admin_chat_id, OperatorRelay.admin_message_id], set_={"chat_id": chat_id}
+            )
+        )
+        async with self.sessions.begin() as session:
+            await session.execute(stmt)
+
+    async def relay_chat(self, admin_chat_id: int, admin_message_id: int) -> int | None:
+        """Клиент, к которому относится сообщение бота в чате администратора; None — ни к кому."""
+        stmt = select(OperatorRelay.chat_id).where(
+            OperatorRelay.admin_chat_id == admin_chat_id, OperatorRelay.admin_message_id == admin_message_id
+        )
+        async with self.sessions() as session:
+            return await session.scalar(stmt)
+
+    async def save_message(self, chat_id: int, role: str, content: str) -> None:
+        """Одно сообщение в историю: клиент пишет оператору, оператор отвечает — без пары вопрос-ответ бота.
+
+        Пустое не сохраняется: API Claude отклоняет сообщения без текста.
+        """
+        if not content.strip():
+            return
+        async with self.sessions.begin() as session:
+            session.add(ChatMessage(chat_id=chat_id, role=role, content=content))
 
     # ---------- Заказы магазина ----------
 
@@ -325,6 +391,14 @@ class Repository:
         async with self.sessions() as session:
             rows = (await session.execute(stmt)).all()
         return [LeadRow(chat_id, created_at) for chat_id, created_at in rows]
+
+    async def purge_relays(self, older_than_days: int) -> int:
+        """Удаляет связи старых пересылок оператору — по сроку хранения журнала. Возвращает число удалённых."""
+        cutoff = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=older_than_days)
+        stmt = delete(OperatorRelay).where(OperatorRelay.created_at < cutoff).returning(OperatorRelay.admin_message_id)
+        async with self.sessions.begin() as session:
+            deleted = (await session.scalars(stmt)).all()
+        return len(deleted)
 
     # ---------- Расходы ----------
 

@@ -12,10 +12,11 @@ from medllmbot.config import BotSettings
 from medllmbot.db.engine import create_engine, create_sessionmaker
 from medllmbot.db.repository import Repository
 from medllmbot.guards import RateLimiter
-from medllmbot.handlers import router
+from medllmbot.handlers import create_router
 from medllmbot.llm import ClinicLLM
 from medllmbot.maintenance import purge_periodically
 from medllmbot.middlewares import ClientMiddleware, ThrottlingMiddleware
+from medllmbot.operator_handlers import create_router as create_operator_router
 from medllmbot.security import AlertCooldown
 
 
@@ -36,7 +37,9 @@ def build_dispatcher(repo: Repository, assistant: ClinicAssistant, settings: Bot
     # Порядок важен: сначала клиент и настройки, потом rate-limit по этим настройкам
     dp.message.outer_middleware(ClientMiddleware(repo))
     dp.message.outer_middleware(ThrottlingMiddleware(repo, RateLimiter()))
-    dp.include_router(router)
+    # Живой оператор — раньше основного роутера: его сообщения не должны попасть к Claude
+    dp.include_router(create_operator_router())
+    dp.include_router(create_router())
     return dp
 
 

@@ -136,3 +136,34 @@ def test_existing_settings_get_clinic_profile(tmp_path: Path) -> None:
         profile = conn.execute(sa.text("SELECT profile FROM bot_config")).scalar_one()
     engine.dispose()
     assert profile == "CLINIC"
+
+
+def test_operator_handoff_keeps_client_data(tmp_path: Path) -> None:
+    # Колонка в clients добавляется batch-миграцией: пересоздание таблицы клиентов не должно
+    # каскадом удалить их переписку, заявки и журнал
+    db = tmp_path / "bot.db"
+    command.upgrade(alembic_config(db), "dd74e56190f6")
+    engine = sa.create_engine(f"sqlite:///{db}")
+    with engine.begin() as conn:
+        conn.execute(sa.text("PRAGMA foreign_keys = ON"))
+        conn.execute(sa.text("INSERT INTO clients (chat_id, full_name) VALUES (42, 'Иван')"))
+        conn.execute(sa.text("INSERT INTO messages (chat_id, role, content) VALUES (42, 'user', 'Сколько стоит?')"))
+        conn.execute(
+            sa.text("INSERT INTO leads (chat_id, client_name, phone, message) VALUES (42, 'Иван', '069123456', 'запись')")
+        )
+        conn.execute(sa.text("INSERT INTO audit_log (chat_id, user_text, outcome) VALUES (42, 'вопрос', 'ANSWERED')"))
+        conn.execute(
+            sa.text(
+                "INSERT INTO bot_config (id, model, max_tokens, max_len, history_limit, rate_limit, "
+                "rate_window, greeting) VALUES (1, 'claude-haiku-5-5', 1024, 1024, 8, 10, 60, 'Привет')"
+            )
+        )
+    upgrade_db(db)
+    with engine.connect() as conn:
+        counts = [conn.execute(sa.text(f"SELECT count(*) FROM {t}")).scalar_one() for t in ("messages", "leads", "audit_log")]
+        until = conn.execute(sa.text("SELECT operator_until FROM clients")).scalar_one()
+        hours = conn.execute(sa.text("SELECT operator_hours FROM bot_config")).scalar_one()
+    engine.dispose()
+    assert counts == [1, 1, 1]
+    assert until is None  # существующие клиенты — с ботом
+    assert hours == 12

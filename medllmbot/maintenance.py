@@ -1,4 +1,4 @@
-"""Фоновое обслуживание: удаление записей журнала старше срока хранения."""
+"""Фоновое обслуживание: удаление записей журнала и пересылок оператору старше срока хранения."""
 
 import asyncio
 import logging
@@ -16,6 +16,8 @@ async def purge_audit_log(repo: Repository) -> int:
     deleted = await repo.purge_audit(config.audit_retention_days)
     if deleted:
         log.info("Журнал: удалено %s записей старше %s дней", deleted, config.audit_retention_days)
+    # Связи пересылок оператору указывают на клиентов — храним их не дольше журнала
+    await repo.purge_relays(config.audit_retention_days)
     return deleted
 
 

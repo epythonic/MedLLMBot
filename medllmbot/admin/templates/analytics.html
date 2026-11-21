@@ -39,6 +39,7 @@
 {{ kpi("Диалоги", report.dialogs, "пауза больше суток — новый диалог") }}
 {{ kpi("С заявкой", report.dialogs_with_lead, "%d%% диалогов" % report.lead_percent) }}
 {{ kpi("Без ответа", report.unanswered, "%d%% вопросов" % report.unanswered_percent) }}
+{{ kpi("Позвали оператора", report.handoffs, "просили живого человека") }}
 
 <div class="col-12">
   <div class="card">

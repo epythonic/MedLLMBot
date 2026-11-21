@@ -23,7 +23,6 @@ from medllmbot.analytics import (
     collect,
     defers_to_staff,
     gap_reason,
-    normalize,
     parse_period,
     percent,
     topics_of,
@@ -34,6 +33,7 @@ from medllmbot.db.repository import LeadRow, QuestionRow, Repository
 from medllmbot.llm import ClinicLLM
 from medllmbot.profiles import PROFILES
 from medllmbot.prompts import rules
+from medllmbot.text import normalize
 from medllmbot.tools import CatalogTools
 from tests.conftest import CHAT_ID, FakeClient, Sessions, make_response, make_tool_use
 
@@ -295,6 +295,9 @@ def test_question_outcomes_exclude_non_questions() -> None:
     assert set(QUESTION_OUTCOMES) | NOT_QUESTIONS == set(AuditOutcome)
     assert not set(QUESTION_OUTCOMES) & NOT_QUESTIONS
     assert AuditOutcome.TOO_LONG in QUESTION_OUTCOMES  # длинный вопрос — тоже вопрос
+    # Разговор с живым оператором ведёт человек — это не вопросы к боту; сама просьба позвать его — вопрос
+    assert {AuditOutcome.TO_OPERATOR, AuditOutcome.FROM_OPERATOR} <= NOT_QUESTIONS
+    assert AuditOutcome.HANDOFF in QUESTION_OUTCOMES
 
 
 # ---------- Сводка ----------
