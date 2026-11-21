@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/epythonic/MedLLMBot/actions/workflows/ci.yml/badge.svg)](https://github.com/epythonic/MedLLMBot/actions/workflows/ci.yml)
 
-[English version](README.en.md)
+[English version](README.md)
 
 Демо-проект: Telegram-бот на **aiogram 3** и **Claude (Anthropic API)**. Он отвечает клиентам стоматологической клиники на вопросы об услугах, ценах, адресе и записи, на русском и румынском языках. Все данные хранятся в **SQLite**, а управляет ими администратор клиники через **веб-админку** (FastAPI + SQLAdmin): прайс, частые вопросы, заявки, клиенты, настройки бота. Изменения подхватываются без перезапуска.
 
@@ -208,7 +208,7 @@ medllmbot/
     ├── static/        # htmx-2.0.11.min.js, sortable-1.15.7.min.js (+ лицензии)
     ├── templates/     # отчёт, тексты справки (help/), доработки шаблонов SQLAdmin (sqladmin/)
     └── views.py       # разделы админки
-tests/                 # 463 тестов, без сети и реальных ключей
+tests/                 # 465 тестов, без сети и реальных ключей
 ```
 
 ## Быстрый старт

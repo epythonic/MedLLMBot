@@ -1,6 +1,8 @@
 # MedLLMBot: a Telegram assistant for a dental clinic, with a web admin panel
 
-[Русская версия](README.md)
+[![CI](https://github.com/epythonic/MedLLMBot/actions/workflows/ci.yml/badge.svg)](https://github.com/epythonic/MedLLMBot/actions/workflows/ci.yml)
+
+[Русская версия](README_ru.md)
 
 A demo project: a Telegram bot built on **aiogram 3** and **Claude (Anthropic API)** that answers a dental clinic's
 customers — services, prices, address, opening hours, booking — in Russian and Romanian. All data lives in **SQLite**,
@@ -133,7 +135,7 @@ docker compose run --rm migrate python -m medllmbot.db.seed --reset
 validates the keys stored in the GitHub Environment `demo`, builds `.env` from them and runs
 [deploy/deploy.sh](deploy/deploy.sh) on the server over SSH: fast-forward to `main`, rebuild the containers,
 wait until the admin panel is healthy. The CI key is bound to that script in `authorized_keys`, and the server's
-host key is pinned. Setup steps are in the Russian README, section «Демо на сервере».
+host key is pinned. Setup steps are in the Russian README, section [«Демо на сервере»](README_ru.md#демо-на-сервере).
 
 ## Development
 

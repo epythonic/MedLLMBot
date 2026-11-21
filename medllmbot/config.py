@@ -66,5 +66,5 @@ def describe_settings_error(error: ValidationError) -> str:
     return (
         "Не заданы или заданы неверно переменные окружения:\n"
         + "\n".join(lines)
-        + "\nЗаполните .env по образцу .env.example (см. README, раздел «Быстрый старт»)."
+        + "\nЗаполните .env по образцу .env.example (см. README_ru.md, раздел «Быстрый старт»)."
     )

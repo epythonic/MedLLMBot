@@ -75,7 +75,7 @@ jobs:
 
   # Деплой на демо-сервер: только после слияния PR в main и только если все проверки зелёные.
   # Секреты окружения «demo»: DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY (закрытый ключ CI),
-  # DEPLOY_KNOWN_HOSTS (вывод ssh-keyscan сервера — без него подключение не пройдёт). Настройка — в README.
+  # DEPLOY_KNOWN_HOSTS (вывод ssh-keyscan сервера — без него подключение не пройдёт). Настройка — в README_ru.md.
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
     needs: config
