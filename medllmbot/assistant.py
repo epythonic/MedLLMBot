@@ -12,6 +12,7 @@ from medllmbot.orders import DatabaseOrders, LookupLimits, OrderBackend
 from medllmbot.profiles import PROFILES, Replies
 from medllmbot.prompts import build_system_prompt, render_info, rules
 from medllmbot.security import LEAK_CODE, LeakDetector, detect_injection
+from medllmbot.text import plain_text
 from medllmbot.tools import CatalogTools, OrderTools, Toolbox
 
 # Готовые ответы — у каждого профиля свои (profiles.py). Константы — ответы профиля по умолчанию:
@@ -110,7 +111,9 @@ class ClinicAssistant:
             return await self._log(chat_id, text, reply, result=e.partial, model=config.model)
 
         prices.add_known(result.tool_prices)  # итог заказа — из системы магазина, а не выдумка модели
-        reply = self._check_answer(result, prices, self._leaks[config.profile], replies, flags)
+        # Бюджет, который клиент назвал в этом диалоге, модель может повторить: «под бюджет до 10 000 лей»
+        customer = [text, *(m["content"] for m in history if m["role"] == "user" and isinstance(m["content"], str))]
+        reply = self._check_answer(result, prices, customer, self._leaks[config.profile], replies, flags)
         # Попытки атаки не возвращаем в контекст модели: многошаговая атака не накопится
         if not reply.suspicious:
             await self.repo.save_pair(chat_id=chat_id, question=text, answer=reply.text)
@@ -127,7 +130,12 @@ class ClinicAssistant:
 
     @staticmethod
     def _check_answer(
-        result: LLMResult, prices: PriceChecker, leaks: LeakDetector, replies: Replies, flags: tuple[str, ...]
+        result: LLMResult,
+        prices: PriceChecker,
+        customer: list[str],
+        leaks: LeakDetector,
+        replies: Replies,
+        flags: tuple[str, ...],
     ) -> Reply:
         if leaks.leaks(result.text):
             return Reply(replies.fallback, AuditOutcome.LEAK_BLOCKED, (*flags, LEAK_CODE))
@@ -140,9 +148,10 @@ class ClinicAssistant:
         # Модель так и не ответила, а просила инструмент: её текст — вступление вроде «Сейчас посмотрю»
         if not result.text or result.stop_reason == "tool_use":
             return Reply(replies.fallback, AuditOutcome.EMPTY, flags)
-        if prices.has_unknown_price(text=result.text):
+        if prices.has_unknown_price(result.text, customer):
             return Reply(replies.price_fallback, AuditOutcome.PRICE_REPLACED, flags)
-        return Reply(result.text, AuditOutcome.ANSWERED, flags)
+        # Журнал хранит ответ модели как есть, клиент и история получают его без разметки
+        return Reply(plain_text(result.text), AuditOutcome.ANSWERED, flags)
 
     async def _log(
         self,

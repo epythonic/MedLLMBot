@@ -14,13 +14,20 @@ panel starts, and every schema change ships as an Alembic migration.
 - Answer-quality eval for the store profile (`evals/shop/`). It contains 38 customer questions with code checks and
   a Claude judge, and runs the real bot on a temporary copy of the demo database. It is run by hand because each run
   calls the paid API.
-- First baseline on claude-haiku-5-5: 80% ± 13% of 76 answers pass every check. The run found these issues, not yet
-  fixed:
-  - the price check replaces a correct pick with "Уточню стоимость у менеджера" when the answer repeats the
-    customer's own budget («до 10 000 лей»): 8 of 76 answers;
-  - a Romanian question sometimes gets a Russian answer;
-  - the bot does not search the catalog for services such as washing-machine installation;
-  - occasional Markdown bold.
+- First baseline on claude-haiku-5-5: 80% ± 13% of 76 answers pass every check. The issues it found are fixed below,
+  and the run after the fixes scores 97% ± 4%. Every code check passes there, and the judge flags 2 of 76 answers on
+  its rules criterion.
+
+### Fixed
+
+- The price check no longer replaces a correct pick with "Уточню стоимость у менеджера" when the answer repeats the
+  customer's own budget («до 10 000 лей»). This happened in 8 of 76 eval answers. The amount passes only if the
+  customer named it and the answer uses it as a limit. Used as an item price or a discount, it is still replaced.
+- The store bot answers a Romanian question in Romanian, although the catalog and the search results are in Russian.
+- The store bot searches the catalog for services such as washing-machine installation, instead of saying it has no
+  information. The catalog section in the prompt is now called «Товары, услуги и цены».
+- Markdown in the model's answer is stripped before the customer sees it, so Telegram no longer shows asterisks.
+  The audit log keeps the model's answer unchanged.
 
 ## [0.1.0] - 2026-11-21
 
