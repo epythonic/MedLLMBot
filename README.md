@@ -71,14 +71,18 @@ the store's own system (CMS, ERP) in a real project.
 
 ## Screenshots
 
+The admin panel is in Russian. All demo data is fictional.
+
 | | |
 | --- | --- |
 | ![Home](docs/screenshots/home.png) | ![Leads](docs/screenshots/leads.png) |
 | **Home** — how the bot works, map of sections | **Leads** — status changes right in the list |
-| ![Audit log](docs/screenshots/audit-log.png) | ![Costs](docs/screenshots/costs.png) |
-| **Audit log** — outcome of every message, attack attempts | **Costs** — Claude API spend by month |
-| ![Services](docs/screenshots/services.png) | ![Help panel](docs/screenshots/help-panel.png) |
-| **Services and prices** — drag-and-drop ordering | **Help "?"** — section guide in a side panel |
+| ![Audit log](docs/screenshots/audit-log.png) | ![Analytics](docs/screenshots/analytics.png) |
+| **Audit log** — outcome of every message, attack attempts, live operator | **Analytics** — what customers ask, dialogs that end in a lead, unanswered questions |
+| ![Costs](docs/screenshots/costs.png) | ![Orders](docs/screenshots/orders.png) |
+| **Costs** — Claude API spend by month, with a forecast | **Orders** (store) — the statuses the bot reports to customers |
+| ![Catalog](docs/screenshots/services.png) | ![Help panel](docs/screenshots/help-panel.png) |
+| **Catalog and prices** — drag-and-drop ordering | **Help "?"** — section guide in a side panel |
 
 ## Architecture
 
