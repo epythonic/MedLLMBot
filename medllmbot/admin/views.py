@@ -753,6 +753,7 @@ class BotConfigAdmin(AdminView, model=BotConfig):
         BotConfig.rate_limit,
         BotConfig.rate_window,
         BotConfig.greeting,
+        BotConfig.greeting_ro,
         BotConfig.audit_retention_days,
         BotConfig.daily_budget_usd,
         BotConfig.catalog_inline_limit,
@@ -767,7 +768,15 @@ class BotConfigAdmin(AdminView, model=BotConfig):
                 "Цена модели должна быть в «Расходы → Цены моделей»"
             ),
         },
-        "greeting": {"validators": [DataRequired()], "filters": [_strip]},
+        "greeting": {
+            "validators": [DataRequired()],
+            "filters": [_strip],
+            "description": "По-русски. Клиентам с Telegram не на русском и не на румынском — вместе с румынским",
+        },
+        "greeting_ro": {
+            "filters": [_strip],
+            "description": "Клиентам с Telegram на румынском. Пусто — всем идёт приветствие выше",
+        },
         "max_tokens": {
             "validators": [NumberRange(min=1, max=64000)],
             "description": "Длина ответа бота, а не вопроса клиента",
@@ -809,6 +818,7 @@ class BotConfigAdmin(AdminView, model=BotConfig):
         BotConfig.rate_limit: "Сообщений в окне",
         BotConfig.rate_window: "Окно rate-limit, с",
         BotConfig.greeting: "Приветствие (/start)",
+        BotConfig.greeting_ro: "Приветствие по-румынски",
         BotConfig.audit_retention_days: "Хранить журнал, дней",
         BotConfig.daily_budget_usd: "Лимит расходов в сутки, $",
         BotConfig.catalog_inline_limit: "Каталог в промпте, до позиций",

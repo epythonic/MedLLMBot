@@ -386,6 +386,15 @@ class TestBotConfigForm:
         config = load_config(db)
         assert (config.model, config.greeting) == ("claude-sonnet-5", "Здравствуйте!")
 
+    def test_romanian_greeting_is_optional(self, admin: TestClient, db: Path) -> None:
+        form = BOT_CONFIG_FORM | {"greeting_ro": "  Bună ziua!\n"}
+        assert admin.post("/admin/bot-config/edit/1", data=form, follow_redirects=False).status_code == 302
+        assert load_config(db).greeting_ro == "Bună ziua!"
+        # Пустое поле — не ошибка: тогда всем клиентам идёт первое приветствие
+        form = BOT_CONFIG_FORM | {"greeting_ro": "   "}
+        assert admin.post("/admin/bot-config/edit/1", data=form, follow_redirects=False).status_code == 302
+        assert not load_config(db).greeting_ro
+
     def test_model_without_price_is_rejected(self, admin: TestClient, db: Path) -> None:
         response = admin.post("/admin/bot-config/edit/1", data=BOT_CONFIG_FORM | {"model": "claude-haiku-5-55"})
         assert response.status_code == 400

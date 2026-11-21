@@ -389,12 +389,9 @@ class BusinessProfile(enum.Enum):
         return self.value
 
 
-DEFAULT_GREETING = (
-    "Здравствуйте! Я помощник клиники. Спросите о ценах, "
-    "услугах или запишитесь на приём.\n\n"
-    "Bună ziua! Sunt asistentul clinicii. Întrebați despre "
-    "prețuri, servicii sau programați-vă."
-)
+# Приветствия по-русски и по-румынски: бот выбирает по языку Telegram клиента, а если язык другой — шлёт оба
+DEFAULT_GREETING = "Здравствуйте! Я помощник клиники. Спросите о ценах, услугах или запишитесь на приём."
+DEFAULT_GREETING_RO = "Bună ziua! Sunt asistentul clinicii. Întrebați despre prețuri, servicii sau programați-vă."
 
 
 @final
@@ -430,6 +427,9 @@ class BotConfig(Base):
     rate_limit: Mapped[int] = mapped_column(default=10)  # не больше 10 сообщений...
     rate_window: Mapped[int] = mapped_column(default=60)  # ...за 60 секунд от одного клиента
     greeting: Mapped[str] = mapped_column(Text, default=DEFAULT_GREETING)
+    # Приветствие по-румынски. Пусто — всем клиентам идёт `greeting`: так работали настройки до этого поля,
+    # и в нём могут быть оба языка сразу
+    greeting_ro: Mapped[str | None] = mapped_column(Text, default=DEFAULT_GREETING_RO)
     # Сколько дней хранить журнал аудита (в нём телефоны и медицинские вопросы)
     audit_retention_days: Mapped[int] = mapped_column(default=90, server_default="90")
     # Сколько долларов в сутки (UTC) можно потратить на Claude; 0 — без лимита. Защита публичного демо

@@ -21,7 +21,7 @@ from medllmbot.assistant import TECH_ERROR, Reply
 from medllmbot.config import BotSettings
 from medllmbot.db.models import AuditOutcome, BotConfig, BusinessProfile, ChatMessage, Client, Lead, OperatorRelay
 from medllmbot.db.repository import QuestionRow, Repository
-from medllmbot.handlers import TEXT_ONLY
+from medllmbot.handlers import TEXT_ONLY, TEXT_ONLY_RO
 from medllmbot.main import build_dispatcher
 from medllmbot.operator import (
     ALREADY_ENDED,
@@ -38,7 +38,7 @@ from medllmbot.operator import (
     parse_end_button,
     with_operator,
 )
-from medllmbot.profiles import PROFILES
+from medllmbot.profiles import PROFILES, Replies
 from tests.conftest import CHAT_ID, Sessions, load_audit
 
 ADMIN_ID = 777
@@ -328,8 +328,16 @@ class Harness:
         reply_to: int | None = None,
         photo: bool = False,
         caption: str | None = None,
+        language_code: str | None = None,
     ) -> None:
-        user = {"id": chat_id, "is_bot": False, "first_name": "Иван", "username": "ivan" if chat_id == CHAT_ID else "boss"}
+        user: dict[str, object] = {
+            "id": chat_id,
+            "is_bot": False,
+            "first_name": "Иван",
+            "username": "ivan" if chat_id == CHAT_ID else "boss",
+        }
+        if language_code is not None:
+            user["language_code"] = language_code  # язык интерфейса Telegram клиента
         message: dict[str, object] = {
             "message_id": self._update_id + 1,
             "date": 0,
@@ -568,6 +576,48 @@ async def test_shop_replies_name_manager(harness: Harness, sessions: Sessions) -
     assert harness.session.texts(CHAT_ID) == [PROFILES[BusinessProfile.SHOP].replies.operator_started]
 
 
+class TestRomanianClient:
+    """Готовые ответы оператора — на языке клиента. Раньше румынский клиент получал их по-русски."""
+
+    ro: Replies = PROFILES[BusinessProfile.CLINIC].replies_ro
+
+    async def test_handoff_and_return(self, harness: Harness, sessions: Sessions) -> None:
+        await harness.write("Aș vrea să vorbesc cu administratorul")
+        assert harness.session.texts(CHAT_ID) == [self.ro.operator_started]
+        [event] = await load_audit(sessions)
+        assert event.final_answer == self.ro.operator_started
+
+        await harness.write("0102")  # по номеру язык не понять — берётся прошлое сообщение клиента
+        await harness.press_end()
+        # Кнопку нажал администратор: язык — по последним сообщениям клиента в истории
+        assert harness.session.texts(CHAT_ID)[-1] == self.ro.operator_ended
+
+    async def test_russian_dialog_ends_in_russian(self, harness: Harness) -> None:
+        await harness.write("Позовите администратора")
+        await harness.press_end()
+        assert harness.session.texts(CHAT_ID)[-1] == PROFILES[BusinessProfile.CLINIC].replies.operator_ended
+
+    async def test_operator_command_uses_telegram_language(self, harness: Harness) -> None:
+        # В «/operator» языка нет — он берётся из настроек Telegram клиента
+        await harness.write("/operator", language_code="ro")
+        assert harness.session.texts(CHAT_ID) == [self.ro.operator_started]
+
+    async def test_admin_unavailable(self, harness: Harness) -> None:
+        harness.session.blocked.add(ADMIN_ID)
+        await harness.write("Pot vorbi cu un operator?")
+        assert harness.session.texts(CHAT_ID) == [self.ro.tech_error]
+
+    async def test_admin_unavailable_during_dialog(self, harness: Harness) -> None:
+        await harness.write("Pot vorbi cu un operator?")
+        harness.session.blocked.add(ADMIN_ID)
+        await harness.write("Sunteți aici?")
+        assert harness.session.texts(CHAT_ID)[-1] == self.ro.tech_error
+
+    async def test_photo_in_romanian_telegram(self, harness: Harness) -> None:
+        await harness.write(None, photo=True, language_code="ro")
+        assert harness.session.texts(CHAT_ID) == [TEXT_ONLY_RO]
+
+
 async def test_operator_hours_from_config(harness: Harness, sessions: Sessions) -> None:
     async with sessions.begin() as s:
         await s.execute(update(BotConfig).values(operator_hours=2))
@@ -609,7 +659,8 @@ class TestReviewFixes:
         await harness.write("/start")
         assert await harness.repo.operator_until(CHAT_ID) is None
         config = await harness.repo.get_config()
-        assert harness.session.texts(CHAT_ID)[-1] == config.greeting
+        # Язык Telegram клиента неизвестен — оба приветствия подряд
+        assert harness.session.texts(CHAT_ID)[-1] == f"{config.greeting}\n\n{config.greeting_ro}"
         assert harness.session.texts(ADMIN_ID)[-1] == f"@ivan (chat 42): {CLIENT_LEFT}"
         await harness.write("Сколько стоит чистка?")
         assert harness.assistant.reply.await_count == 1

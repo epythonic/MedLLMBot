@@ -12,16 +12,17 @@ import pytest
 from sqlalchemy import update
 
 from medllmbot.assistant import FALLBACK_ANSWER, PRICE_FALLBACK, ClinicAssistant
-from medllmbot.db.demo_shop import SHOP_FAQ, SHOP_GREETING, SHOP_PRODUCTS, SHOP_SECTIONS
+from medllmbot.db.demo_shop import SHOP_FAQ, SHOP_GREETING, SHOP_GREETING_RO, SHOP_PRODUCTS, SHOP_SECTIONS
 from medllmbot.db.migrate import upgrade_db
-from medllmbot.db.models import DEFAULT_GREETING, AuditOutcome, BotConfig, BusinessProfile
+from medllmbot.db.models import DEFAULT_GREETING, DEFAULT_GREETING_RO, AuditOutcome, BotConfig, BusinessProfile
 from medllmbot.db.repository import Repository
 from medllmbot.db.seed import DEMO_SERVICES, PROFILE_OPTIONS, parse_args, reset_demo, seed_demo
 from medllmbot.db.seed import main as seed_main
 from medllmbot.llm import ClinicLLM
-from medllmbot.profiles import PROFILES
+from medllmbot.profiles import PROFILES, Replies
 from medllmbot.prompts import CATALOG_SEARCH_NOTE, build_system_prompt, render_info, rules
 from medllmbot.security import LeakDetector
+from medllmbot.text import Language, language_of
 from medllmbot.tools import CatalogTools, search_catalog_tool
 from tests.conftest import CHAT_ID, FakeClient, Sessions, make_response, make_tool_use
 
@@ -108,7 +109,7 @@ class TestShopDemo:
     async def test_seed_shop(self, repo: Repository, sessions: Sessions) -> None:
         assert await seed_demo(sessions, SHOP) is True
         config = await repo.get_config()
-        assert (config.profile, config.greeting) == (SHOP, SHOP_GREETING)
+        assert (config.profile, config.greeting, config.greeting_ro) == (SHOP, SHOP_GREETING, SHOP_GREETING_RO)
         knowledge = await repo.load_knowledge(catalog_inline_limit=config.catalog_inline_limit)
         assert knowledge.catalog_search
         assert [s.title for s in knowledge.sections] == [title for title, _ in SHOP_SECTIONS]
@@ -130,11 +131,13 @@ class TestShopDemo:
         await reset_demo(sessions, SHOP)
         config = await seeded_repo.get_config()
         assert (config.profile, config.greeting, config.daily_budget_usd) == (SHOP, SHOP_GREETING, 3)
+        assert config.greeting_ro == SHOP_GREETING_RO
         assert (await seeded_repo.search_catalog("")).total == len(SHOP_PRODUCTS)
 
         await reset_demo(sessions)
         config = await seeded_repo.get_config()
         assert (config.profile, config.greeting, config.daily_budget_usd) == (CLINIC, DEFAULT_GREETING, 3)
+        assert config.greeting_ro == DEFAULT_GREETING_RO
         assert (await seeded_repo.search_catalog("")).total == len(DEMO_SERVICES)
         assert (await seeded_repo.search_catalog("ноутбук")).total == 0  # индекс поиска тоже очищен
 
@@ -238,6 +241,22 @@ def test_every_profile_has_own_replies() -> None:
         assert all(staff[:5] in text.lower() for text in texts), kind
 
 
+# Как сотрудник называется по-румынски: «administratorul», «managerului»
+STAFF_RO = {CLINIC: "administrator", SHOP: "manager"}
+
+
+def test_every_profile_has_romanian_replies() -> None:
+    for kind in BusinessProfile:
+        profile = PROFILES[kind]
+        assert profile.replies_in(Language.RU) is profile.replies
+        assert profile.replies_in(Language.RO) is profile.replies_ro
+        for field in fields(Replies):
+            ru, ro = getattr(profile.replies, field.name), getattr(profile.replies_ro, field.name)
+            # Тот же детектор выбирает язык заготовки: каждая должна распознаваться как свой язык
+            assert (language_of(ru), language_of(ro)) == (Language.RU, Language.RO), (kind, field.name)
+            assert STAFF_RO[kind] in ro.lower(), (kind, field.name)
+
+
 # Настоящие марки и торговые знаки: демо-данные магазина должны быть вымышленными
 REAL_BRANDS = re.compile(
     r"\b(intel|core\s*i\d|ryzen|amd|nvidia|geforce|radeon|dolby|apple|iphone|ipad|macbook|samsung|galaxy|xiaomi"
@@ -248,7 +267,7 @@ REAL_BRANDS = re.compile(
 
 def test_shop_demo_has_no_real_brands() -> None:
     texts = [f"{name} {description or ''}" for name, _, description in SHOP_PRODUCTS]
-    texts += [content for _, content in SHOP_SECTIONS] + [f"{q} {a}" for q, a in SHOP_FAQ] + [SHOP_GREETING]
+    texts += [content for _, content in SHOP_SECTIONS] + [f"{q} {a}" for q, a in SHOP_FAQ] + [SHOP_GREETING, SHOP_GREETING_RO]
     assert [text for text in texts if REAL_BRANDS.search(text)] == []
 
 
@@ -256,15 +275,22 @@ class TestSeedProfileSettings:
     async def test_reseed_keeps_own_greeting(self, repo: Repository, sessions: Sessions) -> None:
         # Администратор поменял приветствие, потом очистил базу знаний и заполнил её заново
         async with sessions.begin() as s:
-            s.add(BotConfig(id=1, greeting="Своё приветствие"))
+            s.add(BotConfig(id=1, greeting="Своё приветствие", greeting_ro="Salutul meu"))
         await seed_demo(sessions)
-        assert (await repo.get_config()).greeting == "Своё приветствие"
+        config = await repo.get_config()
+        assert (config.greeting, config.greeting_ro) == ("Своё приветствие", "Salutul meu")
 
     async def test_other_profile_brings_its_greeting(self, repo: Repository, sessions: Sessions) -> None:
         async with sessions.begin() as s:
-            s.add(BotConfig(id=1, greeting="Своё приветствие"))
+            s.add(BotConfig(id=1, greeting="Своё приветствие", greeting_ro="Salutul meu"))
         await seed_demo(sessions, SHOP)
-        assert (await repo.get_config()).greeting == SHOP_GREETING
+        config = await repo.get_config()
+        assert (config.greeting, config.greeting_ro) == (SHOP_GREETING, SHOP_GREETING_RO)
+
+    def test_demo_greetings_are_in_their_language(self) -> None:
+        # Раньше одно приветствие несло оба языка; теперь бот сам выбирает или склеивает их
+        for greeting, greeting_ro in ((DEFAULT_GREETING, DEFAULT_GREETING_RO), (SHOP_GREETING, SHOP_GREETING_RO)):
+            assert (language_of(greeting), language_of(greeting_ro)) == (Language.RU, Language.RO)
 
     def test_seed_without_reset_warns_about_profile(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture

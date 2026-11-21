@@ -10,13 +10,16 @@ from medllmbot.assistant import (
     FALLBACK_ANSWER,
     PRICE_FALLBACK,
     TECH_ERROR,
+    TECH_ERROR_RO,
     ClinicAssistant,
     too_long,
 )
-from medllmbot.db.models import AuditOutcome, BotConfig, ModelPrice, Service, UsageDaily
+from medllmbot.db.models import AuditOutcome, BotConfig, BusinessProfile, ModelPrice, Service, UsageDaily
 from medllmbot.db.repository import Repository
 from medllmbot.llm import ClinicLLM
+from medllmbot.profiles import PROFILES
 from medllmbot.prompts import CATALOG_SEARCH_NOTE
+from medllmbot.text import Language
 from tests.conftest import CHAT_ID, CLINIC_RULES, CLINIC_TOOL, FakeClient, Sessions, load_audit, make_response, make_tool_use
 
 
@@ -412,6 +415,68 @@ async def test_answer_cost_reaches_monthly_report(
 )
 def test_too_long_names_length_in_right_form(length: int, expected: str) -> None:
     assert f": {expected}, а можно не больше 500." in too_long(length, 500)
+
+
+@pytest.mark.parametrize(
+    ("length", "expected"),
+    [
+        (501, "501 caractere"),  # 01–19 в конце числа — без «de»
+        (519, "519 caractere"),
+        (520, "520 de caractere"),
+        (600, "600 de caractere"),
+        (1001, "1001 caractere"),
+        (4096, "4096 de caractere"),
+    ],
+)
+def test_too_long_in_romanian(length: int, expected: str) -> None:
+    assert too_long(length, 500, Language.RO) == (
+        f"Mesajul este prea lung: {expected}, iar limita este de 500 de caractere. Vă rog să scrieți întrebarea mai pe scurt."
+    )
+
+
+# ---------- Готовые ответы на языке клиента ----------
+
+
+async def test_canned_replies_follow_customer_language(
+    assistant: ClinicAssistant, fake_client: FakeClient, seeded_repo: Repository, config: BotConfig
+) -> None:
+    ro = PROFILES[BusinessProfile.CLINIC].replies_ro
+    # Раньше румынский клиент получал «Уточню стоимость у администратора» по-русски
+    fake_client.messages.response = make_response("Curățarea costă doar 450 lei.")
+    reply = await assistant.reply(CHAT_ID, "Cât costă o curățare?", config)
+    assert (reply.text, reply.outcome) == (ro.price_fallback, AuditOutcome.PRICE_REPLACED)
+    history = await seeded_repo.load_history(CHAT_ID, limit=8)
+    assert history[-1]["content"] == ro.price_fallback
+
+    fake_client.messages.response = make_response("")
+    reply = await assistant.reply(CHAT_ID, "Și albirea?", config)
+    assert (reply.text, reply.outcome) == (ro.fallback, AuditOutcome.EMPTY)
+
+    fake_client.messages.error = anthropic.APIConnectionError(
+        request=httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+    )
+    reply = await assistant.reply(CHAT_ID, "Buna ziua, aveti programari azi?", config)
+    assert (reply.text, reply.outcome) == (TECH_ERROR_RO, AuditOutcome.LLM_ERROR)
+
+    reply = await assistant.reply(CHAT_ID, "Cât costă? " + "a" * config.max_len, config)
+    assert reply.outcome is AuditOutcome.TOO_LONG
+    assert reply.text.startswith("Mesajul este prea lung:")
+
+
+async def test_budget_exceeded_in_romanian(assistant: ClinicAssistant, sessions: Sessions, config: BotConfig) -> None:
+    config.daily_budget_usd = 2
+    await add_spend(sessions, 2_000_000)
+    reply = await assistant.reply(CHAT_ID, "Cât costă o curățare?", config)
+    assert reply.text == PROFILES[BusinessProfile.CLINIC].replies_ro.budget_exceeded
+
+
+async def test_language_from_caller_wins(assistant: ClinicAssistant, fake_client: FakeClient, config: BotConfig) -> None:
+    # Хендлер знает язык Telegram клиента: «S8?» по тексту не понять
+    fake_client.messages.response = make_response("")
+    reply = await assistant.reply(CHAT_ID, "S8?", config, Language.RO)
+    assert reply.text == PROFILES[BusinessProfile.CLINIC].replies_ro.fallback
+    reply = await assistant.reply(CHAT_ID, "S8?", config)
+    assert reply.text == FALLBACK_ANSWER  # по умолчанию — русский
 
 
 # ---------- Дневной лимит расходов ----------

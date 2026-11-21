@@ -6,9 +6,8 @@
 
 from medllmbot.db.models import OrderStatus
 
-SHOP_GREETING = (
-    "Здравствуйте! Я помощник магазина электроники. Помогу выбрать технику, "
-    "подскажу цены, доставку и гарантию.\n\n"
+SHOP_GREETING = "Здравствуйте! Я помощник магазина электроники. Помогу выбрать технику, подскажу цены, доставку и гарантию."
+SHOP_GREETING_RO = (
     "Bună ziua! Sunt asistentul magazinului de electronice. Vă ajut să alegeți tehnica "
     "și vă spun prețurile, livrarea și garanția."
 )

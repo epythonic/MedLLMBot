@@ -10,7 +10,7 @@ from aiogram.filters import CommandStart
 from aiogram.types import ErrorEvent, InlineKeyboardMarkup, Message
 from aiogram.utils.chat_action import ChatActionSender
 
-from medllmbot.assistant import TECH_ERROR, ClinicAssistant
+from medllmbot.assistant import TECH_ERROR, TECH_ERROR_RO, ClinicAssistant
 from medllmbot.config import BotSettings
 from medllmbot.db.models import AuditOutcome, BotConfig, BusinessProfile
 from medllmbot.db.repository import Repository
@@ -18,10 +18,12 @@ from medllmbot.guards import extract_phone
 from medllmbot.middlewares import incoming_event
 from medllmbot.profiles import PROFILES
 from medllmbot.security import FLAG_LABELS, AlertCooldown
+from medllmbot.text import Language, reply_language, telegram_language
 
 log = logging.getLogger(__name__)
 
 TEXT_ONLY = "Пожалуйста, напишите ваш вопрос текстом."
+TEXT_ONLY_RO = "Vă rog să scrieți întrebarea printr-un mesaj text."
 # Длинное сообщение бот не разбирает, но телефон из него сохраняет — клиент должен это знать.
 # У каждого профиля свой текст; константа — текст стоматологии
 LEAD_SAVED = PROFILES[BusinessProfile.CLINIC].replies.lead_saved
@@ -49,10 +51,28 @@ def create_router() -> Router:
     return router
 
 
+def greeting(config: BotConfig, telegram_code: str | None) -> str:
+    """Приветствие на языке Telegram клиента: в «/start» нет текста, по которому понять язык.
+
+    Telegram не на русском и не на румынском — оба приветствия подряд: многие клиенты пишут по-румынски
+    из Telegram на английском. Румынского приветствия нет — всем общее, в нём бывают оба языка.
+    """
+    if not config.greeting_ro:
+        return config.greeting
+    match telegram_language(telegram_code):
+        case Language.RU:
+            return config.greeting
+        case Language.RO:
+            return config.greeting_ro
+        case None:
+            return f"{config.greeting}\n\n{config.greeting_ro}"
+
+
 async def start(msg: Message, config: BotConfig, repo: Repository) -> None:
-    """Приветствие, когда клиент нажимает «Старт». Текст редактируется в админке."""
-    await log_reply(repo, msg, AuditOutcome.GREETING, config.greeting)
-    await send(msg, config.greeting)
+    """Приветствие, когда клиент нажимает «Старт». Тексты редактируются в админке."""
+    text = greeting(config, msg.from_user.language_code if msg.from_user else None)
+    await log_reply(repo, msg, AuditOutcome.GREETING, text)
+    await send(msg, text)
 
 
 async def handle_text(
@@ -67,16 +87,17 @@ async def handle_text(
 ) -> None:
     """Основной обработчик: ответ, уведомление о подозрительном сообщении, заявка."""
     text = msg.text or ""
+    language = message_language(msg)
 
     # Пока модель думает, клиент видит «печатает…»
     async with ChatActionSender.typing(bot=bot, chat_id=msg.chat.id):
-        reply = await assistant.reply(msg.chat.id, text, config)
+        reply = await assistant.reply(msg.chat.id, text, config, language)
     # Клиент оставил телефон — это заявка. Сохраняем её, даже если LLM недоступен или сообщение
     # слишком длинное для бота: поиск телефона ничего не стоит, а клиент не должен потеряться
     phone = extract_phone(text)
     answer = reply.text
     if phone and reply.outcome is AuditOutcome.TOO_LONG:
-        answer = f"{answer}\n\n{PROFILES[config.profile].replies.lead_saved}"
+        answer = f"{answer}\n\n{PROFILES[config.profile].replies_in(language).lead_saved}"
     # Сбой отправки ответа (клиент заблокировал бота, сеть) не должен терять заявку и уведомления
     await send(msg, answer)
 
@@ -99,6 +120,12 @@ async def handle_text(
 
     if phone:
         await forward_lead(msg, bot, repo, settings.admin_id, phone)
+
+
+def message_language(msg: Message) -> Language:
+    """Язык готового ответа клиенту: по тексту или подписи, а если по ним не понять — по языку его Telegram."""
+    user = msg.from_user
+    return reply_language(msg.text or msg.caption or "", user.language_code if user else None)
 
 
 def split_message(text: str, limit: int = TELEGRAM_LIMIT) -> list[str]:
@@ -182,8 +209,9 @@ async def forward_lead(msg: Message, bot: Bot, repo: Repository, admin_id: int, 
 
 async def other(msg: Message, repo: Repository) -> None:
     """Фото, голосовые, стикеры и т.п."""
-    await log_reply(repo, msg, AuditOutcome.NOT_TEXT, TEXT_ONLY)
-    await send(msg, TEXT_ONLY)
+    answer = TEXT_ONLY_RO if message_language(msg) is Language.RO else TEXT_ONLY
+    await log_reply(repo, msg, AuditOutcome.NOT_TEXT, answer)
+    await send(msg, answer)
 
 
 async def on_error(event: ErrorEvent) -> bool:
@@ -191,8 +219,10 @@ async def on_error(event: ErrorEvent) -> bool:
     log.error("Ошибка при обработке обновления %s", event.update.update_id, exc_info=event.exception)
     msg = event.update.message
     if msg is not None and msg.chat.type == ChatType.PRIVATE:
+        # Настроек здесь нет — ответ профиля по умолчанию, но на языке клиента
+        answer = TECH_ERROR_RO if message_language(msg) is Language.RO else TECH_ERROR
         try:
-            await msg.answer(TECH_ERROR)
+            await msg.answer(answer)
         except TelegramAPIError:
             log.exception("Не удалось сообщить клиенту %s об ошибке", msg.chat.id)
     return True

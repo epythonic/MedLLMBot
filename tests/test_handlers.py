@@ -7,7 +7,7 @@ from aiogram.enums import ChatType
 from aiogram.exceptions import TelegramForbiddenError
 from aiogram.methods import SendMessage
 
-from medllmbot.assistant import BUDGET_EXCEEDED, TECH_ERROR, Reply, too_long
+from medllmbot.assistant import BUDGET_EXCEEDED, TECH_ERROR, TECH_ERROR_RO, Reply, too_long
 from medllmbot.config import BotSettings
 from medllmbot.db.models import AuditEvent, AuditOutcome, BotConfig, BusinessProfile
 from medllmbot.handlers import (
@@ -15,6 +15,7 @@ from medllmbot.handlers import (
     LEAD_SAVED,
     TELEGRAM_LIMIT,
     TEXT_ONLY,
+    TEXT_ONLY_RO,
     handle_text,
     on_error,
     other,
@@ -23,6 +24,7 @@ from medllmbot.handlers import (
 )
 from medllmbot.profiles import PROFILES
 from medllmbot.security import AlertCooldown
+from medllmbot.text import Language
 
 ADMIN_ID = 777
 
@@ -39,13 +41,16 @@ class FakeClock:
         return self.now
 
 
-def make_message(text: str | None, username: str | None = "ivan", content_type: str = "text") -> AsyncMock:
+def make_message(
+    text: str | None, username: str | None = "ivan", content_type: str = "text", language_code: str | None = None
+) -> AsyncMock:
     msg = AsyncMock()
     msg.text = text
     msg.caption = None
     msg.content_type = content_type
     msg.chat = SimpleNamespace(id=42, type=ChatType.PRIVATE)
-    msg.from_user = SimpleNamespace(username=username, full_name="Иван Петров")
+    # language_code — язык интерфейса Telegram клиента; у настоящего User поле есть всегда, бывает None
+    msg.from_user = SimpleNamespace(username=username, full_name="Иван Петров", language_code=language_code)
     return msg
 
 
@@ -123,6 +128,38 @@ async def test_start_uses_greeting_from_config(config: BotConfig, repo: AsyncMoc
     assert (event.user_text, event.outcome, event.final_answer) == ("/start", AuditOutcome.GREETING, "Добро пожаловать!")
 
 
+@pytest.mark.parametrize(
+    ("language_code", "expected"),
+    [
+        ("ru", "Добро пожаловать!"),
+        ("ro", "Bine ați venit!"),
+        ("ro-MD", "Bine ați venit!"),
+        # Telegram на другом языке: многие пишут по-румынски из Telegram на английском — оба приветствия
+        ("en", "Добро пожаловать!\n\nBine ați venit!"),
+        (None, "Добро пожаловать!\n\nBine ați venit!"),
+    ],
+)
+async def test_greeting_follows_telegram_language(
+    config: BotConfig, repo: AsyncMock, language_code: str | None, expected: str
+) -> None:
+    config.greeting_ro = "Bine ați venit!"
+    msg = make_message("/start", language_code=language_code)
+    await start(msg, config, repo)
+    msg.answer.assert_awaited_once_with(expected)
+    assert logged_event(repo).final_answer == expected
+
+
+@pytest.mark.parametrize("greeting_ro", [None, ""])
+async def test_without_romanian_greeting_everyone_gets_the_same(
+    config: BotConfig, repo: AsyncMock, greeting_ro: str | None
+) -> None:
+    # Так работали настройки до поля: в общем приветствии бывают оба языка
+    config.greeting_ro = greeting_ro
+    msg = make_message("/start", language_code="ro")
+    await start(msg, config, repo)
+    msg.answer.assert_awaited_once_with("Добро пожаловать!")
+
+
 async def test_regular_question(
     call: HandleText, assistant: AsyncMock, repo: AsyncMock, bot: AsyncMock, config: BotConfig
 ) -> None:
@@ -130,7 +167,8 @@ async def test_regular_question(
 
     await call(msg)
 
-    assistant.reply.assert_awaited_once_with(42, "Сколько стоит чистка?", config)
+    # Язык готовых ответов хендлер определяет сам: ему известен и язык Telegram клиента
+    assistant.reply.assert_awaited_once_with(42, "Сколько стоит чистка?", config, Language.RU)
     msg.answer.assert_awaited_once_with("Администратор перезвонит вам.")
     repo.create_lead.assert_not_awaited()
     bot.send_message.assert_not_awaited()
@@ -196,6 +234,40 @@ async def test_lead_saved_text_follows_profile(
     assert "менеджер перезвонит" in shop_text
     msg.answer.assert_awaited_once_with(f"{too_long(len(text), 500)}\n\n{shop_text}")
     repo.create_lead.assert_awaited_once()
+
+
+async def test_lead_saved_text_follows_language(call: HandleText, assistant: AsyncMock, repo: AsyncMock) -> None:
+    # Румынскому клиенту раньше дописывалось «Номер телефона мы сохранили» по-русски
+    text = "Vreau o programare, numărul meu 069123456 " + "a" * 600
+    assistant.reply.return_value = Reply(too_long(len(text), 500, Language.RO), AuditOutcome.TOO_LONG)
+    msg = make_message(text)
+
+    await call(msg)
+
+    assert assistant.reply.await_args is not None
+    assert assistant.reply.await_args.args[3] is Language.RO
+    lead_saved = PROFILES[BusinessProfile.CLINIC].replies_ro.lead_saved
+    msg.answer.assert_awaited_once_with(f"{too_long(len(text), 500, Language.RO)}\n\n{lead_saved}")
+    repo.create_lead.assert_awaited_once()
+
+
+@pytest.mark.parametrize(
+    ("text", "language_code", "language"),
+    [
+        ("Cât costă o curățare?", None, Language.RO),
+        ("cat costa o curatare?", "ru", Language.RO),  # текст важнее языка Telegram
+        ("Сколько стоит чистка?", "ro", Language.RU),
+        ("S8?", "ro", Language.RO),  # по тексту не понять — язык Telegram клиента
+        ("S8?", "en", Language.RU),
+        ("S8?", None, Language.RU),
+    ],
+)
+async def test_reply_language_reaches_assistant(
+    call: HandleText, assistant: AsyncMock, text: str, language_code: str | None, language: Language
+) -> None:
+    await call(make_message(text, language_code=language_code))
+    assert assistant.reply.await_args is not None
+    assert assistant.reply.await_args.args[3] is language
 
 
 async def test_too_long_message_without_phone(call: HandleText, assistant: AsyncMock, repo: AsyncMock) -> None:
@@ -282,6 +354,20 @@ async def test_non_text_message(repo: AsyncMock) -> None:
     assert (event.user_text, event.outcome) == ("[photo]", AuditOutcome.NOT_TEXT)
 
 
+async def test_non_text_message_in_romanian(repo: AsyncMock) -> None:
+    # У фото без подписи текста нет — язык берётся из Telegram клиента
+    msg = make_message(None, content_type="photo", language_code="ro")
+    await other(msg, repo)
+    msg.answer.assert_awaited_once_with(TEXT_ONLY_RO)
+    assert logged_event(repo).final_answer == TEXT_ONLY_RO
+
+    # Подпись по-русски важнее языка Telegram
+    msg = make_message(None, content_type="photo", language_code="ro")
+    msg.caption = "Вот фото чека"
+    await other(msg, repo)
+    msg.answer.assert_awaited_once_with(TEXT_ONLY)
+
+
 # ---------- Дневной лимит расходов ----------
 
 
@@ -351,3 +437,12 @@ async def test_unexpected_error_still_answers_client() -> None:
 
     assert await on_error(event) is True
     event.update.message.answer.assert_awaited_once_with(TECH_ERROR)
+
+
+async def test_unexpected_error_answers_in_romanian() -> None:
+    event = AsyncMock()
+    event.update.message = make_message("Cât costă o curățare?")
+    event.exception = RuntimeError("database is locked")
+
+    assert await on_error(event) is True
+    event.update.message.answer.assert_awaited_once_with(TECH_ERROR_RO)

@@ -45,6 +45,10 @@ the store's own system (CMS, ERP) in a real project.
   and answers right from Telegram by replying to the bot's message. While the operator has the dialog, the bot stays
   silent and forwards the customer's messages, photos included, without calling Claude. A "return to bot" button or a
   timeout from the settings hands the dialog back.
+- Sends its fixed replies (technical error, "message too long", "I'll check with the administrator") in the customer's
+  language, Russian or Romanian. The language comes from the message, or from the customer's Telegram language when
+  the text gives no clue: a command, an order number, a photo without a caption. The `/start` greeting follows the
+  Telegram language; customers whose Telegram is in another language get both.
 - Shows "typing…" while the model thinks; long answers are split to fit Telegram's message limit.
 - Defends against long messages, spam and prompt injection; ignores customers blocked in the admin panel.
 - Writes an **audit log**: every incoming message, including rejected ones, with the raw and the delivered answer,

@@ -18,6 +18,22 @@ panel starts, and every schema change ships as an Alembic migration.
   and the run after the fixes scores 97% ± 4%. Every code check passes there, and the judge flags 2 of 76 answers on
   its rules criterion.
 
+### Changed
+
+- The bot's fixed replies are in the customer's language. Before, a Romanian customer got them in Russian: the
+  technical error, "Уточню стоимость у менеджера", "message too long", "type your question as text" and the
+  live-operator messages. The language comes from the message text. When the text gives no clue, the bot uses the
+  customer's Telegram language, as for a command, an order number or a photo without a caption. When the operator
+  returns the dialog, the bot uses the customer's latest messages.
+- The bot settings have a separate Romanian greeting. `/start` carries no text to detect the language from, so the
+  bot goes by the customer's Telegram language:
+  - Russian: the Russian greeting;
+  - Romanian: the Romanian greeting;
+  - any other language: both.
+
+  If the Romanian greeting is empty, everyone gets the main greeting. Existing settings keep working this way after
+  the migration.
+
 ### Fixed
 
 - The price check no longer replaces a correct pick with "Уточню стоимость у менеджера" when the answer repeats the
