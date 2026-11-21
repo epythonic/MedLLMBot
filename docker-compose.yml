@@ -1,0 +1,67 @@
+x-app: &app
+  build: .
+  image: medllmbot
+  env_file: .env
+  volumes:
+    - bot-storage:/app/storage
+
+services:
+  # Схема БД обновляется до старта бота и админки. Они и сами вызывают upgrade при запуске,
+  # но к этому моменту обновлять уже нечего — два процесса не мигрируют базу одновременно
+  migrate:
+    <<: *app
+    command: ["python", "-m", "medllmbot.db.migrate"]
+
+  bot:
+    <<: *app
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  admin:
+    <<: *app
+    command: ["python", "-m", "medllmbot.admin"]
+    environment:
+      ADMIN_HOST: 0.0.0.0
+      # Доверять X-Forwarded-For / -Proto от Caddy: иначе все входы придут «с одного адреса»
+      # (защита от перебора пароля заблокирует всех), а ссылки будут на http://
+      FORWARDED_ALLOW_IPS: "*"
+    # Админка доступна только с этой машины; наружу — через reverse proxy с HTTPS
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/admin/login')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      # Сразу после старта проверять чаще: деплой ждёт статуса healthy
+      start_period: 30s
+      start_interval: 2s
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  # Только на демо-сервере: docker compose --profile https up -d (нужен DOMAIN в .env)
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["https"]
+    environment:
+      DOMAIN: ${DOMAIN:-}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - admin
+    restart: unless-stopped
+
+volumes:
+  bot-storage:
+  caddy-data:
+  caddy-config:

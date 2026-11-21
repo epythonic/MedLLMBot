@@ -1,0 +1,6 @@
+{# Список SQLAdmin с плашкой о новых записях: блок сам опрашивает сервер раз в 15 секунд (HTMX) #}
+{% extends "sqladmin/list.html" %}
+{% block content %}
+<div class="d-none" hx-get="{{ url_for('admin:view-' ~ model_view.live_route) }}" hx-trigger="load" hx-swap="outerHTML"></div>
+{{ super() }}
+{% endblock %}

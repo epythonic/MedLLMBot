@@ -1,0 +1,39 @@
+{#
+  Макет SQLAdmin + HTMX + панель справки «?». Оригинальный макет SQLAdmin доступен как sqladmin_original/layout.html.
+  Справка раздела находится по identity: у ModelView — из model_view, у своих страниц — из help_identity в контексте.
+#}
+{% extends "sqladmin_original/layout.html" %}
+{% block head_tail %}
+{{ super() }}
+{#
+  HTMX без eval и без вставки <script> из ответов. Ответы 4xx тоже показываем:
+  в них текст ошибки для пользователя (например, «Заявка не найдена»).
+#}
+<meta name="htmx-config" content='{"allowEval": false, "allowScriptTags": false, "includeIndicatorStyles": false, "responseHandling": [{"code": "204", "swap": false}, {"code": "[23]..", "swap": true}, {"code": "4..", "swap": true, "error": true}, {"code": "...", "swap": false, "error": true}]}'>
+<script src="{{ url_for('static', path='htmx-2.0.11.min.js') }}" defer></script>
+<style>
+  .lead-status.is-saved { animation: saved-flash 1.6s ease-out; }
+  @keyframes saved-flash {
+    from { box-shadow: 0 0 0 .25rem var(--tblr-green-lt); border-color: var(--tblr-green); }
+    to { box-shadow: none; }
+  }
+</style>
+<script>
+  // Ошибка сервера или сети при сохранении: HTMX ничего не заменит, поэтому сообщаем явно.
+  // Ответы 4xx не трогаем — их текст HTMX уже показал на месте элемента.
+  document.addEventListener("htmx:afterRequest", (event) => {
+    const { failed, xhr, requestConfig } = event.detail;
+    const clientError = xhr && xhr.status >= 400 && xhr.status < 500;
+    if (failed && requestConfig?.verb !== "get" && !clientError) {
+      window.alert("Не удалось сохранить изменения. Обновите страницу и попробуйте ещё раз.");
+    }
+  });
+</script>
+{% endblock %}
+{% block body %}
+{{ super() }}
+{% set topic = help_topic(model_view.identity if model_view is defined else help_identity | default(none)) %}
+{% if topic %}
+{% include "help/_panel.html" %}
+{% endif %}
+{% endblock %}

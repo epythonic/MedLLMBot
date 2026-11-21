@@ -1,0 +1,49 @@
+{# Главная админки: как устроен бот и карта разделов. Заменяет пустую главную SQLAdmin. #}
+{% extends "sqladmin/layout.html" %}
+{% from "help/_macros.html" import section_url, section_link with context %}
+{% block content %}
+{% include "help/_assets.html" %}
+<div class="col-12">
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">Как работает бот</h3>
+      <div class="card-actions">
+        <a class="btn btn-sm" href="{{ url_for('admin:view-help') }}"><i class="fa-solid fa-book me-2"></i>Справка</a>
+      </div>
+    </div>
+    <div class="card-body help-doc">
+      <ol>
+        <li><b>Клиент пишет боту</b> в Telegram и появляется в {{ section_link('client') }}.</li>
+        <li><b>Проверки до Claude:</b> заблокирован ли клиент, не пишет ли слишком часто, не слишком ли длинное
+          сообщение, нет ли признаков атаки.</li>
+        <li><b>Claude отвечает</b> по базе знаний — {{ section_link('service') }}, {{ section_link('faq-item') }},
+          {{ section_link('info-section') }} — и по последним сообщениям из {{ section_link('chat-message') }}.</li>
+        <li><b>Проверка ответа:</b> выдуманные цены и фрагменты правил бота клиенту не уходят.</li>
+        <li><b>Учёт:</b> каждое сообщение попадает в {{ section_link('audit-event') }}, стоимость —
+          в {{ section_link('costs') }}.</li>
+        <li><b>Телефон в сообщении</b> — это заявка: она появляется в {{ section_link('lead') }},
+          а администратор получает уведомление в Telegram.</li>
+      </ol>
+      <p class="mb-0">У каждого раздела рядом с заголовком есть значок <i class="fa-regular fa-circle-question"></i>:
+        наведите — короткая подсказка, нажмите — подробная справка сбоку. Такие же значки стоят у полей
+        и колонок. Клавиши F1 или «?» открывают справку раздела.</p>
+    </div>
+  </div>
+</div>
+{% for view in admin.views %}
+{% set topic = help_topic(view.identity) %}
+{% if topic %}
+<div class="col-md-6 col-xl-4">
+  <div class="card">
+    <div class="card-body">
+      <div class="text-secondary small">{{ view.category or "Настройки" }}</div>
+      <h3 class="card-title mb-2">
+        <i class="{{ view.icon }} me-2"></i><a href="{{ section_url(view) }}">{{ topic.title }}</a>
+      </h3>
+      <p class="text-secondary mb-0">{{ topic.summary }}</p>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endfor %}
+{% endblock %}

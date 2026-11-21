@@ -1,0 +1,59 @@
+{% extends "sqladmin/layout.html" %}
+{% block content %}
+{% if not months %}
+<div class="col-12">
+  <div class="card">
+    <div class="card-body">Запросов к модели ещё не было.</div>
+  </div>
+</div>
+{% endif %}
+{% for month in months %}
+<div class="col-12">
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">{{ month.month }}</h3>
+      <div class="card-actions">
+        <strong>{{ month.total.cost_micro_usd | usd }}</strong>
+        {% if month.forecast_micro_usd is not none %}
+        <span class="text-secondary ms-3">прогноз на месяц: {{ month.forecast_micro_usd | usd }}</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table card-table table-vcenter text-nowrap">
+        <thead>
+          <tr>
+            <th>Модель</th>
+            <th class="text-end">Запросов</th>
+            <th class="text-end">Вход</th>
+            <th class="text-end">Выход</th>
+            <th class="text-end">Из кэша</th>
+            <th class="text-end">В кэш</th>
+            <th class="text-end">Стоимость</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in month.rows + [month.total] %}
+          <tr{% if loop.last %} class="fw-bold"{% endif %}>
+            <td>{{ row.model }}</td>
+            <td class="text-end">{{ "{:,}".format(row.requests) }}</td>
+            <td class="text-end">{{ "{:,}".format(row.input_tokens) }}</td>
+            <td class="text-end">{{ "{:,}".format(row.output_tokens) }}</td>
+            <td class="text-end">{{ "{:,}".format(row.cache_read_tokens) }}</td>
+            <td class="text-end">{{ "{:,}".format(row.cache_write_tokens) }}</td>
+            <td class="text-end">{{ row.cost_micro_usd | usd }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if month.total.unpriced_requests %}
+    <div class="card-footer text-warning">
+      {{ month.total.unpriced_requests }} запрос(ов) без цены — добавьте модель в «Цены моделей»,
+      иначе итог занижен.
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

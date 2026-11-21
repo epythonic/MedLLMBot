@@ -1,0 +1,66 @@
+{#
+  Список SQLAdmin, где порядок меняют перетаскиванием: SortableJS двигает строки,
+  HTMX отправляет id всех строк в новом порядке. Сохранять можно только весь раздел целиком,
+  поэтому при поиске, фильтре или нескольких страницах перетаскивание выключено.
+#}
+{% extends "sqladmin/list.html" %}
+{% block content %}
+{% set narrowed = request.query_params | reject("in", ["page", "pageSize"]) | list %}
+{% set reorder_enabled = not narrowed and pagination.page == 1 and pagination.count <= pagination.page_size %}
+<div class="col-12">
+  <div id="reorder-bar" class="d-flex align-items-center gap-2 text-secondary"
+       data-url="{{ url_for('admin:view-reorder', section=model_view.identity) }}"
+       data-enabled="{{ 'true' if reorder_enabled else 'false' }}" hx-sync="this:queue last">
+    <i class="fa-solid fa-grip-vertical"></i>
+    {% if reorder_enabled %}
+    <span id="reorder-status" role="status" aria-live="polite">
+      Чтобы поменять порядок, перетащите строку за значок в колонке «Порядок» — он сохранится сразу.
+    </span>
+    {% else %}
+    <span>
+      Перетаскивание работает, когда в списке нет поиска и фильтров и все записи на одной странице.
+      <a href="{{ url_for('admin:list', identity=model_view.identity) }}">Показать весь список</a>
+    </span>
+    {% endif %}
+  </div>
+</div>
+{{ super() }}
+<style>
+  .drag-handle { display: inline-block; padding: .25rem .5rem; color: var(--tblr-secondary); cursor: grab; }
+  .drag-handle:hover { color: var(--tblr-primary); }
+  .drag-handle.disabled { cursor: not-allowed; opacity: .35; }
+  tr.sortable-ghost { background: var(--tblr-primary-lt); }
+  tr.sortable-chosen { cursor: grabbing; }
+</style>
+<script src="{{ url_for('static', path='sortable-1.15.7.min.js') }}" defer></script>
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const bar = document.getElementById("reorder-bar");
+    const firstHandle = document.querySelector(".card-table tbody .drag-handle");
+    if (!bar || !firstHandle || !window.Sortable || !window.htmx) return;
+
+    if (bar.dataset.enabled !== "true") {
+      for (const handle of document.querySelectorAll(".drag-handle")) {
+        handle.classList.add("disabled");
+        handle.title = "Сбросьте поиск и фильтры, чтобы менять порядок";
+      }
+      return;
+    }
+
+    const tbody = firstHandle.closest("tbody");
+    Sortable.create(tbody, {
+      handle: ".drag-handle",
+      draggable: "tr",
+      animation: 150,
+      ghostClass: "sortable-ghost",
+      chosenClass: "sortable-chosen",
+      onEnd: (event) => {
+        if (event.oldIndex === event.newIndex) return;
+        const order = [...tbody.querySelectorAll("input[name='order']")].map((input) => input.value);
+        // source: bar — у него hx-sync, поэтому быстрые перетаскивания сохраняются по очереди, последним — итоговый порядок
+        htmx.ajax("POST", bar.dataset.url, { source: bar, target: "#reorder-status", swap: "innerHTML", values: { order } });
+      },
+    });
+  });
+</script>
+{% endblock %}
