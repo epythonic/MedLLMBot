@@ -1,0 +1,35 @@
+# Секреты
+.env
+
+# Данные бота (история переписки и заявки с телефонами)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+storage/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+build/
+dist/
+
+# Инструменты
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+.playwright-mcp/
+
+# Черновики и патчи вне проекта
+Claude outputs/
+
+# Инструкции для AI-агентов — только локально
+CLAUDE.md

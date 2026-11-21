@@ -1,0 +1,25 @@
+{# Макросы текстов справки. Импортировать with context: url_for нужен request. #}
+
+{# Адрес раздела админки по его view #}
+{% macro section_url(view) -%}
+{{ url_for('admin:list', identity=view.identity) if view.is_model else url_for('admin:view-' ~ view.identity) }}
+{%- endmacro %}
+
+{# Ссылка на раздел по identity. Опечатка в identity видна на странице и ловится тестами. #}
+{% macro section_link(identity) -%}
+{%- set found = namespace(view=none) -%}
+{%- for view in admin.views if view.identity == identity %}{% set found.view = view %}{% endfor -%}
+{%- if found.view -%}
+<a href="{{ section_url(found.view) }}">«{{ help_topic(identity).title if help_topic(identity) else found.view.name }}»</a>
+{%- else -%}
+<span class="text-danger">[нет раздела {{ identity }}]</span>
+{%- endif -%}
+{%- endmacro %}
+
+{# Выноска: info — пояснение, warning — осторожно, danger — нельзя, success — совет #}
+{% macro note(kind="info", title=none) -%}
+<div class="alert alert-{{ kind }} help-note" role="note">
+  {% if title %}<h4 class="alert-title">{{ title }}</h4>{% endif %}
+  <div>{{ caller() }}</div>
+</div>
+{%- endmacro %}

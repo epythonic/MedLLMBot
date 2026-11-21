@@ -1,0 +1,115 @@
+{#
+  Значки «?» и боковая панель справки раздела. Подключается из sqladmin/layout.html, ожидает topic.
+  Наведение на «?» — короткая подсказка, клик — панель справа, прокрученная к нужному блоку.
+  Панель не блокирует страницу: с ней можно продолжать работать в разделе.
+#}
+{% set help_view = model_view if model_view is defined else none %}
+{% include "help/_assets.html" %}
+
+{# Подсказки полей. Скрипт ставит «?» у подписи поля формы, заголовка колонки или строки на странице записи #}
+<template id="help-hints">
+  {%- for name, text in topic.fields.items() %}
+  <span data-name="{{ name }}"
+        data-label="{{ help_view._column_labels.get(name, name) if help_view else name }}"
+        data-anchor="{{ topic.field_anchor(name) }}"
+        data-text="{{ text }}"></span>
+  {%- endfor %}
+</template>
+
+<div class="offcanvas offcanvas-end help-panel" tabindex="-1" id="help-panel"
+     data-bs-backdrop="false" data-bs-scroll="true" aria-labelledby="help-panel-title"
+     data-summary="{{ topic.summary }}">
+  <div class="offcanvas-header">
+    <h2 class="offcanvas-title" id="help-panel-title">
+      <i class="fa-regular fa-circle-question me-2"></i>{{ topic.title }}
+    </h2>
+    <a class="btn btn-sm ms-auto me-2" href="{{ url_for('admin:view-help') }}#{{ topic.anchor() }}"
+       target="_blank" rel="noopener">Вся справка</a>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Закрыть"></button>
+  </div>
+  <div class="offcanvas-body help-doc">
+    {% include "help/_topic.html" %}
+    <p class="text-secondary small mt-4 mb-0">F1 или «?» на клавиатуре — открыть и закрыть справку.</p>
+  </div>
+</div>
+
+<script>
+  (() => {
+    const init = () => {
+      // Bootstrap входит в tabler.min.js, который SQLAdmin подключает в конце страницы
+      const { Offcanvas, Tooltip } = window.tabler ?? {};
+      const panelEl = document.getElementById("help-panel");
+      if (!Offcanvas || !Tooltip || !panelEl) return;
+      const panel = Offcanvas.getOrCreateInstance(panelEl);
+      const panelBody = panelEl.querySelector(".offcanvas-body");
+
+      // Открыть панель и прокрутить к блоку справки, подсветив его
+      const open = (anchor) => {
+        panel.show();
+        const target = anchor ? document.getElementById(anchor) : null;
+        if (!target) {
+          panelBody.scrollTop = 0;
+          return;
+        }
+        target.scrollIntoView({ block: "center" });
+        target.classList.remove("help-flash");
+        void target.offsetWidth; // перезапуск анимации подсветки
+        target.classList.add("help-flash");
+      };
+
+      const helpButton = (text, anchor, extraClass = "") => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `help-q ${extraClass}`;
+        button.setAttribute("aria-label", `Справка: ${text}`);
+        button.innerHTML = '<i class="fa-regular fa-circle-question"></i>';
+        const tooltip = new Tooltip(button, { title: text, placement: "top", customClass: "help-tooltip" });
+        button.addEventListener("click", (event) => {
+          // «?» может стоять внутри <label> или ссылки сортировки — не отдаём им клик
+          event.preventDefault();
+          event.stopPropagation();
+          tooltip.hide();
+          open(anchor);
+        });
+        return button;
+      };
+
+      // «?» раздела — у заголовка страницы, а если его нет — у заголовка первой карточки
+      const title = [...document.querySelectorAll(".page-title, .card-header .card-title")].find(
+        (el) => el.textContent.trim() && !panelEl.contains(el),
+      );
+      title?.append(helpButton(`${panelEl.dataset.summary} Нажмите — подробная справка.`, null, "help-q--section"));
+
+      // «?» полей: подписи в форме, заголовки колонок списка, строки на странице записи
+      const cells = [...document.querySelectorAll(".card-table thead th")];
+      if (location.pathname.includes("/details/")) {
+        cells.push(...document.querySelectorAll(".card-table tbody td:first-child"));
+      }
+      for (const hint of document.getElementById("help-hints").content.children) {
+        const { name, label, anchor, text } = hint.dataset;
+        const targets = [
+          ...document.querySelectorAll(`label[for="${CSS.escape(name)}"]`),
+          ...cells.filter((cell) => cell.textContent.trim() === label),
+        ];
+        for (const el of targets) el.append(" ", helpButton(text, anchor));
+      }
+
+      // F1 или «?» — открыть и закрыть справку, кроме набора текста в полях
+      document.addEventListener("keydown", (event) => {
+        const el = event.target;
+        if (el instanceof HTMLElement && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName))) {
+          return;
+        }
+        if (event.key === "F1" || (event.key === "?" && !event.ctrlKey && !event.metaKey && !event.altKey)) {
+          event.preventDefault();
+          panel.toggle();
+        }
+      });
+    };
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", init);
+    } else {
+      init();
+    }
+  })();
+</script>

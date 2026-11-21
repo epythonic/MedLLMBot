@@ -1,0 +1,21 @@
+{#
+  Справка одного раздела: краткое описание, текст из topics/<identity>.html и таблица полей.
+  Ожидает в контексте topic и help_view (view раздела или none — тогда подписи полей равны ключам).
+#}
+<section id="{{ topic.anchor() }}" class="help-topic">
+  <p class="text-secondary">{{ topic.summary }}</p>
+  {% include topic.template %}
+  {% if topic.fields %}
+  <h3 id="{{ topic.anchor('fields') }}">Поля и колонки</h3>
+  <table class="table table-sm">
+    <tbody>
+      {% for name, text in topic.fields.items() %}
+      <tr id="{{ topic.field_anchor(name) }}">
+        <td>{{ help_view._column_labels.get(name, name) if help_view else name }}</td>
+        <td>{{ text }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</section>

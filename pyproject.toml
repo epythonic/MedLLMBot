@@ -1,0 +1,76 @@
+[project]
+name = "medllmbot"
+version = "0.1.0"
+description = "Telegram-бот помощник стоматологии на aiogram 3 и Claude (Anthropic API)"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.14"
+dependencies = [
+    "aiogram>=3.31,<4",
+    "aiosqlite>=0.21",
+    "alembic>=1.20.1",
+    "anthropic>=2.7,<3",
+    "fastapi>=0.162.2",
+    "itsdangerous>=2.2.0",
+    "pydantic-settings>=2.6",
+    "python-multipart>=0.0.33",
+    "sqladmin[i18n]>=0.32.0",
+    "sqlalchemy[asyncio]>=2.0",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.40.2",
+    "httpx>=0.28.1",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.25",
+    "ruff>=0.9",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 126
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "ASYNC", "RUF"]
+ignore = [
+    # Русский текст в строках и комментариях — не ошибка
+    "RUF001",
+    "RUF002",
+    "RUF003",
+    # Длину строк выравнивает ruff format; длинные строки-литералы и комментарии не ошибка
+    "E501",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# SQLAdmin настраивается изменяемыми атрибутами класса — это его API
+"medllmbot/admin/views.py" = ["RUF012"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.basedpyright]
+# Окружение uv — чтобы IDE и CLI видели одни и те же установленные пакеты
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.14"
+typeCheckingMode = "recommended"
+include = ["medllmbot", "tests"]
+exclude = ["**/__pycache__", ".venv"]
+# Отключены правила, которые не ловят ошибок, а только требуют шума в коде:
+# `_ = await session.execute(...)` на каждый вызов и запрет склейки длинных строк
+reportUnusedCallResult = false
+reportImplicitStringConcatenation = false
+executionEnvironments = [
+    # Моки (AsyncMock) по своей природе возвращают Any — в тестах это не ошибка
+    { root = "tests", extraPaths = ["."], reportAny = false },
+    { root = "." },
+]
+

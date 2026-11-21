@@ -1,0 +1,34 @@
+{# Стили справки: значки «?», боковая панель и оформление текста справки (.help-doc) #}
+<style>
+  .help-q {
+    border: 0;
+    background: none;
+    padding: 0 .2rem;
+    color: var(--tblr-secondary);
+    font-size: .95em;
+    line-height: 1;
+    vertical-align: baseline;
+    cursor: pointer;
+  }
+  .help-q:hover, .help-q:focus-visible { color: var(--tblr-primary); }
+  .help-q--section { margin-left: .35rem; font-size: 1.1em; }
+  .help-panel { --tblr-offcanvas-width: min(640px, 100vw); }
+  .help-tooltip .tooltip-inner { max-width: 360px; text-align: left; }
+  .help-doc { line-height: 1.55; }
+  .help-doc h3 { margin: 1.75rem 0 .6rem; font-size: 1.05rem; }
+  .help-doc h3:first-child { margin-top: 0; }
+  .help-doc ol, .help-doc ul { padding-left: 1.3rem; }
+  .help-doc li { margin-bottom: .4rem; }
+  .help-doc .help-note { margin: 1rem 0; }
+  .help-doc table { margin-bottom: 1rem; }
+  .help-doc table td:first-child { width: 32%; font-weight: 500; }
+  .help-doc code { white-space: nowrap; }
+  @media (min-width: 1200px) {
+    .help-toc { position: sticky; top: 1rem; }  /* оглавление остаётся на экране при прокрутке */
+  }
+  .help-flash { animation: help-flash 1.8s ease-out; }
+  @keyframes help-flash {
+    from { background: var(--tblr-yellow-lt); }
+    to { background: transparent; }
+  }
+</style>

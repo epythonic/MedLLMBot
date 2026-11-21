@@ -1,0 +1,45 @@
+{# Страница «Справка»: справка всех разделов подряд, с оглавлением. Удобно читать целиком или распечатать. #}
+{% extends "sqladmin/layout.html" %}
+{% from "help/_macros.html" import section_url with context %}
+{% block content %}
+{% include "help/_assets.html" %}
+{#
+  SQLAdmin кладёт страницу в .row-deck, а Tabler делает каждую его колонку flex-рядом и растягивает карточки.
+  Поэтому оглавлению — align-items-start (не тянуть на всю высоту), колонке разделов — d-block
+  (иначе все карточки встают в одну строку узкими столбиками).
+#}
+<div class="col-12 col-xl-3 align-items-start">
+  <div class="card help-toc">
+    <div class="card-header">
+      <h3 class="card-title">Разделы</h3>
+    </div>
+    <div class="list-group list-group-flush">
+      {% for view in admin.views if help_topic(view.identity) %}
+      <a class="list-group-item list-group-item-action" href="#{{ help_topic(view.identity).anchor() }}">
+        <i class="{{ view.icon }} me-2 text-secondary"></i>{{ help_topic(view.identity).title }}
+        {% if view.category %}<span class="text-secondary small">· {{ view.category }}</span>{% endif %}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+<div class="col-12 col-xl-9 d-block">
+  {% for view in admin.views %}
+  {% set topic = help_topic(view.identity) %}
+  {% if topic %}
+  {% set help_view = view if view.is_model else none %}
+  <div class="card mb-3">
+    <div class="card-header">
+      <h3 class="card-title"><i class="{{ view.icon }} me-2"></i>{{ topic.title }}</h3>
+      <div class="card-actions">
+        <a class="btn btn-sm" href="{{ section_url(view) }}">Открыть раздел</a>
+      </div>
+    </div>
+    <div class="card-body help-doc">
+      {% include "help/_topic.html" %}
+    </div>
+  </div>
+  {% endif %}
+  {% endfor %}
+</div>
+{% endblock %}
