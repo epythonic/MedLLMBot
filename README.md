@@ -175,6 +175,20 @@ uv run basedpyright
 Tests never touch the network: the Anthropic client and Telegram objects are replaced with fakes. CI runs linting,
 type checking and tests on Python 3.14, checks the demo server keys, and builds the Docker image.
 
+**Answer-quality eval.** Tests check the code; `evals/shop/` measures the model's answers. It has 38 store customer
+questions: prices, picking within a budget, items not in the catalog, store policies, order status, bot rules and
+Romanian. They go to the real bot (store prompt and tools) on a temporary copy of the demo database. Code checks
+cover required prices and terms, no order-data leaks, the expected tool call, language and no Markdown; a Claude
+judge grades groundedness, rules and helpfulness.
+
+```bash
+uv run python -m evals.shop.run --reps 2    # full set: 76 answers, about $0.80 and 2.5 minutes
+uv run python -m evals.shop.run --regrade   # free: re-run the code checks on stored answers
+```
+
+It costs money, so it runs by hand, not in CI. First baseline (claude-haiku-5-5): **80% ± 13%** of answers pass every
+check; store policies, order status, rules and missing items score 100%; the weak spots are budget picks and Romanian.
+
 ## Limitations of the demo
 
 - Long polling only (no webhook); rate-limit and login counters live in one process's memory.

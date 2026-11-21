@@ -62,7 +62,7 @@ venvPath = "."
 venv = ".venv"
 pythonVersion = "3.14"
 typeCheckingMode = "recommended"
-include = ["medllmbot", "tests"]
+include = ["medllmbot", "evals", "tests"]
 exclude = ["**/__pycache__", ".venv"]
 # Отключены правила, которые не ловят ошибок, а только требуют шума в коде:
 # `_ = await session.execute(...)` на каждый вызов и запрет склейки длинных строк

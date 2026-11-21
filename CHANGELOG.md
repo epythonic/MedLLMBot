@@ -9,6 +9,19 @@ panel starts, and every schema change ships as an Alembic migration.
 
 ## [Unreleased]
 
+### Added
+
+- Answer-quality eval for the store profile (`evals/shop/`). It contains 38 customer questions with code checks and
+  a Claude judge, and runs the real bot on a temporary copy of the demo database. It is run by hand because each run
+  calls the paid API.
+- First baseline on claude-haiku-5-5: 80% ± 13% of 76 answers pass every check. The run found these issues, not yet
+  fixed:
+  - the price check replaces a correct pick with "Уточню стоимость у менеджера" when the answer repeats the
+    customer's own budget («до 10 000 лей»): 8 of 76 answers;
+  - a Romanian question sometimes gets a Russian answer;
+  - the bot does not search the catalog for services such as washing-machine installation;
+  - occasional Markdown bold.
+
 ## [0.1.0] - 2026-11-21
 
 The first release: a Claude-powered Telegram assistant for a small business, with a web admin panel. It ships with
