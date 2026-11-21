@@ -16,6 +16,12 @@ The architecture is not tied to dentistry: a knowledge base edited by staff, lea
 tracking and prompt-injection defences fit any business that answers customers in a messenger — an online store
 included.
 
+**Two demo profiles.** One command (`seed --reset --profile shop`) switches the same bot to a fictional electronics
+store, "Demo Electro": 64 products, delivery, warranty and instalments. The profile sets the bot's role and domain
+rules — the clinic never diagnoses and books appointments, the store helps pick a device for a budget, never
+promises stock and hands orders to a manager — while the security rules are shared. The store's catalog is above the
+"catalog in prompt" threshold, so Claude searches it with a tool.
+
 ## What it does
 
 **The bot**
@@ -131,8 +137,11 @@ until midnight UTC, still saves leads and notifies the administrator. After a de
 initial state (customers, chats, leads and the log are removed; spend totals and the limit are kept):
 
 ```bash
-docker compose run --rm migrate python -m medllmbot.db.seed --reset
+docker compose run --rm migrate python -m medllmbot.db.seed --reset                  # dental clinic
+docker compose run --rm migrate python -m medllmbot.db.seed --reset --profile shop   # electronics store
 ```
+
+If the demo is reset nightly by cron, add the profile there too, or the demo turns back into the clinic overnight.
 
 ### Continuous deployment
 

@@ -11,17 +11,19 @@ from aiogram.utils.chat_action import ChatActionSender
 
 from medllmbot.assistant import TECH_ERROR, ClinicAssistant
 from medllmbot.config import BotSettings
-from medllmbot.db.models import AuditOutcome, BotConfig
+from medllmbot.db.models import AuditOutcome, BotConfig, BusinessProfile
 from medllmbot.db.repository import Repository
 from medllmbot.guards import extract_phone
 from medllmbot.middlewares import incoming_event
+from medllmbot.profiles import PROFILES
 from medllmbot.security import FLAG_LABELS, AlertCooldown
 
 log = logging.getLogger(__name__)
 
 TEXT_ONLY = "Пожалуйста, напишите ваш вопрос текстом."
-# Длинное сообщение бот не разбирает, но телефон из него сохраняет — клиент должен это знать
-LEAD_SAVED = "Номер телефона мы сохранили — администратор перезвонит вам в рабочее время."
+# Длинное сообщение бот не разбирает, но телефон из него сохраняет — клиент должен это знать.
+# У каждого профиля свой текст; константа — текст стоматологии
+LEAD_SAVED = PROFILES[BusinessProfile.CLINIC].replies.lead_saved
 # Сколько символов сообщения клиента показывать администратору в уведомлении.
 # Полный текст — в админке; Telegram не пропускает сообщения длиннее 4096 символов
 ALERT_PREVIEW = 500
@@ -64,7 +66,7 @@ async def handle_text(
     phone = extract_phone(text)
     answer = reply.text
     if phone and reply.outcome is AuditOutcome.TOO_LONG:
-        answer = f"{answer}\n\n{LEAD_SAVED}"
+        answer = f"{answer}\n\n{PROFILES[config.profile].replies.lead_saved}"
     # Сбой отправки ответа (клиент заблокировал бота, сеть) не должен терять заявку и уведомления
     await send(msg, answer)
 

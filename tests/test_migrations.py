@@ -117,3 +117,22 @@ def test_migration_and_models_create_same_catalog_index(tmp_path: Path) -> None:
         ("trigger", "services_fts_ad"),
         ("trigger", "services_fts_au"),
     }
+
+
+def test_existing_settings_get_clinic_profile(tmp_path: Path) -> None:
+    # Бот, установленный до профилей, остаётся стоматологией
+    db = tmp_path / "bot.db"
+    command.upgrade(alembic_config(db), "f79015512d1f")
+    engine = sa.create_engine(f"sqlite:///{db}")
+    with engine.begin() as conn:
+        conn.execute(
+            sa.text(
+                "INSERT INTO bot_config (id, model, max_tokens, max_len, history_limit, rate_limit, "
+                "rate_window, greeting) VALUES (1, 'claude-haiku-5-5', 1024, 1024, 8, 10, 60, 'Привет')"
+            )
+        )
+    upgrade_db(db)
+    with engine.connect() as conn:
+        profile = conn.execute(sa.text("SELECT profile FROM bot_config")).scalar_one()
+    engine.dispose()
+    assert profile == "CLINIC"

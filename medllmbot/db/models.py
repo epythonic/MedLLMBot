@@ -79,7 +79,7 @@ class ChatMessage(Base):
 class LeadStatus(enum.Enum):
     NEW = "Новая"
     IN_PROGRESS = "В работе"
-    DONE = "Записан"
+    DONE = "Выполнена"  # записан на приём или заказ оформлен; в БД хранится имя DONE, миграция не нужна
     REJECTED = "Отказ"
 
     @override
@@ -308,6 +308,18 @@ class FaqItem(Base):
 
 # ---------- Настройки бота ----------
 
+
+class BusinessProfile(enum.Enum):
+    """Чей это бот: от профиля зависят роль и предметные правила в промпте (medllmbot/profiles.py)."""
+
+    CLINIC = "Стоматология"
+    SHOP = "Магазин электроники"
+
+    @override
+    def __str__(self) -> str:
+        return self.value
+
+
 DEFAULT_GREETING = (
     "Здравствуйте! Я помощник клиники. Спросите о ценах, "
     "услугах или запишитесь на приём.\n\n"
@@ -333,6 +345,12 @@ class BotConfig(Base):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, default=1)
+    # Меняется вместе с базой знаний: python -m medllmbot.db.seed --reset --profile shop
+    profile: Mapped[BusinessProfile] = mapped_column(
+        Enum(BusinessProfile, native_enum=False, length=16),
+        default=BusinessProfile.CLINIC,
+        server_default=BusinessProfile.CLINIC.name,
+    )
     model: Mapped[str] = mapped_column(String(100), default="claude-haiku-5-5")
     max_tokens: Mapped[int] = mapped_column(default=1024)
     # Максимальная длина сообщения клиента, символов: подробное обращение с симптомами и телефоном

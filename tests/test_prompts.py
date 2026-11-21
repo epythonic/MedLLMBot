@@ -1,7 +1,7 @@
 from medllmbot.db.models import FaqItem, InfoSection, Service
 from medllmbot.db.repository import Knowledge
-from medllmbot.prompts import CATALOG_SEARCH_NOTE, RULES, build_system_prompt, render_info, service_line
-from tests.conftest import DEMO_INFO, demo_knowledge
+from medllmbot.prompts import CATALOG_SEARCH_NOTE, build_system_prompt, render_info, service_line
+from tests.conftest import CLINIC_RULES, DEMO_INFO, demo_knowledge
 
 
 def test_render_info_contains_all_parts() -> None:
@@ -36,7 +36,7 @@ def test_faq_formatting() -> None:
 
 def test_system_prompt_wraps_info() -> None:
     prompt = build_system_prompt("ИНФО")
-    assert prompt.startswith(RULES)
+    assert prompt.startswith(CLINIC_RULES)
     assert prompt.endswith("<info>\nИНФО\n</info>")
 
 
@@ -53,4 +53,4 @@ def test_service_line_is_shared_with_search() -> None:
 
 
 def test_rules_allow_prices_from_search() -> None:
-    assert "search_catalog" in RULES
+    assert "search_catalog" in CLINIC_RULES
