@@ -9,14 +9,23 @@ panel starts, and every schema change ships as an Alembic migration.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-22
+
+This release measures answer quality and serves Romanian customers fully. An eval of the store bot found four
+defects: they are fixed, and the share of answers that pass every check went from 80% to 97%. The bot's own replies
+and the greeting now come in Romanian too.
+
+One migration adds the Romanian greeting to the bot settings. It runs on start. Existing settings keep their current
+greeting for everyone.
+
 ### Added
 
 - Answer-quality eval for the store profile (`evals/shop/`). It contains 38 customer questions with code checks and
   a Claude judge, and runs the real bot on a temporary copy of the demo database. It is run by hand because each run
-  calls the paid API.
+  calls the paid API (#10).
 - First baseline on claude-haiku-5-5: 80% ± 13% of 76 answers pass every check. The issues it found are fixed below,
   and the run after the fixes scores 97% ± 4%. Every code check passes there, and the judge flags 2 of 76 answers on
-  its rules criterion.
+  its rules criterion (#10, #11).
 
 ### Changed
 
@@ -24,7 +33,7 @@ panel starts, and every schema change ships as an Alembic migration.
   technical error, "Уточню стоимость у менеджера", "message too long", "type your question as text" and the
   live-operator messages. The language comes from the message text. When the text gives no clue, the bot uses the
   customer's Telegram language, as for a command, an order number or a photo without a caption. When the operator
-  returns the dialog, the bot uses the customer's latest messages.
+  returns the dialog, the bot uses the customer's latest messages (#12).
 - The bot settings have a separate Romanian greeting. `/start` carries no text to detect the language from, so the
   bot goes by the customer's Telegram language:
   - Russian: the Russian greeting;
@@ -32,22 +41,24 @@ panel starts, and every schema change ships as an Alembic migration.
   - any other language: both.
 
   If the Romanian greeting is empty, everyone gets the main greeting. Existing settings keep working this way after
-  the migration.
+  the migration (#12).
 
 ### Fixed
 
 - The price check no longer replaces a correct pick with "Уточню стоимость у менеджера" when the answer repeats the
   customer's own budget («до 10 000 лей»). This happened in 8 of 76 eval answers. The amount passes only if the
-  customer named it and the answer uses it as a limit. Used as an item price or a discount, it is still replaced.
-- The store bot answers a Romanian question in Romanian, although the catalog and the search results are in Russian.
+  customer named it and the answer uses it as a limit. Used as an item price or a discount, it is still replaced
+  (#11).
+- The store bot answers a Romanian question in Romanian, although the catalog and the search results are in Russian
+  (#11).
 - The store bot searches the catalog for services such as washing-machine installation, instead of saying it has no
-  information. The catalog section in the prompt is now called «Товары, услуги и цены».
+  information. The catalog section in the prompt is now called «Товары, услуги и цены» (#11).
 - Markdown in the model's answer is stripped before the customer sees it, so Telegram no longer shows asterisks.
-  The audit log keeps the model's answer unchanged.
+  The audit log keeps the model's answer unchanged (#11).
 - Question analytics files the Romanian "where are you?" questions under «Адрес и часы работы», not «Другое».
   Examples: «Unde vă aflați?», «Unde se află clinica?», «Unde sunteți?», «locația».
   «Afla» also means "to find out", so it counts as a location word only after «unde»: «Cum pot afla statusul
-  comenzii?» stays an order-status question.
+  comenzii?» stays an order-status question (#14).
 
 ## [0.1.0] - 2026-11-21
 
@@ -124,5 +135,6 @@ two fictional demo businesses, a dental clinic and an electronics store.
 - The tool-use paths (catalog search, order status) are covered by tests with a fake Anthropic client and have not yet
   been checked against the live API in this release.
 
-[Unreleased]: https://github.com/epythonic/MedLLMBot/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/epythonic/MedLLMBot/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/epythonic/MedLLMBot/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/epythonic/MedLLMBot/releases/tag/v0.1.0
