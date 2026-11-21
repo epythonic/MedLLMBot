@@ -159,7 +159,10 @@ async def test_shop_assistant_searches_catalog(fake_client: FakeClient, repo: Re
     assert reply.outcome is AuditOutcome.ANSWERED
     first, second = fake_client.messages.calls
     assert first.system[0]["text"].startswith(rules(SHOP))
-    assert first.tools == CatalogTools(repo, SHOP).definitions
+    # У магазина два инструмента: поиск (каталог больше порога) и статус заказа
+    assert first.tools is not None
+    assert [tool["name"] for tool in first.tools] == ["search_catalog", "order_status"]
+    assert first.tools[0] == CatalogTools(repo, SHOP).definitions[0]
     assert "Робот-пылесос Brisko Clean S3 — 2499 лей" in str(second.messages[-1]["content"])
 
 

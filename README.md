@@ -20,7 +20,10 @@ included.
 store, "Demo Electro": 64 products, delivery, warranty and instalments. The profile sets the bot's role and domain
 rules — the clinic never diagnoses and books appointments, the store helps pick a device for a budget, never
 promises stock and hands orders to a manager — while the security rules are shared. The store's catalog is above the
-"catalog in prompt" threshold, so Claude searches it with a tool.
+"catalog in prompt" threshold, so Claude searches it with a tool. The store also answers "where is my order?": an
+`order_status` tool returns the status, items, total and delivery date only after the customer gives the order number
+and the last 4 digits of the order's phone. Orders come from an `OrderBackend` interface — a database table in the demo,
+the store's own system (CMS, ERP) in a real project.
 
 ## What it does
 
@@ -95,6 +98,7 @@ with a polite reply to the customer.
 | Spam and API spend | Per-chat rate limit, message length limit before any API call, customer blocking, and a global daily spend limit after which the bot answers without Claude |
 | API failures | 30 s timeout, one SDK retry, then a polite fallback; the lead is still saved |
 | Admin access | Credentials from `.env`, constant-time comparison, lock-out after 5 failed logins per IP for 15 minutes, signed HttpOnly session cookie (8 hours, `Secure` behind HTTPS), CSP and `X-Frame-Options`, no caching of pages with personal data |
+| Someone else's order | Order status only for the order number plus the last 4 digits of the order's phone; a wrong number and a wrong phone get the same reply; 5 failed checks per hour from one chat stop the lookups; the phone never reaches the model |
 | Personal data | Log retention is configurable (90 days by default); daily cost totals contain no personal data |
 
 ## Tech stack
@@ -134,7 +138,7 @@ docker compose run --rm migrate python -m medllmbot.db.seed
 
 Set **daily spend limit** in the admin panel ("Bot settings"): once it is reached, the bot stops calling Claude
 until midnight UTC, still saves leads and notifies the administrator. After a demo, reset everything to the
-initial state (customers, chats, leads and the log are removed; spend totals and the limit are kept):
+initial state (customers, chats, leads, orders and the log are removed; spend totals and the limit are kept):
 
 ```bash
 docker compose run --rm migrate python -m medllmbot.db.seed --reset                  # dental clinic

@@ -56,6 +56,8 @@ class LLMResult:
     cache_write_tokens: int
     latency_ms: int
     tool_calls: tuple[str, ...] = ()  # описания вызовов инструментов для журнала
+    # Суммы из результатов инструментов (итог заказа): это данные магазина, а не выдумка модели
+    tool_prices: tuple[int, ...] = ()
     # Токены каждого запроса: тариф по длине промпта Anthropic выбирает для запроса, а не для суммы
     usages: tuple[TokenUsage, ...] = ()
 
@@ -74,6 +76,7 @@ class ToolOutput:
     text: str  # результат для модели
     summary: str  # строка для журнала: что искали и что нашлось
     is_error: bool = False
+    prices: tuple[int, ...] = ()  # суммы в результате, которые модель может назвать клиенту
 
 
 class ToolRunner(Protocol):
@@ -121,6 +124,7 @@ class ClinicLLM:
         started: float = time.perf_counter()
         responses: list[Message] = []
         tool_calls: list[str] = []
+        tool_prices: list[int] = []
         for round_ in range(MAX_TOOL_ROUNDS + 1):
             # В последнем раунде инструменты остаются в запросе (иначе сбросится кэш), но вызывать их нельзя
             choice: ToolChoiceParam = {"type": "none"} if round_ == MAX_TOOL_ROUNDS else {"type": "auto"}
@@ -128,7 +132,7 @@ class ClinicLLM:
                 resp = await self._create(model, max_tokens, system, messages, tools, choice)
             except LLMUnavailable as e:
                 if responses:
-                    raise LLMUnavailable(self._result(responses, tool_calls, started)) from e
+                    raise LLMUnavailable(self._result(responses, tool_calls, tool_prices, started)) from e
                 raise
             responses.append(resp)
             if tools is None or resp.stop_reason != "tool_use":
@@ -145,12 +149,13 @@ class ClinicLLM:
                             is_error=True,
                         )
                     tool_calls.append(output.summary)
+                    tool_prices.extend(output.prices)
                     results.append(
                         {"type": "tool_result", "tool_use_id": block.id, "content": output.text, "is_error": output.is_error}
                     )
             messages.extend([_assistant_turn(resp), {"role": "user", "content": results}])
 
-        return self._result(responses, tool_calls, started)
+        return self._result(responses, tool_calls, tool_prices, started)
 
     @staticmethod
     async def _run_tool(tools: ToolRunner, name: str, tool_input: dict[str, object]) -> ToolOutput:
@@ -211,7 +216,7 @@ class ClinicLLM:
             raise LLMUnavailable from e
 
     @staticmethod
-    def _result(responses: list[Message], tool_calls: list[str], started: float) -> LLMResult:
+    def _result(responses: list[Message], tool_calls: list[str], tool_prices: list[int], started: float) -> LLMResult:
         """Итог по всем запросам: текст и причина остановки — из последнего, токены — сумма."""
         last = responses[-1]
         usages = tuple(
@@ -233,6 +238,7 @@ class ClinicLLM:
             cache_write_tokens=sum(u.cache_write_tokens for u in usages),
             latency_ms=round((time.perf_counter() - started) * 1000),
             tool_calls=tuple(tool_calls),
+            tool_prices=tuple(tool_prices),
             usages=usages,
         )
         log.info(

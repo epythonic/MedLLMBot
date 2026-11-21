@@ -8,10 +8,11 @@ from medllmbot.db.models import AuditEvent, AuditOutcome, BotConfig, BusinessPro
 from medllmbot.db.repository import Repository
 from medllmbot.guards import PriceChecker
 from medllmbot.llm import ClinicLLM, LLMResult, LLMUnavailable
+from medllmbot.orders import DatabaseOrders, LookupLimits, OrderBackend
 from medllmbot.profiles import PROFILES, Replies
 from medllmbot.prompts import build_system_prompt, render_info, rules
 from medllmbot.security import LEAK_CODE, LeakDetector, detect_injection
-from medllmbot.tools import CatalogTools
+from medllmbot.tools import CatalogTools, OrderTools, Toolbox
 
 # Готовые ответы — у каждого профиля свои (profiles.py). Константы — ответы профиля по умолчанию:
 # обработчик непредвиденных ошибок не знает настроек, а тесты сравнивают с ними ответы стоматологии
@@ -57,11 +58,17 @@ class Reply:
 class ClinicAssistant:
     llm: ClinicLLM
     repo: Repository
+    orders: OrderBackend
+    lookup_limits: LookupLimits
     _leaks: dict[BusinessProfile, LeakDetector]
 
-    def __init__(self, llm: ClinicLLM, repo: Repository) -> None:
+    def __init__(self, llm: ClinicLLM, repo: Repository, orders: OrderBackend | None = None) -> None:
         self.llm = llm
         self.repo = repo
+        # Заказы магазина: в демо — таблица в БД, в проекте для магазина — его система учёта
+        self.orders = orders if orders is not None else DatabaseOrders(repo)
+        # Лимиты неудачных проверок заказа живут в ассистенте: перебор по разным сообщениям тоже считается
+        self.lookup_limits = LookupLimits()
         # Профиль меняется в БД без перезапуска, поэтому детектор утечки — свой для каждого профиля
         self._leaks = {kind: LeakDetector(rules(kind)) for kind in BusinessProfile}
 
@@ -95,18 +102,28 @@ class ClinicAssistant:
                 text=text,
                 model=config.model,
                 max_tokens=config.max_tokens,
-                tools=CatalogTools(self.repo, config.profile) if knowledge.catalog_search else None,
+                tools=self._tools(chat_id, config, catalog_search=knowledge.catalog_search),
             )
         except LLMUnavailable as e:
             reply = Reply(replies.tech_error, AuditOutcome.LLM_ERROR, flags)
             # Сбой после поиска по каталогу: уже выполненные запросы оплачены — они идут в журнал и в расход
             return await self._log(chat_id, text, reply, result=e.partial, model=config.model)
 
+        prices.add_known(result.tool_prices)  # итог заказа — из системы магазина, а не выдумка модели
         reply = self._check_answer(result, prices, self._leaks[config.profile], replies, flags)
         # Попытки атаки не возвращаем в контекст модели: многошаговая атака не накопится
         if not reply.suspicious:
             await self.repo.save_pair(chat_id=chat_id, question=text, answer=reply.text)
         return await self._log(chat_id, text, reply, result=result)
+
+    def _tools(self, chat_id: int, config: BotConfig, *, catalog_search: bool) -> Toolbox | None:
+        """Инструменты для этого вопроса: поиск — если каталог не в промпте, заказы — если они есть у профиля."""
+        runners: list[CatalogTools | OrderTools] = []
+        if catalog_search:
+            runners.append(CatalogTools(self.repo, config.profile))
+        if PROFILES[config.profile].orders:
+            runners.append(OrderTools(self.orders, chat_id, self.lookup_limits))
+        return Toolbox(*runners) if runners else None
 
     @staticmethod
     def _check_answer(

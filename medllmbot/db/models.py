@@ -306,6 +306,53 @@ class FaqItem(Base):
         return self.question
 
 
+# ---------- Заказы магазина ----------
+
+
+class OrderStatus(enum.Enum):
+    NEW = "Принят"
+    CONFIRMED = "Подтверждён"
+    SHIPPED = "Передан в доставку"
+    READY = "Ждёт в пункте самовывоза"
+    DELIVERED = "Получен"
+    CANCELLED = "Отменён"
+
+    @override
+    def __str__(self) -> str:
+        return self.value
+
+
+@final
+class Order(Base):
+    """Заказ магазина — демо-замена API магазина (CMS, 1С): бот узнаёт статус через `OrderBackend`.
+
+    Телефон нужен для проверки: статус показывается только тому, кто назвал номер заказа
+    и последние цифры телефона из заказа.
+    """
+
+    __tablename__ = "orders"
+    __table_args__: tuple[CheckConstraint, ...] = (CheckConstraint("total >= 0", name="total_non_negative"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    number: Mapped[str] = mapped_column(String(32), unique=True)  # как на чеке: DE-10023
+    customer_name: Mapped[str] = mapped_column(String(256))
+    phone: Mapped[str] = mapped_column(String(32))
+    status: Mapped[OrderStatus] = mapped_column(
+        Enum(OrderStatus, native_enum=False, length=16),
+        default=OrderStatus.NEW,
+        server_default=OrderStatus.NEW.name,
+    )
+    items: Mapped[str] = mapped_column(Text)  # что заказано, для ответа клиенту
+    total: Mapped[int] = mapped_column()  # в леях
+    delivery_date: Mapped[date | None] = mapped_column()  # ожидаемая дата доставки или выдачи
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+    @override
+    def __str__(self) -> str:
+        return f"Заказ {self.number}"
+
+
 # ---------- Настройки бота ----------
 
 

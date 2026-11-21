@@ -10,12 +10,12 @@ from typing import ClassVar, cast, final, override
 from markupsafe import Markup
 from sqladmin import ModelView
 from sqladmin.filters import BooleanFilter, OperationColumnFilter, StaticValuesFilter
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from starlette.requests import Request
-from wtforms import Form, SelectField
-from wtforms.validators import DataRequired, Length, NumberRange
+from wtforms import Field, Form, SelectField
+from wtforms.validators import DataRequired, Length, NumberRange, ValidationError
 
 from medllmbot.admin.forms import AdminForm, CommaFloatField
 from medllmbot.admin.live import NEW_AUDIT_EVENTS, NEW_LEADS, audit_chat_id_cell, lead_status_cell, sort_handle_cell
@@ -31,9 +31,12 @@ from medllmbot.db.models import (
     Lead,
     LeadStatus,
     ModelPrice,
+    Order,
+    OrderStatus,
     Service,
     UsageDaily,
 )
+from medllmbot.orders import normalize_number, order_key
 from medllmbot.security import FLAG_LABELS
 
 CLIENTS = "Клиенты"
@@ -179,6 +182,14 @@ class AdminView(ModelView):
             raise ValueError(self.integrity_error) from exc
         return obj
 
+    def async_sessions(self) -> async_sessionmaker[AsyncSession] | None:
+        """Фабрика сессий для своих проверок в on_model_change; None — движок не async (в админке не бывает)."""
+        # SQLAdmin хранит sessionmaker без параметра типа; админка всегда работает с async-движком
+        maker: object = self.session_maker  # pyright: ignore[reportUnknownMemberType]
+        if not isinstance(maker, async_sessionmaker):
+            return None
+        return cast("async_sessionmaker[AsyncSession]", maker)
+
 
 def _strip(value: object) -> object:
     """Фильтр поля формы: пробелы по краям не сохраняем — строка из пробелов становится пустой."""
@@ -257,6 +268,114 @@ class ClientAdmin(AdminView, model=Client):
         Client.first_seen_at: "Первое сообщение",
         Client.last_seen_at: "Последнее сообщение",
     }
+
+
+ORDER_STATUS_CHOICES = [(status.name, status.value) for status in OrderStatus]
+
+
+def _order_status_name(value: OrderStatus | str) -> str:
+    return value.name if isinstance(value, OrderStatus) else str(value)
+
+
+def _order_status(model: Order, _attr: object) -> str:
+    return model.status.value
+
+
+def _order_number(value: object) -> object:
+    """Номер заказа в том виде, в каком его ищет бот: «de 10023» → «DE-10023»."""
+    if not isinstance(value, str):
+        return value
+    return normalize_number(value) or value.strip()
+
+
+def _valid_order_number(_form: Form, field: Field) -> None:
+    # Номер, который бот не найдёт: клиент получал бы «не найден» и тратил попытки
+    value: object = field.data  # pyright: ignore[reportAny]  # WTForms не типизирует data поля
+    if not isinstance(value, str) or normalize_number(value) != value:
+        raise ValidationError("Номер заказа — латинские буквы, цифры и дефис, от 3 до 32 знаков, например DE-10023.")
+
+
+@final
+class OrderAdmin(AdminView, model=Order):
+    name = "Заказ"
+    name_plural = "Заказы"
+    icon = "fa-solid fa-box"
+    category = CLIENTS
+    integrity_error = "Заказ с таким номером уже есть — откройте его и измените."
+
+    column_list = [
+        Order.number,
+        Order.created_at,
+        Order.status,
+        Order.customer_name,
+        Order.phone,
+        Order.total,
+        Order.delivery_date,
+    ]
+    column_default_sort = [(Order.created_at, True)]
+    column_searchable_list = [Order.number, Order.customer_name, Order.phone]
+    column_filters = [ChoiceFilter(Order.status, ORDER_STATUS_CHOICES, title="Статус")]
+    column_formatters = {Order.status: _order_status}
+    column_formatters_detail = {Order.status: _order_status}
+    form_columns = [
+        Order.number,
+        Order.status,
+        Order.customer_name,
+        Order.phone,
+        Order.items,
+        Order.total,
+        Order.delivery_date,
+    ]
+    form_overrides = {"status": SelectField}
+    form_args = {
+        "number": {
+            "validators": [DataRequired(), _valid_order_number],
+            "filters": [_order_number],
+            "description": "Как на чеке, например DE-10023. Клиент называет его боту",
+        },
+        "status": {"choices": ORDER_STATUS_CHOICES, "coerce": _order_status_name},
+        "customer_name": {"validators": [DataRequired()], "filters": [_strip]},
+        "phone": {
+            "validators": [DataRequired(), Length(max=32)],
+            "filters": [_strip],
+            "description": "Бот покажет статус, только если клиент назовёт последние 4 цифры этого номера",
+        },
+        "items": {"validators": [DataRequired()], "filters": [_strip]},
+        "total": {"validators": [NumberRange(min=0, max=10**9)], "description": "Лей, целым числом"},
+        "delivery_date": {"description": "Когда ожидается доставка или выдача; пусто — дата ещё не известна"},
+    }
+    column_labels = {
+        Order.id: "ID",
+        Order.number: "Номер",
+        Order.created_at: "Создан",
+        Order.updated_at: "Изменён",
+        Order.status: "Статус",
+        Order.customer_name: "Покупатель",
+        Order.phone: "Телефон",
+        Order.items: "Состав",
+        Order.total: "Сумма, лей",
+        Order.delivery_date: "Дата доставки",
+    }
+
+    @override
+    async def on_model_change(self, data: dict[str, object], model: object, is_created: bool, request: Request) -> None:
+        # «DE10023» и «DE-10023» бот считает одним заказом — второй такой номер сделал бы ответ случайным
+        number = data.get("number")
+        own_id = None if is_created or not isinstance(model, Order) else model.id
+        if isinstance(number, str) and await self._number_taken(number, own_id):
+            raise ValueError(self.integrity_error)
+
+    async def _number_taken(self, number: str, own_id: int | None) -> bool:
+        sessions = self.async_sessions()
+        if sessions is None:
+            return False
+        async with sessions() as session:
+            other = await session.scalar(
+                select(Order.id).where(
+                    func.replace(func.upper(Order.number), "-", "") == order_key(number), Order.id != own_id
+                )
+            )
+        return other is not None
 
 
 ROLE_CHOICES = [("user", "user — клиент"), ("assistant", "assistant — бот")]
@@ -469,7 +588,7 @@ class AuditEventAdmin(AdminView, model=AuditEvent):
         AuditEvent.cache_write_tokens: "Токены в кэш",
         AuditEvent.cost_micro_usd: "Стоимость, USD",
         AuditEvent.latency_ms: "Задержка, мс",
-        AuditEvent.tool_calls: "Поиск по каталогу",
+        AuditEvent.tool_calls: "Что искал бот",
     }
 
 
@@ -588,11 +707,9 @@ class BotConfigAdmin(AdminView, model=BotConfig):
             )
 
     async def _is_priced(self, name: str) -> bool:
-        # SQLAdmin хранит sessionmaker без параметра типа; админка всегда работает с async-движком
-        maker: object = self.session_maker  # pyright: ignore[reportUnknownMemberType]
-        if not isinstance(maker, async_sessionmaker):
+        sessions = self.async_sessions()
+        if sessions is None:
             return True
-        sessions = cast("async_sessionmaker[AsyncSession]", maker)
         async with sessions() as session:
             priced = await session.scalars(select(ModelPrice.model))
             return match_model(name, priced) is not None
@@ -680,6 +797,7 @@ class BotConfigAdmin(AdminView, model=BotConfig):
 
 VIEWS = [
     LeadAdmin,
+    OrderAdmin,
     ClientAdmin,
     ChatMessageAdmin,
     ServiceAdmin,
