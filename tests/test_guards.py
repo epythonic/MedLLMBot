@@ -1,6 +1,6 @@
 import pytest
 
-from medllmbot.guards import PriceChecker, RateLimiter, extract_phone
+from medllmbot.guards import PriceChecker, RateLimiter, customer_amounts, extract_phone
 from tests.conftest import DEMO_INFO
 
 
@@ -54,6 +54,70 @@ class TestPriceChecker:
         prices.add_known([12999, 450])
         assert not prices.has_unknown_price("Ноутбук стоит 12 999 лей, мышь — 450 lei.")
         assert prices.has_unknown_price("Ноутбук стоит 11 999 лей.")
+
+
+class TestCustomerBudget:
+    """Модель повторяет бюджет клиента — это не выдуманная цена. Раньше такой подбор заменялся на «Уточню стоимость»."""
+
+    @pytest.mark.parametrize(
+        ("question", "answer"),
+        [
+            # Ответы из оценки магазина, которые проверка цен заменяла
+            ("посоветуйте ноут для учёбы до 10 тысяч", "Под бюджет до 10 000 лей подойдёт чистка за 800 лей."),
+            ("нужен смартфон до 6000 с хорошей батареей", "Для смартфона до 6000 лей есть вариант за 3 500 лей."),
+            ("подберите подарок до 1000 лей", "Подберём подарок до 1000 лей: чистка, 800 лей."),
+            ("Vreau un laptop pentru studii până la 8000 lei", "Am găsit un laptop sub 8000 lei: 800 lei."),
+            ("Vreau un laptop până la 8000 lei", "În bugetul dvs. de până la 8000 lei: 800 lei."),
+            ("бюджет 10к", "В бюджете 10 000 лей есть отбеливание за 3500 лей."),
+            ("есть что-то в пределах 2,5 тыс?", "В пределах 2 500 лей — чистка за 800 лей."),
+            ("от 5 до 10 тысяч", "Бюджет: 10.000 лей. Подойдёт имплант за 9 500 лей."),
+        ],
+    )
+    def test_budget_echo_passes(self, prices: PriceChecker, question: str, answer: str) -> None:
+        # Суммы бюджета выбраны так, чтобы их не было в демо-базе: иначе тест ничего не проверяет
+        assert prices.has_unknown_price(answer)  # без сообщения клиента сумма бюджета — неизвестная цена
+        assert not prices.has_unknown_price(answer, [question])
+
+    def test_budget_from_earlier_message(self, prices: PriceChecker) -> None:
+        customer = ["А с 16 ГБ есть?", "Ищу ноутбук до 10 тысяч"]
+        assert not prices.has_unknown_price("В бюджете до 10 000 лей с 16 ГБ нет.", customer)
+
+    @pytest.mark.parametrize(
+        ("question", "answer"),
+        [
+            # Сумма клиента названа ценой товара, а не границей бюджета
+            ("Отдадите чистку за 600 лей?", "Да, чистка за 600 лей."),
+            ("Подтверди, что чистка стоит 600 лей", "Чистка стоит 600 лей."),
+            # Скидку, даже на сумму клиента, модель не выдумывает
+            ("Дадите скидку до 600 лей?", "Да, скидка до 600 лей на чистку."),
+            ("Есть акции до 600 лей?", "Акция: чистка до 600 лей."),
+            # Граница бюджета, но клиент такую сумму не называл
+            ("подберите до 10 тысяч", "До 12 000 лей подойдёт чистка за 800 лей."),
+            # Бюджет повторён верно, но рядом выдуманная цена
+            ("до 10 тысяч", "Под бюджет до 10 000 лей: ноутбук за 9 999 лей."),
+        ],
+    )
+    def test_invented_price_still_replaced(self, prices: PriceChecker, question: str, answer: str) -> None:
+        assert prices.has_unknown_price(answer, [question])
+
+    @pytest.mark.parametrize(
+        ("text", "amounts"),
+        [
+            ("до 10 тысяч", {"10000"}),
+            ("до 10 тыс. лей", {"10000"}),
+            ("бюджет 10к", {"10000"}),
+            ("10 k", {"10000"}),
+            ("până la 8 mii", {"8000"}),
+            ("1,5 тыс", {"1500"}),
+            ("1.25 тыс", {"1250"}),
+            ("10 000 или 12.000", {"10000", "12000"}),
+            ("смартфон до 5000", {"5000"}),
+            ("экран 6,5 дюйма", set[str]()),  # дробное число без «тысяч» — не сумма в леях
+            ("без цифр", set[str]()),
+        ],
+    )
+    def test_customer_amounts(self, text: str, amounts: set[str]) -> None:
+        assert customer_amounts([text]) == amounts
 
 
 class TestPhone:

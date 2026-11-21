@@ -252,6 +252,42 @@ async def test_api_errors_return_tech_error(
     )
 
 
+async def test_markdown_is_removed_before_sending(
+    assistant: ClinicAssistant, fake_client: FakeClient, seeded_repo: Repository, sessions: Sessions, config: BotConfig
+) -> None:
+    # Промпт просит писать без Markdown, но модель иногда выделяет жирным: Telegram показал бы звёздочки
+    fake_client.messages.response = make_response("**Чистка зубов** стоит **800 лей**.")
+    reply = await assistant.reply(CHAT_ID, "Сколько стоит чистка?", config)
+
+    assert (reply.text, reply.outcome) == ("Чистка зубов стоит 800 лей.", AuditOutcome.ANSWERED)
+    history = await seeded_repo.load_history(CHAT_ID, limit=8)
+    assert history[-1]["content"] == "Чистка зубов стоит 800 лей."  # модель не видит в истории свою разметку
+    [event] = await load_audit(sessions)
+    assert event.llm_answer == "**Чистка зубов** стоит **800 лей**."  # журнал хранит ответ модели как есть
+    assert event.final_answer == "Чистка зубов стоит 800 лей."
+
+
+async def test_customer_budget_is_not_an_invented_price(
+    assistant: ClinicAssistant, fake_client: FakeClient, config: BotConfig
+) -> None:
+    fake_client.messages.response = make_response("Под бюджет до 1000 лей подойдёт чистка за 800 лей.")
+    reply = await assistant.reply(CHAT_ID, "Что можно сделать до 1000 лей?", config)
+    assert reply.outcome is AuditOutcome.ANSWERED
+
+    # Бюджет из прошлого сообщения клиента — тоже его сумма
+    fake_client.messages.response = make_response("В бюджете до 1000 лей отбеливания нет.")
+    reply = await assistant.reply(CHAT_ID, "А отбеливание?", config)
+    assert reply.outcome is AuditOutcome.ANSWERED
+
+
+async def test_budget_the_customer_did_not_name_is_replaced(
+    assistant: ClinicAssistant, fake_client: FakeClient, config: BotConfig
+) -> None:
+    fake_client.messages.response = make_response("Под бюджет до 1000 лей подойдёт чистка за 800 лей.")
+    reply = await assistant.reply(CHAT_ID, "Что посоветуете?", config)
+    assert (reply.text, reply.outcome) == (PRICE_FALLBACK, AuditOutcome.PRICE_REPLACED)
+
+
 # ---------- Журнал аудита и попытки перехвата управления ----------
 
 

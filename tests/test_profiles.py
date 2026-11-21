@@ -60,6 +60,12 @@ class TestRules:
         assert "диагноз" not in text
         assert text.endswith("«Я могу помочь только\n  с вопросами о магазине».")
 
+    def test_romanian_answer_rule_is_shop_only(self) -> None:
+        # Результаты поиска приходят на русском, и модель отвечала по-русски на румынский вопрос
+        rule = "по-румынски, отвечай по-румынски: описание переводи, название модели не меняй."
+        assert rule in rules(SHOP)
+        assert rule not in rules(CLINIC)  # промпт стоматологии не меняется: её каталог в промпте
+
     def test_profile_reaches_system_prompt(self) -> None:
         assert build_system_prompt("ИНФО", SHOP).startswith(rules(SHOP))
         assert build_system_prompt("ИНФО").startswith(rules(CLINIC))  # по умолчанию — стоматология
@@ -73,14 +79,16 @@ class TestRules:
 async def test_catalog_title_in_info(seeded_repo: Repository) -> None:
     knowledge = await seeded_repo.load_knowledge()
     assert "== Услуги и цены ==" in render_info(knowledge)
-    assert "== Товары и цены ==" in render_info(knowledge, SHOP)
+    # В каталоге магазина и услуги: с заголовком «Товары и цены» модель не искала установку стиральной машины
+    assert "== Товары, услуги и цены ==" in render_info(knowledge, SHOP)
     searched = await seeded_repo.load_knowledge(catalog_inline_limit=0)
-    assert f"== Товары и цены ==\n{CATALOG_SEARCH_NOTE}" in render_info(searched, SHOP)
+    assert f"== Товары, услуги и цены ==\n{CATALOG_SEARCH_NOTE}" in render_info(searched, SHOP)
 
 
 def test_search_tool_examples_follow_profile() -> None:
     shop_query = str(search_catalog_tool(SHOP)["input_schema"])
     assert "ноутбук" in shop_query
+    assert "установка стиральной машины" in shop_query  # услуги ищутся так же, как товары
     assert "чистка" not in shop_query
     assert "чистка зубов" in str(search_catalog_tool(CLINIC)["input_schema"])
     assert search_catalog_tool(SHOP)["name"] == search_catalog_tool(CLINIC)["name"] == "search_catalog"
@@ -203,6 +211,16 @@ async def test_computed_shop_sum_is_replaced(fake_client: FakeClient, repo: Repo
     fake_client.messages.response = make_response("Ноутбук Voltix Air 14 — 11 499 лей, в рассрочку по 958 лей в месяц.")
     reply = await assistant.reply(CHAT_ID, "Сколько в месяц за Voltix Air 14?", config)
     assert (reply.text, reply.outcome) == ("Уточню стоимость у менеджера и вернусь к вам.", AuditOutcome.PRICE_REPLACED)
+
+
+async def test_shop_pick_within_budget_is_delivered(fake_client: FakeClient, repo: Repository, sessions: Sessions) -> None:
+    # Случай из оценки магазина: модель верно подобрала ноутбук, но повторила бюджет клиента «до 10 000 лей»,
+    # и проверка цен заменяла весь ответ на «Уточню стоимость у менеджера»
+    assistant, config = await _shop_assistant(fake_client, repo, sessions)
+    answer = "Под бюджет до 10 000 лей подойдёт ноутбук Nordwave Study 15 за 7 299 лей."
+    fake_client.messages.responses = [make_tool_use({"query": "ноутбук", "max_price": 10000}), make_response(answer)]
+    reply = await assistant.reply(CHAT_ID, "посоветуйте ноут для учёбы до 10 тысяч", config)
+    assert (reply.text, reply.outcome) == (answer, AuditOutcome.ANSWERED)
 
 
 def test_clinic_replies_are_unchanged() -> None:
