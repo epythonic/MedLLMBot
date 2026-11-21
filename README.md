@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/epythonic/MedLLMBot/actions/workflows/ci.yml/badge.svg)](https://github.com/epythonic/MedLLMBot/actions/workflows/ci.yml)
 
-[Русская версия](README_ru.md)
+[Русская версия](README_ru.md) · [Changelog](CHANGELOG.md)
 
 A demo project: a Telegram bot built on **aiogram 3** and **Claude (Anthropic API)** that answers a dental clinic's
 customers — services, prices, address, opening hours, booking — in Russian and Romanian. All data lives in **SQLite**,
