@@ -440,7 +440,7 @@ def test_too_long_in_romanian(length: int, expected: str) -> None:
 async def test_canned_replies_follow_customer_language(
     assistant: ClinicAssistant, fake_client: FakeClient, seeded_repo: Repository, config: BotConfig
 ) -> None:
-    ro = PROFILES[BusinessProfile.CLINIC].replies_ro
+    ro = PROFILES[BusinessProfile.CLINIC].replies_in(Language.RO)
     # A Romanian client used to get «Уточню стоимость у администратора» in Russian
     fake_client.messages.response = make_response("Curățarea costă doar 450 lei.")
     reply = await assistant.reply(CHAT_ID, "Cât costă o curățare?", config)
@@ -467,14 +467,14 @@ async def test_budget_exceeded_in_romanian(assistant: ClinicAssistant, sessions:
     config.daily_budget_usd = 2
     await add_spend(sessions, 2_000_000)
     reply = await assistant.reply(CHAT_ID, "Cât costă o curățare?", config)
-    assert reply.text == PROFILES[BusinessProfile.CLINIC].replies_ro.budget_exceeded
+    assert reply.text == PROFILES[BusinessProfile.CLINIC].replies_in(Language.RO).budget_exceeded
 
 
 async def test_language_from_caller_wins(assistant: ClinicAssistant, fake_client: FakeClient, config: BotConfig) -> None:
     # The handler knows the client's Telegram language: «S8?» can't be told from the text
     fake_client.messages.response = make_response("")
     reply = await assistant.reply(CHAT_ID, "S8?", config, Language.RO)
-    assert reply.text == PROFILES[BusinessProfile.CLINIC].replies_ro.fallback
+    assert reply.text == PROFILES[BusinessProfile.CLINIC].replies_in(Language.RO).fallback
     reply = await assistant.reply(CHAT_ID, "S8?", config)
     assert reply.text == FALLBACK_ANSWER  # Russian by default
 

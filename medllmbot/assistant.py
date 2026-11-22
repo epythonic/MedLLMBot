@@ -17,9 +17,9 @@ from medllmbot.tools import CatalogTools, OrderTools, Toolbox
 
 # Each profile has its own canned replies (profiles.py). The constants are the default profile replies:
 # the unexpected error handler does not know the settings, and tests compare dental clinic replies with them
-_DEFAULT = PROFILES[BusinessProfile.CLINIC].replies
+_DEFAULT = PROFILES[BusinessProfile.CLINIC].replies_in(Language.RU)
 TECH_ERROR = _DEFAULT.tech_error
-TECH_ERROR_RO = PROFILES[BusinessProfile.CLINIC].replies_ro.tech_error
+TECH_ERROR_RO = PROFILES[BusinessProfile.CLINIC].replies_in(Language.RO).tech_error
 # Model refusal, truncated or empty reply, system prompt leak
 FALLBACK_ANSWER = _DEFAULT.fallback
 # When the model named a price that is not in the knowledge base

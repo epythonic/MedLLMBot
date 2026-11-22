@@ -21,7 +21,7 @@ from medllmbot.assistant import TECH_ERROR, Reply
 from medllmbot.config import BotSettings
 from medllmbot.db.models import AuditOutcome, BotConfig, BusinessProfile, ChatMessage, Client, Lead, OperatorRelay
 from medllmbot.db.repository import QuestionRow, Repository
-from medllmbot.handlers import TEXT_ONLY, TEXT_ONLY_RO
+from medllmbot.handlers import text_only
 from medllmbot.i18n import gettext_for
 from medllmbot.main import build_dispatcher
 from medllmbot.operator import (
@@ -40,10 +40,11 @@ from medllmbot.operator import (
     with_operator,
 )
 from medllmbot.profiles import PROFILES, Replies
+from medllmbot.text import Language
 from tests.conftest import CHAT_ID, Sessions, load_audit
 
 ADMIN_ID = 777
-REPLIES = PROFILES[BusinessProfile.CLINIC].replies
+REPLIES = PROFILES[BusinessProfile.CLINIC].replies_in(Language.RU)
 BOT_ANSWER = "Чистка стоит 800 лей."
 
 
@@ -607,13 +608,13 @@ async def test_shop_replies_name_manager(harness: Harness, sessions: Sessions) -
     async with sessions.begin() as s:
         await s.execute(update(BotConfig).values(profile=BusinessProfile.SHOP))
     await harness.write("Позовите менеджера")
-    assert harness.session.texts(CHAT_ID) == [PROFILES[BusinessProfile.SHOP].replies.operator_started]
+    assert harness.session.texts(CHAT_ID) == [PROFILES[BusinessProfile.SHOP].replies_in(Language.RU).operator_started]
 
 
 class TestRomanianClient:
     """Canned operator replies are in the client's language. A Romanian client used to get them in Russian."""
 
-    ro: Replies = PROFILES[BusinessProfile.CLINIC].replies_ro
+    ro: Replies = PROFILES[BusinessProfile.CLINIC].replies_in(Language.RO)
 
     async def test_handoff_and_return(self, harness: Harness, sessions: Sessions) -> None:
         await harness.write("Aș vrea să vorbesc cu administratorul")
@@ -629,7 +630,7 @@ class TestRomanianClient:
     async def test_russian_dialog_ends_in_russian(self, harness: Harness) -> None:
         await harness.write("Позовите администратора")
         await harness.press_end()
-        assert harness.session.texts(CHAT_ID)[-1] == PROFILES[BusinessProfile.CLINIC].replies.operator_ended
+        assert harness.session.texts(CHAT_ID)[-1] == PROFILES[BusinessProfile.CLINIC].replies_in(Language.RU).operator_ended
 
     async def test_operator_command_uses_telegram_language(self, harness: Harness) -> None:
         # «/operator» has no language — it comes from the client's Telegram settings
@@ -649,7 +650,7 @@ class TestRomanianClient:
 
     async def test_photo_in_romanian_telegram(self, harness: Harness) -> None:
         await harness.write(None, photo=True, language_code="ro")
-        assert harness.session.texts(CHAT_ID) == [TEXT_ONLY_RO]
+        assert harness.session.texts(CHAT_ID) == [text_only(Language.RO)]
 
 
 async def test_operator_hours_from_config(harness: Harness, sessions: Sessions) -> None:
@@ -670,12 +671,12 @@ class TestReviewFixes:
     async def test_photo_from_regular_client_still_works(self, harness: Harness) -> None:
         # The operator router checks every message first: a photo has no text to look for a request in
         await harness.write(None, photo=True)
-        assert harness.session.texts(CHAT_ID) == [TEXT_ONLY]
+        assert harness.session.texts(CHAT_ID) == [text_only(Language.RU)]
 
     async def test_photo_with_operator_caption_is_not_a_request(self, harness: Harness, sessions: Sessions) -> None:
         # aiogram's Command checks captions too; an empty question in history would break Claude requests
         await harness.write(None, photo=True, caption="/operator")
-        assert harness.session.texts(CHAT_ID) == [TEXT_ONLY]
+        assert harness.session.texts(CHAT_ID) == [text_only(Language.RU)]
         assert await harness.repo.operator_until(CHAT_ID) is None
         async with sessions() as s:
             assert list(await s.scalars(select(ChatMessage))) == []

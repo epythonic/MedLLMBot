@@ -207,7 +207,7 @@ medllmbot/
 ├── operator_handlers.py # handlerele operatorului: redirecționare în ambele sensuri, butonul „Înapoi la bot”
 ├── text.py            # normalizarea textului, limba clientului, curățarea răspunsului de Markdown
 ├── i18n.py            # cataloagele de traduceri gettext (RU/RO/EN) și marcajul N_ pentru etichetele din codul de domeniu
-├── locales/           # ru/, ro/: messages.po — traducerile panoului de administrare și ale mesajelor către administrator
+├── locales/           # ru/, ro/: messages.po — traducerile panoului de administrare, ale mesajelor către administrator și ale răspunsurilor gata făcute pentru clienți; ro/sqladmin.po — șirurile încorporate ale SQLAdmin
 ├── guards.py          # RateLimiter, PriceChecker, detectarea numărului de telefon
 ├── security.py        # detectorul de prompt injection, verificarea scurgerii promptului
 ├── maintenance.py     # curățarea în fundal a jurnalului după termenul de păstrare
@@ -429,6 +429,18 @@ uv run pybabel update -i /tmp/messages.pot -d medllmbot/locales -D messages --no
 ```
 
 Codul, comentariile și commit-urile sunt în engleză; tot ce văd clienții și administratorul este tradus. Testele nu accesează rețeaua: clientul Anthropic și obiectele Telegram sunt înlocuite cu fake-uri. Teste separate verifică faptul că migrațiile corespund modelelor și că modificările din panoul de administrare sunt văzute imediat de bot. CI-ul din GitHub Actions rulează la fiecare push, pe Python 3.14, linterul, verificarea tipurilor (basedpyright), testele, verificarea cheilor serverului demo din GitHub Environment `demo` și construirea imaginii Docker.
+
+### Traduceri
+
+| Ce | Unde |
+|---|---|
+| Interfața panoului de administrare, mesajele botului către administrator, răspunsurile gata făcute pentru clienți | `medllmbot/locales/{ru,ro}/LC_MESSAGES/messages.po`; textul englez este `msgid` din cod |
+| Româna pentru butoanele încorporate ale SQLAdmin (rusa vine odată cu SQLAdmin) | `medllmbot/locales/ro/LC_MESSAGES/sqladmin.po` |
+| Textul secțiunilor de ajutor „?” | `medllmbot/admin/templates/help/topics/{ru,ro,en}/*.html` |
+| Salutul | panoul de administrare, „Setările botului” (se păstrează în baza de date) |
+| Acest README | `README.md`, `README_ru.md`, `README_ro.md` |
+
+Pentru a corecta o traducere, modificați doar rândurile `msgstr`, manual sau în Poedit, și păstrați substituenții precum `%(name)s`. Dacă redenumiți un buton sau o coloană, redenumiți-l și în ajutorul din aceeași limbă: ajutorul numește elementele interfeței exact. Textul englez este `msgid` din cod: după ce îl modificați, rulați cele două comenzi `pybabel` de mai sus și traduceți intrarea nouă. Verificarea: `uv run pytest tests/test_i18n.py tests/test_help.py` — primul test prinde șirurile netraduse și substituenții stricați, al doilea secțiunile de ajutor care lipsesc într-o limbă sau au alte ancore și linkuri.
 
 ### Evaluarea calității răspunsurilor
 

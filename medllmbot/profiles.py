@@ -6,8 +6,10 @@ is loaded by `python -m medllmbot.db.seed --reset --profile shop`.
 """
 
 from dataclasses import dataclass
+from functools import cache
 
 from medllmbot.db.models import BusinessProfile
+from medllmbot.i18n import N_, gettext_for
 from medllmbot.text import Language
 
 
@@ -15,7 +17,8 @@ from medllmbot.text import Language
 class Replies:
     """Canned bot replies without the model: they name the staff member the same way as the profile prompt.
 
-    A profile has two sets, Russian and Romanian: the client gets the canned reply in the language of their message.
+    In a profile the fields are English msgids; the Russian and Romanian texts live in the translation catalogs
+    (`medllmbot/locales`), and `Profile.replies_in()` returns them in the language of the client's message.
     """
 
     tech_error: str  # API unavailable or an unexpected error
@@ -39,13 +42,26 @@ class Profile:
     off_topic: str  # reply to off-topic questions, with a line break
     catalog_title: str  # catalog heading in the knowledge base
     search_examples: str  # example queries for search_catalog
-    replies: Replies  # in Russian
-    replies_ro: Replies  # the same replies in Romanian
+    replies: Replies  # msgids; the client gets them through replies_in()
     orders: bool = False  # whether there are orders whose status the bot looks up with the order_status tool
 
     def replies_in(self, language: Language) -> Replies:
         """Canned replies in the client's language."""
-        return self.replies_ro if language is Language.RO else self.replies
+        return _translated(self.replies, language)
+
+
+@cache
+def _translated(replies: Replies, language: Language) -> Replies:
+    _ = gettext_for(language)
+    return Replies(
+        tech_error=_(replies.tech_error),
+        fallback=_(replies.fallback),
+        price_fallback=_(replies.price_fallback),
+        budget_exceeded=_(replies.budget_exceeded),
+        lead_saved=_(replies.lead_saved),
+        operator_started=_(replies.operator_started),
+        operator_ended=_(replies.operator_ended),
+    )
 
 
 PROFILES: dict[BusinessProfile, Profile] = {
@@ -63,24 +79,18 @@ PROFILES: dict[BusinessProfile, Profile] = {
         catalog_title="Услуги и цены",
         search_examples="«чистка зубов», «имплант»",
         replies=Replies(
-            tech_error="Извините, произошла техническая ошибка. Администратор свяжется с вами.",
-            fallback="Уточню у администратора и вернусь к вам.",
-            price_fallback="Уточню стоимость у администратора и вернусь к вам.",
-            budget_exceeded="Сейчас я не могу ответить подробно. Администратор ответит вам в рабочее время.",
-            lead_saved="Номер телефона мы сохранили — администратор перезвонит вам в рабочее время.",
-            operator_started="Передал ваш вопрос администратору — он ответит здесь же, в этом чате, в рабочее время. "
-            "Пишите ему прямо сюда.",
-            operator_ended="Администратор завершил разговор. Если появятся вопросы — пишите, я отвечу.",
-        ),
-        replies_ro=Replies(
-            tech_error="Ne pare rău, a apărut o eroare tehnică. Administratorul vă va contacta.",
-            fallback="Voi verifica cu administratorul și revin cu un răspuns.",
-            price_fallback="Voi verifica prețul cu administratorul și revin cu un răspuns.",
-            budget_exceeded="Acum nu pot răspunde detaliat. Administratorul vă va răspunde în timpul programului de lucru.",
-            lead_saved="Am salvat numărul de telefon — administratorul vă va suna în timpul programului de lucru.",
-            operator_started="Am transmis întrebarea dvs. administratorului — vă va răspunde aici, în acest chat, "
-            "în timpul programului de lucru. Scrieți-i direct aici.",
-            operator_ended="Administratorul a încheiat conversația. Dacă mai aveți întrebări, scrieți-mi — vă răspund.",
+            tech_error=N_("Sorry, a technical error occurred. The administrator will contact you."),
+            fallback=N_("I will check with the administrator and get back to you."),
+            price_fallback=N_("I will check the price with the administrator and get back to you."),
+            budget_exceeded=N_("I cannot answer in detail right now. The administrator will reply during business hours."),
+            lead_saved=N_("We have saved your phone number — the administrator will call you back during business hours."),
+            operator_started=N_(
+                "I have passed your question to the administrator — they will reply right here, in this chat, "
+                "during business hours. Write to them right here."
+            ),
+            operator_ended=N_(
+                "The administrator has ended the conversation. If you have questions, write to me — I will answer."
+            ),
         ),
     ),
     BusinessProfile.SHOP: Profile(
@@ -110,24 +120,16 @@ PROFILES: dict[BusinessProfile, Profile] = {
         catalog_title="Товары, услуги и цены",
         search_examples="«ноутбук 16 ГБ», «беспроводные наушники», «робот-пылесос», «установка стиральной машины»",
         replies=Replies(
-            tech_error="Извините, произошла техническая ошибка. Менеджер свяжется с вами.",
-            fallback="Уточню у менеджера и вернусь к вам.",
-            price_fallback="Уточню стоимость у менеджера и вернусь к вам.",
-            budget_exceeded="Сейчас я не могу ответить подробно. Менеджер ответит вам в рабочее время.",
-            lead_saved="Номер телефона мы сохранили — менеджер перезвонит вам в рабочее время.",
-            operator_started="Передал ваш вопрос менеджеру — он ответит здесь же, в этом чате, в рабочее время. "
-            "Пишите ему прямо сюда.",
-            operator_ended="Менеджер завершил разговор. Если появятся вопросы — пишите, я отвечу.",
-        ),
-        replies_ro=Replies(
-            tech_error="Ne pare rău, a apărut o eroare tehnică. Managerul vă va contacta.",
-            fallback="Voi verifica cu managerul și revin cu un răspuns.",
-            price_fallback="Voi verifica prețul cu managerul și revin cu un răspuns.",
-            budget_exceeded="Acum nu pot răspunde detaliat. Managerul vă va răspunde în timpul programului de lucru.",
-            lead_saved="Am salvat numărul de telefon — managerul vă va suna în timpul programului de lucru.",
-            operator_started="Am transmis întrebarea dvs. managerului — vă va răspunde aici, în acest chat, "
-            "în timpul programului de lucru. Scrieți-i direct aici.",
-            operator_ended="Managerul a încheiat conversația. Dacă mai aveți întrebări, scrieți-mi — vă răspund.",
+            tech_error=N_("Sorry, a technical error occurred. The manager will contact you."),
+            fallback=N_("I will check with the manager and get back to you."),
+            price_fallback=N_("I will check the price with the manager and get back to you."),
+            budget_exceeded=N_("I cannot answer in detail right now. The manager will reply during business hours."),
+            lead_saved=N_("We have saved your phone number — the manager will call you back during business hours."),
+            operator_started=N_(
+                "I have passed your question to the manager — they will reply right here, in this chat, "
+                "during business hours. Write to them right here."
+            ),
+            operator_ended=N_("The manager has ended the conversation. If you have questions, write to me — I will answer."),
         ),
         orders=True,
     ),
