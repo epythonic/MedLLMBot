@@ -27,10 +27,10 @@ msgid "Create"
 msgstr "Creare"
 
 msgid "Edit"
-msgstr "Editează"
+msgstr "Editați"
 
 msgid "Delete"
-msgstr "Șterge"
+msgstr "Ștergeți"
 
 msgid "Export"
 msgstr "Export"
@@ -53,19 +53,19 @@ msgstr "Nu aveți dreptul să acordați: %(permissions)s"
 
 #, python-format
 msgid "New %(name)s"
-msgstr "Adaugă: %(name)s"
+msgstr "Adăugați: %(name)s"
 
 msgid "Cancel"
-msgstr "Anulează"
+msgstr "Anulați"
 
 msgid "Save"
-msgstr "Salvează"
+msgstr "Salvați"
 
 msgid "Save and continue editing"
-msgstr "Salvează și continuă editarea"
+msgstr "Salvați și continuați editarea"
 
 msgid "Save and add another"
-msgstr "Salvează și adaugă altul"
+msgstr "Salvați și adăugați altul"
 
 msgid "Column"
 msgstr "Coloană"
@@ -81,10 +81,10 @@ msgid "Edit %(name)s"
 msgstr "Editare: %(name)s"
 
 msgid "Save as new"
-msgstr "Salvează ca nou"
+msgstr "Salvați ca nou"
 
 msgid "Logout"
-msgstr "Ieșire"
+msgstr "Deconectare"
 
 msgid "Language"
 msgstr "Limbă"
@@ -99,16 +99,16 @@ msgid "Actions"
 msgstr "Acțiuni"
 
 msgid "Delete selected items"
-msgstr "Șterge elementele selectate"
+msgstr "Ștergeți elementele selectate"
 
 msgid "Search"
-msgstr "Caută"
+msgstr "Căutați"
 
 msgid "Select all"
-msgstr "Selectează tot"
+msgstr "Selectați tot"
 
 msgid "Select item"
-msgstr "Selectează elementul"
+msgstr "Selectați elementul"
 
 msgid "View"
 msgstr "Vizualizare"
@@ -124,7 +124,7 @@ msgid "next"
 msgstr "înainte"
 
 msgid "Show"
-msgstr "Afișează"
+msgstr "Afișați"
 
 #, python-format
 msgid "%(size)s / Page"
@@ -150,16 +150,16 @@ msgid "Login"
 msgstr "Autentificare"
 
 msgid "Close"
-msgstr "Închide"
+msgstr "Închideți"
 
 msgid "Done"
 msgstr "Gata"
 
 msgid "Clear filter"
-msgstr "Șterge filtrul"
+msgstr "Resetați filtrul"
 
 msgid "Apply Filter"
-msgstr "Aplică filtrul"
+msgstr "Aplicați filtrul"
 
 msgid "Please confirm"
 msgstr "Confirmați"
@@ -174,7 +174,7 @@ msgid "No file selected"
 msgstr "Niciun fișier selectat"
 
 msgid "Skip invalid rows and continue import"
-msgstr "Omite rândurile invalide și continuă importul"
+msgstr "Omiteți rândurile invalide și continuați importul"
 
 msgid "Import progress"
 msgstr "Progresul importului"
@@ -202,11 +202,11 @@ msgid "Missed rows"
 msgstr "Rânduri omise"
 
 msgid "Download CSV"
-msgstr "Descarcă CSV"
+msgstr "Descărcați CSV"
 
 msgid "Download TXT"
-msgstr "Descarcă TXT"
+msgstr "Descărcați TXT"
 
 msgid "Refresh list"
-msgstr "Reîmprospătează lista"
+msgstr "Reîmprospătați lista"
 

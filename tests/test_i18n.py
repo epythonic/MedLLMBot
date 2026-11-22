@@ -99,7 +99,7 @@ class TestInstall:
             i18n.install()
         sqladmin_i18n.set_locale("ro")
         try:
-            assert sqladmin_i18n.gettext("Logout") == "Ieșire"  # SQLAdmin's string, from our Romanian catalog
+            assert sqladmin_i18n.gettext("Logout") == "Deconectare"  # SQLAdmin's string, from our Romanian catalog
             assert sqladmin_i18n.gettext("no such message") == "no such message"
         finally:
             sqladmin_i18n.set_locale("en")

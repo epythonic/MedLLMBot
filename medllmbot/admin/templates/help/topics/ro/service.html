@@ -24,20 +24,20 @@ cu prețuri și răspunde pe baza lor.</p>
 <h3 id="{{ topic.anchor('proverka-cen') }}">Protecție împotriva prețurilor inventate</h3>
 <p>Dacă modelul numește o sumă în lei care nu există în baza de cunoștințe, clientul nu o va vedea: va primi
 „Voi verifica prețul cu administratorul și revin cu un răspuns”, iar în {{ section_link('audit-event') }} va apărea
-o înregistrare cu rezultatul „Preț înlocuit”. Dacă astfel de înregistrări sunt multe, verificați dacă toate prețurile
+o înregistrare cu rezultatul „Preț înlocuit”. Dacă există multe astfel de înregistrări, verificați dacă toate prețurile
 sunt în lista de prețuri.</p>
 
 <h3 id="{{ topic.anchor('kak') }}">Cum lucrați cu serviciile</h3>
 <ul>
-  <li><b>Adăugare:</b> butonul <b>+ Adaugă: Poziție</b> deasupra tabelului → completați denumirea și prețul →
-    <b>Salvează</b>.</li>
-  <li><b>Schimbarea prețului:</b> pictograma creion din rândul serviciului → <b>Preț, lei</b> → <b>Salvează</b>.</li>
+  <li><b>Adăugare:</b> butonul <b>+ Adăugați: Poziție</b> deasupra tabelului → completați denumirea și prețul →
+    <b>Salvați</b>.</li>
+  <li><b>Schimbarea prețului:</b> pictograma creion din rândul serviciului → <b>Preț, lei</b> → <b>Salvați</b>.</li>
   <li><b>Eliminare temporară</b> (serviciul nu se prestează acum): debifați <b>Activă</b>. Botul nu îl va mai propune,
     iar înregistrarea rămâne — mai târziu este suficient să o activați din nou.</li>
   <li><b>Ștergere definitivă:</b> pictograma coș din rând. Ștergerea este ireversibilă.</li>
   <li><b>Schimbarea ordinii:</b> trageți rândul de pictograma din coloana <b>Ordine</b> — noua ordine
-    se salvează imediat, iar botul o vede de la următoarea întrebare. Tragerea funcționează când lista nu are căutare
-    sau filtre. Se poate și manual: numărul <b>Ordine</b> din formular, mai mic — mai sus.</li>
+    se salvează imediat, iar botul o vede de la următoarea întrebare. Tragerea funcționează când în listă nu sunt aplicate căutarea
+    sau filtrele. Se poate și manual: numărul <b>Ordine</b> din formular — cu cât este mai mic, cu atât rândul este mai sus.</li>
 </ul>
 
 <h3 id="{{ topic.anchor('sovety') }}">Cum completați</h3>
@@ -52,7 +52,7 @@ sunt în lista de prețuri.</p>
 Botul consideră valabile și prețurile din {{ section_link('faq-item') }} și {{ section_link('info-section') }}.
 Dacă acolo este menționat prețul vechi, botul îl poate numi.
 {% endcall %}
-{% call note("info", "Modificarea bazei de cunoștințe resetează puțin cache-ul") %}
+{% call note("info", "Modificarea bazei de cunoștințe resetează cache-ul") %}
 Fiecare modificare schimbă textul solicitării către Claude, de aceea primul răspuns după ea este puțin mai scump:
-cache-ul se scrie din nou. Diferența este de fracțiuni de cent, modificați liniștit.
+cache-ul se scrie din nou. Diferența este de fracțiuni de cent, modificați fără grijă.
 {% endcall %}

@@ -10,7 +10,7 @@
 
 <h3 id="{{ topic.anchor('ocenka') }}">Este o estimare, nu o factură</h3>
 <p>Raportul se calculează după tokenurile din răspunsurile lui Claude și prețurile din {{ section_link('model-price') }}.
-Taxele, reducerile contractuale și solicitările către API făcute ocolind botul nu sunt luate în calcul. Suma exactă
+Taxele, reducerile contractuale și solicitările către API făcute în afara botului nu sunt luate în calcul. Suma exactă
 o găsiți în Anthropic Console, în secțiunea Usage / Cost.</p>
 {% call note("warning", "Avertismentul despre solicitările fără preț") %}
 Dacă sub tabelul lunii există un avertisment despre solicitări fără preț, totalul este subestimat: adăugați modelul
@@ -24,5 +24,5 @@ Dacă sub tabelul lunii există un avertisment despre solicitări fără preț, 
   <li><b>Adâncimea istoricului</b> din {{ section_link('bot-config') }}: fiecare mesaj din istoric adaugă tokenuri
     la fiecare întrebare a clientului.</li>
   <li><b>Dimensiunea bazei de cunoștințe.</b> Ea se trimite cu fiecare întrebare. Cache-ul ieftinește repetările, dar
-    secțiunile inutile și serviciile inactive este mai bine să le dezactivați.</li>
+    este mai bine să dezactivați secțiunile inutile și serviciile inactive.</li>
 </ul>

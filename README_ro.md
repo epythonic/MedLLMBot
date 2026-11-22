@@ -4,13 +4,13 @@
 
 [English](README.md) · [Русский](README_ru.md) · **Română** · [Istoricul modificărilor](CHANGELOG.md)
 
-Proiect demonstrativ: un bot Telegram construit pe **aiogram 3** și **Claude (Anthropic API)**. Botul răspunde clienților unei clinici stomatologice la întrebări despre servicii, prețuri, adresă, program și programări, în limbile rusă și română. Toate datele sunt stocate în **SQLite**, iar administratorul clinicii le gestionează prin **panoul de administrare web** (FastAPI + SQLAdmin), în rusă, română sau engleză: lista de prețuri, întrebările frecvente, cererile, clienții, setările botului. Modificările se aplică fără repornire.
+Proiect demonstrativ: un bot Telegram construit cu **aiogram 3** și **Claude (Anthropic API)**. Botul răspunde clienților unei clinici stomatologice la întrebări despre servicii, prețuri, adresă, program și programări, în limbile rusă și română. Toate datele sunt stocate în **SQLite**, iar administratorul clinicii le gestionează prin **panoul de administrare web** (FastAPI + SQLAdmin), în rusă, română sau engleză: lista de prețuri, întrebările frecvente, cererile, clienții, setările botului. Modificările se aplică fără repornire.
 
 > Clinica „Demo Dental Clinic” este fictivă, toate datele demonstrative sunt inventate ([medllmbot/db/seed.py](medllmbot/db/seed.py)).
 
 **Două profiluri demo.** Același bot trece la un magazin fictiv de electronice, „Demo Electro”
 (64 de produse, livrare, garanție, plată în rate), cu o singură comandă — `seed --reset --profile shop`. Profilul stabilește rolul botului
-și regulile de domeniu: botul clinicii nu pune diagnostice și face programări la consultație, iar cel al magazinului ajută la alegerea tehnicii
+și regulile de domeniu: botul clinicii nu pune diagnostice și face programări la consultație, iar cel al magazinului ajută la alegerea produselor
 în limita bugetului, nu promite disponibilitatea în stoc și plasează comanda prin intermediul managerului. Regulile de securitate sunt comune pentru ambele profiluri.
 Catalogul magazinului depășește pragul „Catalog în prompt”, de aceea acolo Claude caută produsele cu ajutorul unui instrument.
 În plus, magazinul răspunde la întrebarea „unde este comanda mea?”: instrumentul `order_status` arată statusul, produsele, suma și data
@@ -23,12 +23,12 @@ livrării doar dacă cumpărătorul a indicat numărul comenzii și ultimele 4 c
 - Răspunde doar din baza de cunoștințe a clinicii: secțiunile „despre clinică”, serviciile cu prețuri, FAQ.
 - Ține minte ultimele mesaje din dialog; istoricul este stocat în SQLite.
 - Compară prețurile din răspunsul modelului cu lista de prețuri. Dacă modelul a numit un preț inventat, clientul nu îl va vedea.
-- **Caută singur într-un catalog mare** (tool use): dacă numărul serviciilor active depășește pragul din setări, lista de prețuri nu este inclusă integral în prompt — Claude apelează instrumentul `search_catalog` peste indexul full-text SQLite FTS5, primește până la 10 poziții potrivite și răspunde pe baza lor. Căutarea înțelege diferite forme ale cuvântului („чистку” → „Чистка”), filtrează după preț și nu execută sintaxa FTS din interogare. Un catalog mic este inclus în continuare integral în prompt — așa este mai ieftin și mai rapid.
+- **Caută singur într-un catalog mare** (tool use): dacă numărul serviciilor active depășește pragul din setări, lista de prețuri nu este inclusă integral în prompt — Claude apelează instrumentul `search_catalog`, care caută în indexul full-text SQLite FTS5, primește până la 10 poziții potrivite și răspunde pe baza lor. Căutarea înțelege diferite forme ale cuvântului („чистку” → „Чистка”), filtrează după preț și nu execută sintaxa FTS din interogare. Un catalog mic este inclus în continuare integral în prompt — așa este mai ieftin și mai rapid.
 - Cererea cu număr de telefon (numere moldovenești în orice format și internaționale cu „+”) este salvată cu statusul „Nouă” și trimisă administratorului. Cererea nu se pierde nici dacă LLM-ul nu este disponibil, mesajul depășește limita sau Telegram nu a acceptat răspunsul către client.
-- **Cheamă un om:** clientul scrie „chemați un manager”, „vreau să vorbesc cu un om” (în rusă sau în română) sau /operator — administratorul primește o notificare cu ultimele mesaje și răspunde direct din Telegram, printr-un reply la mesajul botului. Cât timp dialogul este la operator, botul tace, iar mesajele clientului, inclusiv fotografiile, le trimite administratorului fără a apela Claude. Butonul „Înapoi la bot” sau termenul din setări readuc dialogul la bot.
-- Răspunsurile predefinite, fără model („Voi verifica cu administratorul”, „Mesajul este prea lung”, scuzele pentru o defecțiune), sunt în limba clientului: rusă sau română. Limba se determină după mesaj, iar dacă din el nu se poate deduce (o comandă a botului, un număr de comandă, o fotografie fără descriere) — după limba Telegram a clientului. Salutul la /start se alege după limba Telegram, iar clienții cu Telegram în altă limbă le primesc pe amândouă.
+- **Cheamă un om:** clientul scrie „chemați un manager”, „vreau să vorbesc cu un om” (în rusă sau în română) sau /operator — administratorul primește o notificare cu ultimele mesaje și răspunde direct din Telegram, printr-un răspuns (reply) la mesajul botului. Cât timp dialogul este la operator, botul tace și trimite administratorului mesajele clientului, inclusiv fotografiile, fără a apela Claude. Butonul „Înapoi la bot” sau termenul din setări readuc dialogul la bot.
+- Răspunsurile predefinite, fără model („Voi verifica cu administratorul”, „Mesajul este prea lung”, scuzele pentru o defecțiune), sunt în limba clientului: rusă sau română. Limba se determină după mesaj, iar dacă din el nu se poate deduce (o comandă pentru bot, un număr de comandă, o fotografie fără descriere) — după limba Telegram a clientului. Salutul la /start se alege după limba Telegram, iar clienții cu Telegram în altă limbă primesc ambele saluturi.
 - Cât timp modelul se gândește, clientul vede „scrie…”. Un răspuns lung vine în mai multe mesaje, în limita impusă de Telegram.
-- Este protejat împotriva mesajelor lungi, a spamului și a prompt injection. Ignoră clienții blocați în panoul de administrare.
+- Este protejat împotriva mesajelor lungi, a spamului și a atacurilor de tip prompt injection. Ignoră clienții blocați în panoul de administrare.
 - Ține un **jurnal de audit**: fiecare mesaj primit, inclusiv cele respinse, cu răspunsul modelului, tokenurile, latența și semnele unei încercări de a prelua controlul. Despre mesajele suspecte îl anunță pe administrator.
 - Calculează **costul fiecărui răspuns** în tokenuri și dolari, după lista de prețuri a modelelor, și acumulează totaluri zilnice pentru raportul lunar.
 
@@ -36,7 +36,7 @@ livrării doar dacă cumpărătorul a indicat numărul comenzii și ultimele 4 c
 
 - **Cereri:** listă cu filtru după status (Nouă / În lucru / Finalizată / Respinsă) și notițele administratorului.
 - **Comenzi** (magazin): număr, cumpărător, status, produse, sumă, data livrării — pe baza lor botul răspunde despre comandă. În demo este un tabel din baza de date, iar pentru un magazin real — sistemul lui de evidență (CMS, 1C), prin interfața `OrderBackend`.
-- **Clienți:** cine a scris și când, blocare cu o singură bifă, cine este acum preluat de operatorul uman.
+- **Clienți:** cine a scris și când, blocare cu o singură bifă, cine este acum preluat de operator.
 - **Analiză:** despre ce întreabă clienții (subiecte după cuvinte-cheie în rusă și română), ce pondere din dialoguri se încheie cu o cerere și la ce întrebări botul nu a găsit răspuns — cu motivul și un link spre înregistrarea din jurnal. Este un indiciu despre ce trebuie adăugat în baza de cunoștințe. Se calculează din jurnal pentru 7, 30 sau 90 de zile, fără a apela Claude: nu costă nimic, iar conversațiile clienților nu ajung nicăieri altundeva.
 - **Conversații:** jurnalul dialogurilor, doar pentru citire, cu căutare și filtru după chat.
 - **Bază de cunoștințe:** servicii și prețuri, întrebări frecvente, secțiuni despre clinică. Ordinea se schimbă prin glisarea rândurilor (SortableJS + HTMX) și este vizibilă imediat pentru bot; înregistrările pot fi dezactivate fără a fi șterse. Căutarea în chirilică nu ține cont de majuscule și minuscule.
@@ -44,7 +44,7 @@ livrării doar dacă cumpărătorul a indicat numărul comenzii și ultimele 4 c
 - **Cheltuieli:** raport lunar defalcat pe modele, cu prognoză pentru luna curentă, cheltuieli pe zile, lista de prețuri a modelelor (se editează când Anthropic schimbă prețurile).
 - **Setările botului:** modelul Claude, limitele, adâncimea istoricului, rate-limit, pragul „Catalog în prompt”, salutul în rusă și în română, limba mesajelor către administrator, termenul de păstrare a jurnalului. Valorile sunt validate de formular și de restricțiile CHECK din baza de date.
 - **Formulare:** erorile de introducere sunt afișate în limba panoului de administrare (cataloagele WTForms, în rusă — cu corecturi ale traducerilor inexacte), iar prețurile cu zecimale sunt acceptate atât cu punct, cât și cu virgulă.
-- **Acțiuni rapide pe HTMX:** statusul cererii se schimbă direct în listă, „Cereri” și „Jurnal” afișează fără reîncărcare un banner despre înregistrările noi (evenimentele suspecte sunt evidențiate), iar clientul poate fi blocat de pe pagina înregistrării din jurnal. HTMX se află în proiect, nu pe un CDN, funcționează fără `eval`, iar solicitările care modifică date sunt acceptate doar cu antetul `HX-Request`.
+- **Acțiuni rapide cu HTMX:** statusul cererii se schimbă direct în listă, „Cereri” și „Jurnal” afișează fără reîncărcare un banner despre înregistrările noi (evenimentele suspecte sunt evidențiate), iar clientul poate fi blocat de pe pagina înregistrării din jurnal. HTMX se află în proiect, nu pe un CDN, funcționează fără `eval`, iar solicitările care modifică date sunt acceptate doar cu antetul `HX-Request`.
 - **Ajutor „?”:** pictograma „?” se află lângă fiecare secțiune, câmp de formular și coloană de tabel. La trecerea cursorului apare un indiciu scurt, iar la clic se deschide un panou lateral cu instrucțiuni detaliate. Panoul nu acoperă pagina; îl deschid și tastele F1 și „?”. Pe pagina principală se află schema de funcționare a botului și harta secțiunilor, iar pe pagina „Ajutor” — toată documentația, cu cuprins.
 - **Trei limbi:** interfața, ajutorul „?” și mesajele botului către administrator în Telegram sunt în rusă, română și engleză. Panoul de administrare se deschide în limba browserului (altfel în engleză), iar selectorul din meniu reține alegerea; limba notificărilor din Telegram se stabilește în „Setările botului”. Traducerile sunt cataloage gettext (`medllmbot/locales`); se traduc și statusurile, rezultatele din jurnal, subiectele analizei și semnele de atac. Un test nu lasă să treacă niciun șir din interfață fără traducere în rusă sau română.
 
@@ -57,7 +57,7 @@ Datele demonstrative sunt fictive.
 | ![Pagina principală: cum funcționează botul și harta secțiunilor](docs/screenshots/ro/home.png) | ![Cereri: statusul se schimbă direct în listă](docs/screenshots/ro/leads.png) |
 | **Pagina principală** — cum funcționează botul și harta secțiunilor | **Cereri** — statusul se schimbă direct în listă |
 | ![Jurnal: rezultatele procesării și mesajele suspecte](docs/screenshots/ro/audit-log.png) | ![Analiză: subiectele întrebărilor, cererile, întrebările fără răspuns](docs/screenshots/ro/analytics.png) |
-| **Jurnal** — rezultatul procesării fiecărui mesaj, încercările de atac, operatorul uman | **Analiză** — despre ce se întreabă, ponderea dialogurilor cu cerere, întrebările fără răspuns |
+| **Jurnal** — rezultatul procesării fiecărui mesaj, încercările de atac, operatorul | **Analiză** — despre ce se întreabă, ponderea dialogurilor cu cerere, întrebările fără răspuns |
 | ![Cheltuieli pentru Claude API pe luni](docs/screenshots/ro/costs.png) | ![Comenzile magazinului](docs/screenshots/ro/orders.png) |
 | **Cheltuieli** — costul solicitărilor către Claude pe luni și prognoza | **Comenzi** (magazin) — statusurile pe care botul le comunică cumpărătorului |
 | ![Catalog: ordinea se schimbă prin glisare](docs/screenshots/ro/services.png) | ![Ajutorul „?” în panoul lateral](docs/screenshots/ro/help-panel.png) |
@@ -83,10 +83,10 @@ Cum procesează botul un mesaj:
 
 1. `ClientMiddleware` creează sau actualizează clientul. Pe cei blocați îi oprește și îi înregistrează în jurnal, iar handlerului îi transmite setările din `bot_config`.
 2. `ThrottlingMiddleware` lasă să treacă cel mult N mesaje în M secunde, iar pe cele oprite le înregistrează în jurnal. Limitele se iau din setări, iar contoarele sunt păstrate în memorie.
-3. `ClinicAssistant` verifică mesajul pentru semne de atac și lungime, apoi citește din baza de date baza de cunoștințe și istoricul, construiește promptul de sistem și îl întreabă pe Claude. Dacă catalogul depășește pragul, modelul primește instrumentul `search_catalog` și poate căuta de mai multe ori în catalog înainte de a răspunde.
-4. Răspunsul modelului este verificat pentru scurgerea promptului de sistem și pentru prețuri care nu sunt în lista de prețuri, iar marcajul Markdown este eliminat. Un schimb obișnuit se salvează în istoric, unul suspect — nu.
+3. `ClinicAssistant` verifică lungimea mesajului și dacă acesta conține semne de atac, apoi citește din baza de date baza de cunoștințe și istoricul, construiește promptul de sistem și îl întreabă pe Claude. Dacă catalogul depășește pragul, modelul primește instrumentul `search_catalog` și poate căuta de mai multe ori în catalog înainte de a răspunde.
+4. În răspunsul modelului se caută scurgeri ale promptului de sistem și prețuri care nu sunt în lista de prețuri, iar marcajul Markdown este eliminat. Un schimb obișnuit se salvează în istoric, unul suspect — nu.
 5. Orice rezultat se înregistrează în jurnalul de audit.
-6. Handlerul trimite răspunsul (pe cel lung — pe părți). Dacă mesajul este suspect, administratorul primește o notificare (cel mult o dată la 15 minute pentru fiecare client). Dacă există un număr de telefon, se creează o cerere — chiar și atunci când Telegram nu a acceptat răspunsul către client.
+6. Handlerul trimite răspunsul (pe cel lung — în mai multe părți). Dacă mesajul este suspect, administratorul primește o notificare (cel mult o dată la 15 minute pentru fiecare client). Dacă există un număr de telefon, se creează o cerere — chiar și atunci când Telegram nu a acceptat răspunsul către client.
 7. O eroare neprevăzută la orice pas este interceptată: clientul primește scuze, iar eroarea ajunge în log.
 
 `/start` și mesajele non-text (fotografii, mesaje vocale) ajung și ele în jurnal, cu rezultatele „Salut” și „Nu este text”.
@@ -167,7 +167,7 @@ erDiagram
     }
 ```
 
-Schema este gestionată de **Alembic**. Botul și panoul de administrare aplică singure migrațiile la pornire. În Docker, acestea sunt aplicate în prealabil de serviciul `migrate`, astfel încât cele două procese nu actualizează schema simultan. SQLite funcționează în modul **WAL** cu `busy_timeout`, de aceea botul și panoul de administrare lucrează fără probleme cu aceeași bază de date în același timp. Cheile externe sunt activate (`PRAGMA foreign_keys`).
+Schema este gestionată de **Alembic**. Botul și panoul de administrare aplică singure migrațiile la pornire. În Docker, acestea sunt aplicate în prealabil de serviciul `migrate`, astfel încât cele două procese să nu actualizeze schema simultan. SQLite funcționează în modul **WAL** cu `busy_timeout`, de aceea botul și panoul de administrare lucrează fără probleme cu aceeași bază de date în același timp. Cheile externe sunt activate (`PRAGMA foreign_keys`).
 
 ## Securitate
 
@@ -175,15 +175,15 @@ Schema este gestionată de **Alembic**. Botul și panoul de administrare aplică
 | --- | --- |
 | Prompt injection („acum ești un alt bot”) | Regulile din promptul de sistem sunt declarate mai importante decât mesajele clientului, iar baza de cunoștințe este izolată în `<info>` |
 | Detectarea atacurilor | Euristicile pentru RU / RO / EN detectează cererile de a uita instrucțiunile, schimbarea rolului, „sunt șeful tău / proprietarul clinicii”, încercările de a afla promptul, marcajul de serviciu și jailbreak-urile cunoscute. Astfel de mesaje sunt marcate în jurnal, iar administratorul primește o notificare. Încercările de atac nu ajung în istoricul pe care îl vede modelul, de aceea un atac în mai mulți pași nu se acumulează |
-| Scurgerea promptului de sistem | Răspunsul modelului este comparat cu regulile din prompt. Dacă conține fragmente textuale din ele, clientul primește un răspuns de rezervă, iar în jurnal rămân ambele răspunsuri. Repovestirea sau traducerea regulilor nu este prinsă de această verificare — de ea protejează promptul însuși |
-| Prețuri și reduceri inventate | `PriceChecker` compară prețurile din răspuns cu lista de prețuri actuală din baza de date (înțelege „1 200 лей”, „1.200 lei”, „900 леев”), inclusiv atunci când catalogul nu este în prompt, iar modelul caută în el cu un instrument. Bugetul clientului este lăsat să treacă doar dacă clientul însuși a numit această sumă, iar în răspuns ea apare ca limită („până la 10 000 lei”), nu ca preț al unui produs sau ca reducere |
+| Scurgerea promptului de sistem | Răspunsul modelului este comparat cu regulile din prompt. Dacă conține fragmente textuale din ele, clientul primește un răspuns de rezervă, iar în jurnal rămân ambele răspunsuri. Parafrazarea sau traducerea regulilor nu este prinsă de această verificare — împotriva lor protejează chiar promptul |
+| Prețuri și reduceri inventate | `PriceChecker` compară prețurile din răspuns cu lista de prețuri actuală din baza de date (înțelege „1 200 лей”, „1.200 lei”, „900 леев”), inclusiv atunci când catalogul nu este în prompt, iar modelul caută în el cu un instrument. Bugetul clientului este lăsat să treacă doar dacă clientul însuși a numit această sumă, iar în răspuns ea apare ca limită („până la 10 000 de lei”), nu ca preț al unui produs sau ca reducere |
 | Spam și consumul API | Rate-limit pentru fiecare chat, limita de lungime a mesajului înainte de solicitarea către API, blocarea clienților în panoul de administrare. Limită zilnică de cheltuieli comună pentru toți: după atingerea ei, până la miezul nopții UTC botul răspunde fără Claude, cererile se salvează, iar administratorul primește o notificare |
 | Sfaturi medicale | Botul nu pune diagnostice și, în caz de durere acută, îndrumă pacientul la consultație |
 | Defecțiunea API | Timeout de 30 s și o reîncercare din SDK — clientul nu așteaptă mai mult de un minut. Apoi primește un răspuns politicos de rezervă, iar cererea se salvează oricum. Orice eroare neprevăzută (de exemplu, baza de date ocupată) se încheie tot cu un răspuns către client, nu cu tăcere |
 | Răspuns trunchiat sau gol, refuzul modelului | Se verifică `stop_reason`: un răspuns care a atins `max_tokens` sau fereastra de context, un răspuns gol și un refuz (`refusal`) nu sunt trimise clientului — acesta primește o frază neutră, iar în jurnal rămân răspunsul original și rezultatul („Răspuns trunchiat”, „Răspuns gol”, „Refuzul modelului”) |
 | Accesul la panoul de administrare | Nume de utilizator și parolă din `.env`, comparate în timp constant. După 5 încercări eșuate de pe aceeași adresă, autentificarea este blocată pentru 15 minute. Sesiunea este păstrată într-un cookie semnat (HttpOnly, SameSite=Lax, 8 ore, `Secure` cu `ADMIN_HTTPS_ONLY=true`); schimbarea parolei încheie toate sesiunile. Antete CSP, `X-Frame-Options: DENY`, `nosniff`, paginile cu date nu sunt puse în cache. În Docker, portul este deschis doar pe `127.0.0.1` |
 | Date cu caracter personal în jurnal | Termenul de păstrare se configurează în panoul de administrare (implicit 90 de zile), iar botul șterge înregistrările vechi la fiecare 6 ore |
-| Comenzile altor persoane | Statusul comenzii se arată doar după număr și ultimele 4 cifre ale telefonului din comandă; la un număr greșit și la un telefon greșit răspunsul este același. După 5 verificări eșuate într-o oră din același chat, botul nu mai caută comenzi. Telefonul nu este transmis modelului |
+| Comenzile altor persoane | Statusul comenzii este afișat doar pe baza numărului și a ultimelor 4 cifre ale telefonului din comandă; la un număr greșit și la un telefon greșit răspunsul este același. După 5 verificări eșuate într-o oră din același chat, botul nu mai caută comenzi. Telefonul nu este transmis modelului |
 | Scurgerea secretelor | Tokenurile sunt doar în `.env`, iar în cod sunt folosite ca `SecretStr`. `.env` este exclus din git și din imaginea Docker |
 
 ## Stack tehnologic
@@ -305,9 +305,9 @@ flowchart LR
     D --> S[Server: git pull, .env,<br/>docker compose up --build,<br/>health check]
 ```
 
-- În `main` nu se poate face push direct — se poate doar face merge la un PR cu verificările `test` și `docker` verzi (protecția ramurii).
+- În `main` nu se poate face push direct — se poate face doar merge la un PR cu verificările `test` și `docker` verzi (protecția ramurii).
 - După merge, CI verifică cheile din GitHub Environment `demo`, generează din ele `.env` și rulează prin SSH
-  pe server [deploy/deploy.sh](deploy/deploy.sh): `main` actualizat (doar fast-forward), `.env` nou, reconstruirea containerelor,
+  pe server [deploy/deploy.sh](deploy/deploy.sh): actualizarea `main` (doar fast-forward), un `.env` nou, reconstruirea containerelor și
   așteptarea până când panoul de administrare trece health check-ul. Dacă ceva nu a pornit, deploy-ul este roșu, iar în log apar ultimele rânduri
   ale containerului.
 - Cheia CI de pe server este legată de acest script (`command=` în `authorized_keys`): cu ea nu se poate executa altă comandă.
@@ -326,7 +326,7 @@ sudo git clone https://github.com/epythonic/MedLLMBot.git /opt/MedLLMBot
 sudo chown -R "$USER" /opt/MedLLMBot
 ```
 
-**Cheia pentru deploy** — pe mașina dvs.:
+**Cheia pentru deploy** — pe calculatorul dvs.:
 
 ```bash
 ssh-keygen -t ed25519 -N "" -C "github-actions-deploy" -f medllmbot-deploy
@@ -404,14 +404,14 @@ cd /opt/MedLLMBot && docker compose run --rm migrate python -m medllmbot.db.seed
 | Variabilă | Implicit | Descriere |
 | --- | --- | --- |
 | `TG_TOKEN` | — | Tokenul botului de la @BotFather |
-| `ADMIN_ID` | — | Chat id-ul personal al administratorului: notificări despre cereri, răspunsuri către clienți în rol de operator uman (cu id-ul unui grup operatorul nu funcționează) |
+| `ADMIN_ID` | — | Chat id-ul personal al administratorului: notificări despre cereri, răspunsuri către clienți în rol de operator (cu id-ul unui grup operatorul nu funcționează) |
 | `ANTHROPIC_API_KEY` | — | Cheia Anthropic API |
 | `ADMIN_USERNAME` | `admin` | Numele de utilizator al panoului de administrare |
 | `ADMIN_PASSWORD` | — | Parola panoului de administrare, de cel puțin 8 caractere |
 | `ADMIN_SECRET_KEY` | — | Cheia de semnare a cookie-ului de sesiune, de cel puțin 32 de caractere |
 | `ADMIN_HOST` / `ADMIN_PORT` | `127.0.0.1` / `8000` | Adresa panoului de administrare |
 | `DOMAIN` | — | Domeniul serverului demo pentru HTTPS prin Caddy (doar cu `--profile https`) |
-| `ADMIN_HTTPS_ONLY` | `false` | `true`, dacă panoul de administrare este deschis prin HTTPS printr-un reverse proxy: cookie-ul de sesiune va primi flagul `Secure` |
+| `ADMIN_HTTPS_ONLY` | `false` | `true` dacă panoul de administrare este accesat prin HTTPS, în spatele unui reverse proxy: cookie-ul de sesiune va primi flagul `Secure` |
 | `DB_PATH` | `storage/bot.db` | Calea către SQLite |
 
 Modelul Claude, limitele și salutul nu se setează aici, ci în panoul de administrare, în secțiunea „Setările botului”. Implicit: `claude-haiku-5-5`, răspuns de până la 1024 de tokenuri, mesaj de până la 1024 de caractere, istoric de 8 mesaje, 10 mesaje în 60 de secunde, jurnalul se păstrează 90 de zile, fără limită zilnică de cheltuieli.
@@ -432,7 +432,7 @@ Codul, comentariile și commit-urile sunt în engleză; tot ce văd clienții ș
 
 ### Evaluarea calității răspunsurilor
 
-Testele verifică codul, iar calitatea răspunsurilor modelului este măsurată de un set de evaluare separat, `evals/shop/`. Acesta conține 38 de întrebări ale cumpărătorilor magazinului: prețuri, alegere în limita bugetului, produse care nu există, condiții, statusul comenzii, regulile botului și întrebări în română. Întrebările sunt adresate botului real, cu promptul și instrumentele magazinului, pe o copie temporară a bazei de date demo. Răspunsurile sunt verificate de cod (prețurile și condițiile necesare, fără scurgeri despre comanda altcuiva, apelarea instrumentului potrivit, limba, fără Markdown) și de un judecător Claude, după o rubrică: fără informații inventate, reguli respectate, răspuns util.
+Testele verifică codul, iar calitatea răspunsurilor modelului este măsurată de un set de evaluare separat, `evals/shop/`. Acesta conține 38 de întrebări ale cumpărătorilor magazinului: prețuri, alegere în limita bugetului, produse care nu există, condiții, statusul comenzii, regulile botului și întrebări în română. Întrebările sunt adresate botului real, cu promptul și instrumentele magazinului, pe o copie temporară a bazei de date demo. Răspunsurile sunt verificate de cod (prețurile și condițiile necesare, fără scurgeri despre comanda altcuiva, apelarea instrumentului potrivit, limba, fără Markdown) și de un judecător Claude, pe baza unei grile de evaluare: fără informații inventate, reguli respectate, răspuns util.
 
 ```bash
 uv run python -m evals.shop.run --cases price-01,order-02   # pilot pe câteva întrebări
@@ -440,7 +440,7 @@ uv run python -m evals.shop.run --reps 2                    # tot setul: 76 de r
 uv run python -m evals.shop.run --regrade                   # gratuit: reverificare prin cod a răspunsurilor salvate
 ```
 
-Rularea este contra cost (cheia din `.env`), de aceea se pornește manual, nu în CI. Rezultatele, conversațiile și explicațiile judecătorului se scriu în `.claude/hillclimb/shop/` (nu ajung în git). Raportul `report.html` este generat de generatorul din skill-ul `claude-api` pentru Claude Code.
+Rularea este contra cost (cheia din `.env`), de aceea se pornește manual, nu în CI. Rezultatele, conversațiile și explicațiile judecătorului se scriu în `.claude/hillclimb/shop/` (nu ajung în git). Raportul `report.html` este creat cu generatorul din skill-ul `claude-api` pentru Claude Code.
 
 Prima rulare (claude-haiku-5-5, noiembrie 2026): **80% ± 13%** dintre răspunsuri au trecut toate verificările. Condițiile magazinului, statusul comenzii, regulile și produsele care nu există în catalog — 100%. Puncte slabe: alegerea în limita bugetului și limba română — analiza este în CHANGELOG.
 

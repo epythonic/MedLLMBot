@@ -1,11 +1,11 @@
 {% from "help/_macros.html" import note, section_link with context %}
 <h3 id="{{ topic.anchor('chto') }}">Ce găsiți aici</h3>
-<p>Un rând înseamnă o zi și un model. Fiecare solicitare către Claude botul o adaugă în rândul zilei respective
+<p>Un rând înseamnă o zi și un model. Botul adaugă fiecare solicitare către Claude în rândul zilei respective
 în același timp cu înregistrarea în {{ section_link('audit-event') }}, de aceea totalurile coincid întotdeauna cu jurnalul.</p>
 <ul>
   <li>Zilele se socotesc după UTC, ca în facturile Anthropic.</li>
   <li>Rândurile nu conțin date personale și nu se șterg împreună cu înregistrările vechi din jurnal:
-    după ele puteți calcula cheltuielile pentru orice perioadă.</li>
+    pe baza lor puteți calcula cheltuielile pentru orice perioadă.</li>
   <li>Secțiunea este doar pentru citire — totalurile le scrie botul.</li>
 </ul>
 

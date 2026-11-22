@@ -9,21 +9,21 @@ estimată. Dacă nu, botul răspunde că comanda nu a fost găsită și nu spune
   <li>Protecție împotriva încercărilor repetate: după 5 verificări nereușite într-o oră dintr-un chat sau 10 pentru aceeași comandă din toate chaturile,
     botul nu mai verifică și îi propune clientului să-și lase numărul de telefon, ca să-l sune managerul. Contoarele sunt păstrate în memoria
     botului și se resetează la repornirea sau actualizarea lui.</li>
-  <li>Un număr cu greșeli de tipar, care nu seamănă cu un număr de comandă, botul nu îl trimite în sistem și nu îl socotește încercare.</li>
+  <li>Botul nu trimite în sistem un număr cu greșeli de tipar, care nu seamănă cu un număr de comandă, și nu îl socotește încercare.</li>
   <li>Ce a verificat botul și cu ce rezultat vedeți în {{ section_link('audit-event') }}, în câmpul
-    <b>Ce a căutat botul</b>: «order_status DE-10023 → Передан в доставку» („predată pentru livrare”) sau «→ телефон не совпал» („telefonul nu a coincis”).</li>
+    <b>Ce a căutat botul</b>: «order_status DE-10023 → Передан в доставку» („în curs de livrare”) sau «→ телефон не совпал» („telefonul nu a coincis”).</li>
   <li>Secțiunea funcționează în profilul „Magazin de electronice”. Clinica stomatologică nu are comenzi, iar botul nu le caută.</li>
 </ul>
 
 <h3 id="{{ topic.anchor('rabota') }}">Cum gestionați comenzile</h3>
 <ul>
-  <li><b>Schimbați statusul:</b> pictograma creion din rândul comenzii → <b>Status</b> → <b>Salvează</b>. Botul va comunica
+  <li><b>Schimbați statusul:</b> pictograma creion din rândul comenzii → <b>Status</b> → <b>Salvați</b>. Botul va comunica
     noul status începând cu următoarea întrebare.</li>
-  <li><b>Adăugați o comandă:</b> butonul <b>+ Adaugă: Comandă</b>. Numărul trebuie să fie unic.</li>
+  <li><b>Adăugați o comandă:</b> butonul <b>+ Adăugați: Comandă</b>. Numărul trebuie să fie unic.</li>
   <li><b>Data livrării</b> — data estimată. Dacă s-a schimbat, corectați-o: clientul va afla exact ce este scris aici.
     Dacă data lipsește, botul va spune că o va preciza managerul.</li>
-  <li><b>Produse</b> — fără prețuri: botul numește suma comenzii, iar prețul unei poziții separate care nu este în catalog
-    verificarea prețurilor îl va înlocui cu „Voi verifica prețul”.</li>
+  <li><b>Produse</b> — fără prețuri: botul numește suma comenzii, iar verificarea prețurilor va înlocui prețul unei poziții individuale care nu este
+    în catalog cu „Voi verifica prețul”.</li>
 </ul>
 
 {% call note("info", "Într-un proiect pentru un magazin, comenzile vor veni din sistemul acestuia") %}
