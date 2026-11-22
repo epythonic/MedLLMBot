@@ -1,6 +1,6 @@
 [project]
 name = "medllmbot"
-version = "0.2.0"
+version = "0.3.0"
 description = "Telegram assistant on aiogram 3 and Claude (Anthropic API) for a dental clinic or an electronics shop, with a web admin"
 readme = "README.md"
 license = "MIT"

@@ -9,6 +9,14 @@ panel starts, and every schema change ships as an Alembic migration.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-22
+
+This release makes the project usable in three languages. The admin panel, its help and the documentation are in
+Russian, Romanian and English, and everything written for developers is in English.
+
+One migration adds the administrator's language to the bot settings. It runs on start. Existing settings keep
+Russian.
+
 ### Added
 
 - The admin panel speaks Russian, Romanian and English. It follows the browser language and falls back to English.
@@ -19,10 +27,18 @@ panel starts, and every schema change ships as an Alembic migration.
   - the «?» help: every section's text and every field hint exist in all three languages.
 
   Translations live in gettext catalogs (`medllmbot/locales`), and a test fails when a UI string has no Russian or
-  Romanian translation.
+  Romanian translation (#17).
 - A bot setting for the administrator's language (RU/RO/EN) covers every Telegram message the bot sends the
   administrator: new leads, suspicious-message and spending-limit alerts, live-operator notifications, the “Back to
-  bot” button and its replies. Existing settings keep Russian after the migration.
+  bot” button and its replies. Existing settings keep Russian after the migration (#17).
+- The README exists in English, Russian and Romanian, with admin screenshots in each language (#17).
+
+### Changed
+
+- The admin panel opens in English when the browser asks for a language other than Russian or Romanian. Before, it
+  was always in Russian (#17).
+- Code comments, docstrings, logs and the console output of the bot, the admin panel and the maintenance commands are
+  in English. Texts for customers, Claude's prompts and the demo data stay as they were (#16).
 
 ## [0.2.0] - 2026-11-22
 
@@ -150,6 +166,7 @@ two fictional demo businesses, a dental clinic and an electronics store.
 - The tool-use paths (catalog search, order status) are covered by tests with a fake Anthropic client and have not yet
   been checked against the live API in this release.
 
-[Unreleased]: https://github.com/epythonic/MedLLMBot/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/epythonic/MedLLMBot/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/epythonic/MedLLMBot/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/epythonic/MedLLMBot/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/epythonic/MedLLMBot/releases/tag/v0.1.0
