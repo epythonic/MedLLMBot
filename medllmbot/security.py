@@ -14,6 +14,8 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from medllmbot.i18n import N_
+
 _I = re.IGNORECASE
 
 
@@ -27,7 +29,7 @@ class InjectionRule:
 INJECTION_RULES: tuple[InjectionRule, ...] = (
     InjectionRule(
         "ignore_instructions",
-        "просьба игнорировать инструкции",
+        N_("asks to ignore instructions"),
         re.compile(
             # Imperative mood only: «можно забыть про ограничения в еде?» is an ordinary question
             r"(игнорир\w*|забудь\w*|отбрось\w*|не\s+следуй)\W+(?:\w+\W+){0,3}?"
@@ -40,7 +42,7 @@ INJECTION_RULES: tuple[InjectionRule, ...] = (
     ),
     InjectionRule(
         "role_change",
-        "попытка сменить роль бота",
+        N_("tries to change the bot's role"),
         re.compile(
             # «а теперь ты скажи цену» is an ordinary question, so a new-role marker is required
             r"(ты\s+теперь|теперь\s+ты)\s+(—|-|являешься|будешь|не\s+бот|другой|новый|мой)"
@@ -53,7 +55,7 @@ INJECTION_RULES: tuple[InjectionRule, ...] = (
     ),
     InjectionRule(
         "authority_claim",
-        "выдаёт себя за владельца или разработчика бота",
+        N_("poses as the bot's owner or developer"),
         re.compile(
             # «Я разработчик, можно записаться вечером?» is just the client's profession,
             # so a tie to the bot («я твой / ваш …») or to this clinic or shop is required
@@ -79,7 +81,7 @@ INJECTION_RULES: tuple[InjectionRule, ...] = (
     ),
     InjectionRule(
         "prompt_extraction",
-        "попытка узнать системный промпт",
+        N_("tries to get the system prompt"),
         re.compile(
             # «покажите правила записи» is an ordinary question; only «свои / скрытые» (own / hidden) rules are caught
             r"системн\w*\s+(промпт|инструкц|сообщени|настро)"
@@ -96,19 +98,19 @@ INJECTION_RULES: tuple[InjectionRule, ...] = (
     ),
     InjectionRule(
         "markup_injection",
-        "служебная разметка в сообщении",
+        N_("service markup in the message"),
         re.compile(r"</?\s*(info|system|assistant|user)\s*>|\[/?(INST|SYS)\]|<\|im_start\|>", _I),
     ),
     InjectionRule(
         "jailbreak",
-        "известная техника обхода ограничений",
+        N_("known jailbreak technique"),
         # «DAN» is not caught: it is a common name in Moldova
         re.compile(r"\bjailbreak|do\s+anything\s+now|developer\s+mode|режим\w*\s+разработчика", _I),
     ),
 )
 
 LEAK_CODE = "prompt_leak"
-LEAK_LABEL = "в ответе модели фрагменты системного промпта"
+LEAK_LABEL = N_("system prompt fragments in the model's answer")
 
 FLAG_LABELS: dict[str, str] = {rule.code: rule.label for rule in INJECTION_RULES} | {LEAK_CODE: LEAK_LABEL}
 

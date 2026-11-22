@@ -1,0 +1,1262 @@
+# Russian translations for MedLLMBot.
+# Copyright (C) 2026 MedLLMBot
+# This file is distributed under the same license as the MedLLMBot project.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: MedLLMBot VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-11-22 10:33+0300\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: ru\n"
+"Language-Team: ru\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: medllmbot/analytics.py:34
+msgid "Other"
+msgstr "Другое"
+
+#: medllmbot/analytics.py:35
+msgid "Left a phone number"
+msgstr "Оставили телефон"
+
+#: medllmbot/analytics.py:77
+msgid "Prices"
+msgstr "Цены"
+
+#: medllmbot/analytics.py:83
+msgid "Payment and installments"
+msgstr "Оплата и рассрочка"
+
+#: medllmbot/analytics.py:92
+msgid "Address and opening hours"
+msgstr "Адрес и часы работы"
+
+#: medllmbot/analytics.py:104
+msgid "Appointments"
+msgstr "Запись на приём"
+
+#: medllmbot/analytics.py:111
+msgid "Pain and urgent care"
+msgstr "Боль и срочная помощь"
+
+#: medllmbot/analytics.py:117
+msgid "Dental treatment"
+msgstr "Лечение зубов"
+
+#: medllmbot/analytics.py:124
+msgid "Implants and prosthetics"
+msgstr "Имплантация и протезирование"
+
+#: medllmbot/analytics.py:129
+msgid "Hygiene and whitening"
+msgstr "Гигиена и отбеливание"
+
+#: medllmbot/analytics.py:134
+msgid "Braces and bite"
+msgstr "Брекеты и прикус"
+
+#: medllmbot/analytics.py:139
+msgid "Children's dentistry"
+msgstr "Детская стоматология"
+
+#: medllmbot/analytics.py:148
+msgid "Product choice"
+msgstr "Подбор товара"
+
+#: medllmbot/analytics.py:157
+msgid "Availability"
+msgstr "Наличие"
+
+#: medllmbot/analytics.py:165
+msgid "Order status"
+msgstr "Статус заказа"
+
+#: medllmbot/analytics.py:173
+msgid "Purchase and checkout"
+msgstr "Покупка и оформление"
+
+#: medllmbot/analytics.py:178
+msgid "Delivery and pickup"
+msgstr "Доставка и самовывоз"
+
+#: medllmbot/analytics.py:184
+msgid "Returns and exchanges"
+msgstr "Возврат и обмен"
+
+#: medllmbot/analytics.py:188
+msgid "Warranty and repair"
+msgstr "Гарантия и ремонт"
+
+#: medllmbot/analytics.py:216
+msgid "Not in the knowledge base"
+msgstr "Нет в базе знаний"
+
+#: medllmbot/analytics.py:217
+msgid "Not in the catalog"
+msgstr "Нет в каталоге"
+
+#: medllmbot/analytics.py:218
+msgid "Price not from the catalog"
+msgstr "Цена не из каталога"
+
+#: medllmbot/analytics.py:219
+msgid "Bot did not answer"
+msgstr "Бот не ответил"
+
+#: medllmbot/security.py:32
+msgid "asks to ignore instructions"
+msgstr "просьба игнорировать инструкции"
+
+#: medllmbot/security.py:45
+msgid "tries to change the bot's role"
+msgstr "попытка сменить роль бота"
+
+#: medllmbot/security.py:58
+msgid "poses as the bot's owner or developer"
+msgstr "выдаёт себя за владельца или разработчика бота"
+
+#: medllmbot/security.py:84
+msgid "tries to get the system prompt"
+msgstr "попытка узнать системный промпт"
+
+#: medllmbot/security.py:101
+msgid "service markup in the message"
+msgstr "служебная разметка в сообщении"
+
+#: medllmbot/security.py:106
+msgid "known jailbreak technique"
+msgstr "известная техника обхода ограничений"
+
+#: medllmbot/security.py:113
+msgid "system prompt fragments in the model's answer"
+msgstr "в ответе модели фрагменты системного промпта"
+
+#: medllmbot/admin/app.py:60
+msgid "Bad request"
+msgstr "Некорректный запрос"
+
+#: medllmbot/admin/app.py:61
+msgid "Malformed address or request parameter."
+msgstr "Некорректный адрес или параметр запроса."
+
+#: medllmbot/admin/app.py:62
+msgid "To the admin home page"
+msgstr "На главную админки"
+
+#: medllmbot/admin/app.py:107
+msgid "MedLLMBot admin"
+msgstr "MedLLMBot — админка"
+
+#: medllmbot/admin/auth.py:83
+msgid "Too many failed login attempts."
+msgstr "Слишком много неудачных попыток входа."
+
+#: medllmbot/admin/auth.py:83
+msgid "Try again in 15 minutes."
+msgstr "Попробуйте через 15 минут."
+
+#: medllmbot/admin/auth.py:98
+msgid "Wrong username or password."
+msgstr "Неверный логин или пароль."
+
+#: medllmbot/admin/fragments.py:21
+msgid "Lead not found — refresh the page"
+msgstr "Заявка не найдена — обновите страницу"
+
+#: medllmbot/admin/fragments.py:25
+msgid "Invalid request — refresh the page"
+msgstr "Некорректный запрос — обновите страницу"
+
+#: medllmbot/admin/fragments.py:40
+msgid "Lead status"
+msgstr "Статус заявки"
+
+#: medllmbot/admin/fragments.py:62
+msgid "Show"
+msgstr "Показать"
+
+#: medllmbot/admin/fragments.py:73
+msgid "client not found"
+msgstr "клиент не найден"
+
+#: medllmbot/admin/fragments.py:79 medllmbot/admin/views.py:284
+#: medllmbot/admin/views.py:293
+msgid "Blocked"
+msgstr "Заблокирован"
+
+#: medllmbot/admin/fragments.py:79
+msgid "Unblock"
+msgstr "Разблокировать"
+
+#: medllmbot/admin/fragments.py:80
+#, python-format
+msgid "Block client %(chat_id)s? The bot will stop replying to them."
+msgstr "Заблокировать клиента %(chat_id)s? Бот перестанет ему отвечать."
+
+#: medllmbot/admin/fragments.py:86
+msgid "Block client"
+msgstr "Заблокировать клиента"
+
+#: medllmbot/admin/fragments.py:94
+msgid "Order saved — the bot uses it from the next question."
+msgstr "Порядок сохранён — бот видит его со следующего вопроса."
+
+#: medllmbot/admin/fragments.py:99
+msgid "The list changed while you were sorting it: refresh the page and try again."
+msgstr "Список изменился, пока вы его сортировали: обновите страницу и повторите."
+
+#: medllmbot/admin/fragments.py:108
+msgid "Drag to change the order"
+msgstr "Перетащите, чтобы поменять порядок"
+
+#: medllmbot/admin/help.py:370 medllmbot/admin/templates/sqladmin/index.html:11
+msgid "Help"
+msgstr "Справка"
+
+#: medllmbot/admin/live.py:112
+msgid "Quick actions"
+msgstr "Быстрые действия"
+
+#: medllmbot/admin/live.py:138
+#, python-format
+msgid "New leads: %(count)s"
+msgstr "Новых заявок: %(count)s"
+
+#: medllmbot/admin/live.py:149
+#, python-format
+msgid "New log events: %(count)s, suspicious among them: %(suspicious)s"
+msgstr "Новых событий в журнале: %(count)s, из них подозрительных: %(suspicious)s"
+
+#: medllmbot/admin/live.py:154
+#, python-format
+msgid "New log events: %(count)s"
+msgstr "Новых событий в журнале: %(count)s"
+
+#: medllmbot/admin/reports.py:24
+msgid "Monthly report"
+msgstr "Отчёт по месяцам"
+
+#: medllmbot/admin/reports.py:39
+msgid "Claude API costs"
+msgstr "Расходы на Claude API"
+
+#: medllmbot/admin/reports.py:40
+msgid "by month, UTC"
+msgstr "по месяцам, UTC"
+
+#: medllmbot/admin/reports.py:54
+msgid "Analytics"
+msgstr "Аналитика"
+
+#: medllmbot/admin/reports.py:69
+msgid "Question analytics"
+msgstr "Аналитика вопросов"
+
+#: medllmbot/admin/reports.py:70
+#, python-format
+msgid "over the last %(days)s day, UTC"
+msgid_plural "over the last %(days)s days, UTC"
+msgstr[0] "за последний %(days)s день, UTC"
+msgstr[1] "за последние %(days)s дня, UTC"
+msgstr[2] "за последние %(days)s дней, UTC"
+
+#: medllmbot/admin/templates/analytics.html:42 medllmbot/admin/views.py:51
+#: medllmbot/admin/views.py:266
+msgid "Clients"
+msgstr "Клиенты"
+
+#: medllmbot/admin/views.py:52
+msgid "Knowledge base"
+msgstr "База знаний"
+
+#: medllmbot/admin/views.py:53
+msgid "Security"
+msgstr "Безопасность"
+
+#: medllmbot/admin/views.py:54
+msgid "Costs"
+msgstr "Расходы"
+
+#: medllmbot/admin/views.py:113 medllmbot/admin/views.py:131
+msgid "Yes"
+msgstr "Да"
+
+#: medllmbot/admin/views.py:131 medllmbot/admin/views.py:138
+msgid "All"
+msgstr "Все"
+
+#: medllmbot/admin/views.py:131
+msgid "No"
+msgstr "Нет"
+
+#: medllmbot/admin/views.py:142
+msgid "Equals"
+msgstr "Равно"
+
+#: medllmbot/admin/views.py:143
+msgid "Contains"
+msgstr "Содержит"
+
+#: medllmbot/admin/views.py:144
+msgid "Starts with"
+msgstr "Начинается с"
+
+#: medllmbot/admin/views.py:145
+msgid "Ends with"
+msgstr "Заканчивается на"
+
+#: medllmbot/admin/views.py:146
+msgid "Greater than"
+msgstr "Больше"
+
+#: medllmbot/admin/views.py:147
+msgid "Less than"
+msgstr "Меньше"
+
+#: medllmbot/admin/views.py:174
+msgid "Record not saved: it already exists or the values break database constraints."
+msgstr "Запись не сохранена: такая уже есть или значения нарушают ограничения базы."
+
+#: medllmbot/admin/views.py:216
+msgid "Lead"
+msgstr "Заявка"
+
+#: medllmbot/admin/views.py:217
+msgid "Leads"
+msgstr "Заявки"
+
+#: medllmbot/admin/views.py:235 medllmbot/admin/views.py:246
+#: medllmbot/admin/views.py:346 medllmbot/admin/views.py:388
+msgid "Status"
+msgstr "Статус"
+
+#: medllmbot/admin/views.py:243 medllmbot/admin/views.py:447
+#: medllmbot/admin/views.py:615
+msgid "No."
+msgstr "№"
+
+#: medllmbot/admin/views.py:244
+msgid "Created"
+msgstr "Создана"
+
+#: medllmbot/admin/views.py:245
+msgid "Updated"
+msgstr "Изменена"
+
+#: medllmbot/admin/views.py:247 medllmbot/admin/views.py:265
+msgid "Client"
+msgstr "Клиент"
+
+#: medllmbot/admin/views.py:248 medllmbot/admin/views.py:390
+msgid "Phone"
+msgstr "Телефон"
+
+#: medllmbot/admin/views.py:249 medllmbot/admin/views.py:422
+msgid "Message"
+msgstr "Сообщение"
+
+#: medllmbot/admin/views.py:250
+msgid "Administrator note"
+msgstr "Заметка администратора"
+
+#: medllmbot/admin/views.py:292
+msgid "Full name"
+msgstr "Имя"
+
+#: medllmbot/admin/views.py:294
+msgid "With operator until"
+msgstr "С оператором до"
+
+#: medllmbot/admin/views.py:295
+msgid "First message"
+msgstr "Первое сообщение"
+
+#: medllmbot/admin/views.py:296
+msgid "Last message"
+msgstr "Последнее сообщение"
+
+#: medllmbot/admin/views.py:323
+msgid "Order number: Latin letters, digits and hyphens, 3 to 32 characters, for example DE-10023."
+msgstr "Номер заказа — латинские буквы, цифры и дефис, от 3 до 32 знаков, например DE-10023."
+
+#: medllmbot/admin/views.py:329
+msgid "Order"
+msgstr "Заказ"
+
+#: medllmbot/admin/views.py:330
+msgid "Orders"
+msgstr "Заказы"
+
+#: medllmbot/admin/views.py:333
+msgid "An order with this number already exists: open it and edit it instead."
+msgstr "Заказ с таким номером уже есть — откройте его и измените."
+
+#: medllmbot/admin/views.py:364
+msgid "As on the receipt, for example DE-10023."
+msgstr "Как на чеке, например DE-10023."
+
+#: medllmbot/admin/views.py:365
+msgid "The customer gives it to the bot"
+msgstr "Клиент называет его боту"
+
+#: medllmbot/admin/views.py:374
+msgid "The bot shows the status only if the customer gives the last 4 digits of this number"
+msgstr "Бот покажет статус, только если клиент назовёт последние 4 цифры этого номера"
+
+#: medllmbot/admin/views.py:378
+msgid "Lei, a whole number"
+msgstr "Лей, целым числом"
+
+#: medllmbot/admin/views.py:380
+msgid "When delivery or pickup is expected; empty means the date is not known yet"
+msgstr "Когда ожидается доставка или выдача; пусто — дата ещё не известна"
+
+#: medllmbot/admin/views.py:385
+msgid "Number"
+msgstr "Номер"
+
+#: medllmbot/admin/views.py:386
+msgid "Placed"
+msgstr "Создан"
+
+#: medllmbot/admin/views.py:387
+msgid "Last updated"
+msgstr "Изменён"
+
+#: medllmbot/admin/views.py:389
+msgid "Customer"
+msgstr "Покупатель"
+
+#: medllmbot/admin/views.py:391
+msgid "Items"
+msgstr "Состав"
+
+#: medllmbot/admin/views.py:392
+msgid "Total, lei"
+msgstr "Сумма, лей"
+
+#: medllmbot/admin/views.py:393
+msgid "Delivery date"
+msgstr "Дата доставки"
+
+#: medllmbot/admin/views.py:417
+msgid "user — client"
+msgstr "user — клиент"
+
+#: medllmbot/admin/views.py:417
+msgid "assistant — bot"
+msgstr "assistant — бот"
+
+#: medllmbot/admin/views.py:423
+msgid "Chat history"
+msgstr "Переписка"
+
+#: medllmbot/admin/views.py:442 medllmbot/admin/views.py:450
+msgid "Role"
+msgstr "Роль"
+
+#: medllmbot/admin/views.py:448 medllmbot/admin/views.py:616
+msgid "Time"
+msgstr "Время"
+
+#: medllmbot/admin/views.py:451 medllmbot/admin/views.py:557
+msgid "Text"
+msgstr "Текст"
+
+#: medllmbot/admin/views.py:459
+msgid "Lower numbers come first."
+msgstr "Меньше — выше в списке."
+
+#: medllmbot/admin/views.py:460
+msgid "In the list it is easier to change the order by dragging"
+msgstr "В списке порядок удобнее менять перетаскиванием"
+
+#: medllmbot/admin/views.py:471
+msgid "Item"
+msgstr "Позиция"
+
+#: medllmbot/admin/views.py:472
+msgid "Catalog and prices"
+msgstr "Каталог и цены"
+
+#: medllmbot/admin/views.py:482 medllmbot/admin/views.py:501
+msgid "Active"
+msgstr "Активна"
+
+#: medllmbot/admin/views.py:492
+msgid "In lei"
+msgstr "В леях"
+
+#: medllmbot/admin/views.py:493
+msgid "Optional: a note for the bot"
+msgstr "Необязательно: уточнение для бота"
+
+#: medllmbot/admin/views.py:497 medllmbot/admin/views.py:522
+#: medllmbot/admin/views.py:555
+msgid "Sort order"
+msgstr "Порядок"
+
+#: medllmbot/admin/views.py:498
+msgid "Name"
+msgstr "Название"
+
+#: medllmbot/admin/views.py:499
+msgid "Price, lei"
+msgstr "Цена, лей"
+
+#: medllmbot/admin/views.py:500
+msgid "Description"
+msgstr "Описание"
+
+#: medllmbot/admin/templates/analytics.html:111 medllmbot/admin/views.py:507
+#: medllmbot/admin/views.py:523
+msgid "Question"
+msgstr "Вопрос"
+
+#: medllmbot/admin/views.py:508
+msgid "FAQ"
+msgstr "Частые вопросы"
+
+#: medllmbot/admin/views.py:524
+msgid "Answer"
+msgstr "Ответ"
+
+#: medllmbot/admin/views.py:525 medllmbot/admin/views.py:558
+msgid "Enabled"
+msgstr "Активен"
+
+#: medllmbot/admin/views.py:531
+msgid "Section"
+msgstr "Раздел"
+
+#: medllmbot/admin/views.py:532
+msgid "About the business"
+msgstr "О компании"
+
+#: medllmbot/admin/views.py:556
+msgid "Title"
+msgstr "Заголовок"
+
+#: medllmbot/admin/views.py:569
+msgid "Event"
+msgstr "Событие"
+
+#: medllmbot/admin/views.py:570
+msgid "Log"
+msgstr "Журнал"
+
+#: medllmbot/admin/views.py:595 medllmbot/admin/views.py:619
+msgid "Suspicious"
+msgstr "Подозрительное"
+
+#: medllmbot/admin/views.py:596 medllmbot/admin/views.py:618
+msgid "Outcome"
+msgstr "Итог"
+
+#: medllmbot/admin/views.py:620
+msgid "Attack signs"
+msgstr "Признаки атаки"
+
+#: medllmbot/admin/views.py:621
+msgid "Client message"
+msgstr "Сообщение клиента"
+
+#: medllmbot/admin/views.py:622
+msgid "Model answer"
+msgstr "Ответ модели"
+
+#: medllmbot/admin/views.py:623
+msgid "Sent to client"
+msgstr "Отправлено клиенту"
+
+#: medllmbot/admin/templates/costs.html:26 medllmbot/admin/views.py:624
+#: medllmbot/admin/views.py:691 medllmbot/admin/views.py:727
+#: medllmbot/admin/views.py:874
+msgid "Model"
+msgstr "Модель"
+
+#: medllmbot/admin/views.py:626
+msgid "Input tokens"
+msgstr "Токены на входе"
+
+#: medllmbot/admin/views.py:627
+msgid "Output tokens"
+msgstr "Токены на выходе"
+
+#: medllmbot/admin/views.py:628
+msgid "Cache read tokens"
+msgstr "Токены из кэша"
+
+#: medllmbot/admin/views.py:629
+msgid "Cache write tokens"
+msgstr "Токены в кэш"
+
+#: medllmbot/admin/views.py:630 medllmbot/admin/views.py:733
+msgid "Cost, USD"
+msgstr "Стоимость, USD"
+
+#: medllmbot/admin/views.py:631
+msgid "Latency, ms"
+msgstr "Задержка, мс"
+
+#: medllmbot/admin/views.py:632
+msgid "What the bot searched for"
+msgstr "Что искал бот"
+
+#: medllmbot/admin/views.py:641
+msgid "USD per million tokens, a decimal comma is fine: 0,15"
+msgstr "USD за миллион токенов, можно с запятой: 0,15"
+
+#: medllmbot/admin/views.py:647
+msgid "Model price"
+msgstr "Цена модели"
+
+#: medllmbot/admin/views.py:648
+msgid "Model prices"
+msgstr "Цены моделей"
+
+#: medllmbot/admin/views.py:652
+msgid "This model already has a rate with this «From prompt length» value: edit the existing row."
+msgstr "Для этой модели уже есть тариф с таким значением «От длины промпта» — измените существующую строку."
+
+#: medllmbot/admin/views.py:680
+msgid "Model ID as in the bot settings, for example claude-haiku-5-5"
+msgstr "ID модели, как в настройках бота, например claude-haiku-5-5"
+
+#: medllmbot/admin/views.py:683
+msgid "Rate for prompts of at least this many tokens; usually 0"
+msgstr "Тариф для промптов не короче этого числа токенов; обычно 0"
+
+#: medllmbot/admin/views.py:692
+msgid "From prompt length"
+msgstr "От длины промпта"
+
+#: medllmbot/admin/templates/costs.html:28 medllmbot/admin/views.py:693
+#: medllmbot/admin/views.py:729
+msgid "Input"
+msgstr "Вход"
+
+#: medllmbot/admin/templates/costs.html:29 medllmbot/admin/views.py:694
+#: medllmbot/admin/views.py:730
+msgid "Output"
+msgstr "Выход"
+
+#: medllmbot/admin/views.py:695
+msgid "Writing to cache"
+msgstr "Запись в кэш"
+
+#: medllmbot/admin/views.py:696
+msgid "Reading from cache"
+msgstr "Чтение из кэша"
+
+#: medllmbot/admin/views.py:702
+msgid "Day"
+msgstr "День"
+
+#: medllmbot/admin/views.py:703
+msgid "Daily spend"
+msgstr "Расход по дням"
+
+#: medllmbot/admin/views.py:726
+msgid "Day (UTC)"
+msgstr "День (UTC)"
+
+#: medllmbot/admin/templates/costs.html:27 medllmbot/admin/views.py:728
+msgid "Requests"
+msgstr "Запросов"
+
+#: medllmbot/admin/templates/costs.html:30 medllmbot/admin/views.py:731
+msgid "Cache read"
+msgstr "Из кэша"
+
+#: medllmbot/admin/templates/costs.html:31 medllmbot/admin/views.py:732
+msgid "Cache write"
+msgstr "В кэш"
+
+#: medllmbot/admin/views.py:734
+msgid "Unpriced"
+msgstr "Без цены"
+
+#: medllmbot/admin/views.py:747 medllmbot/admin/views.py:748
+msgid "Bot settings"
+msgstr "Настройки бота"
+
+#: medllmbot/admin/views.py:757
+#, python-format
+msgid "No price for model «%(model)s» in «Costs → Model prices»."
+msgstr "Для модели «%(model)s» нет цены в «Расходы → Цены моделей»."
+
+#: medllmbot/admin/views.py:758
+msgid "Check the model ID or add its price first."
+msgstr "Проверьте ID модели или сначала добавьте цену."
+
+#: medllmbot/admin/views.py:806
+msgid "Claude model ID, for example claude-haiku-5-5 or claude-sonnet-5-5."
+msgstr "ID модели Claude, например claude-haiku-5-5 или claude-sonnet-5-5."
+
+#: medllmbot/admin/views.py:807
+msgid "The model needs a price in «Costs → Model prices»"
+msgstr "Цена модели должна быть в «Расходы → Цены моделей»"
+
+#: medllmbot/admin/views.py:814
+msgid "In Russian."
+msgstr "По-русски."
+
+#: medllmbot/admin/views.py:816
+msgid "Clients whose Telegram is in neither Russian nor Romanian get it together with the Romanian one"
+msgstr "Клиентам с Telegram не на русском и не на румынском — вместе с румынским"
+
+#: medllmbot/admin/views.py:823
+msgid "For clients whose Telegram is in Romanian."
+msgstr "Клиентам с Telegram на румынском."
+
+#: medllmbot/admin/views.py:824
+msgid "Empty: everyone gets the greeting above"
+msgstr "Пусто — всем идёт приветствие выше"
+
+#: medllmbot/admin/views.py:829
+msgid "Length of the bot's answer, not of the client's question"
+msgstr "Длина ответа бота, а не вопроса клиента"
+
+#: medllmbot/admin/views.py:834
+msgid "Characters."
+msgstr "Символов."
+
+#: medllmbot/admin/views.py:835
+msgid "To a longer message the bot replies how many characters are allowed"
+msgstr "На более длинное сообщение бот ответит, сколько символов можно"
+
+#: medllmbot/admin/views.py:840
+msgid "How many recent messages to pass to the model"
+msgstr "Сколько последних сообщений передавать модели"
+
+#: medllmbot/admin/views.py:843
+msgid "Seconds"
+msgstr "Секунд"
+
+#: medllmbot/admin/views.py:847
+msgid "Dollars per day (UTC), 0 means no limit."
+msgstr "Долларов в сутки (UTC), 0 — без лимита."
+
+#: medllmbot/admin/views.py:848
+msgid "Past the limit the bot answers without Claude; leads are still saved"
+msgstr "После лимита бот отвечает без Claude, заявки сохраняются"
+
+#: medllmbot/admin/views.py:854
+msgid "A catalog with more active items than this is searched instead of read whole."
+msgstr "Каталог больше этого числа активных услуг бот не читает целиком, а ищет в нём."
+
+#: medllmbot/admin/views.py:855
+msgid "0 means always search"
+msgstr "0 — всегда поиск"
+
+#: medllmbot/admin/views.py:862
+msgid "For this many hours the bot stays silent after a client asks for a human, if the operator has not replied."
+msgstr "Столько часов бот молчит после просьбы клиента позвать человека, если оператор не ответил."
+
+#: medllmbot/admin/views.py:864
+msgid "Each operator reply extends the period"
+msgstr "Каждый ответ оператора продлевает срок"
+
+#: medllmbot/admin/views.py:869
+msgid "Log records older than this are deleted automatically"
+msgstr "Записи журнала старше этого срока удаляются автоматически"
+
+#: medllmbot/admin/views.py:873
+msgid "Business profile"
+msgstr "Профиль бизнеса"
+
+#: medllmbot/admin/views.py:875
+msgid "Answer token limit"
+msgstr "Лимит токенов ответа"
+
+#: medllmbot/admin/views.py:876
+msgid "Max client message length"
+msgstr "Макс. длина сообщения клиента"
+
+#: medllmbot/admin/views.py:877
+msgid "History depth"
+msgstr "Глубина истории"
+
+#: medllmbot/admin/views.py:878
+msgid "Messages per window"
+msgstr "Сообщений в окне"
+
+#: medllmbot/admin/views.py:879
+msgid "Rate-limit window, s"
+msgstr "Окно rate-limit, с"
+
+#: medllmbot/admin/views.py:880
+msgid "Greeting (/start)"
+msgstr "Приветствие (/start)"
+
+#: medllmbot/admin/views.py:881
+msgid "Greeting in Romanian"
+msgstr "Приветствие по-румынски"
+
+#: medllmbot/admin/views.py:882
+msgid "Keep log, days"
+msgstr "Хранить журнал, дней"
+
+#: medllmbot/admin/views.py:883
+msgid "Daily spend limit, $"
+msgstr "Лимит расходов в сутки, $"
+
+#: medllmbot/admin/views.py:884
+msgid "Catalog in prompt, up to items"
+msgstr "Каталог в промпте, до позиций"
+
+#: medllmbot/admin/views.py:885
+msgid "Operator handles chat, hours"
+msgstr "Оператор ведёт диалог, часов"
+
+#: medllmbot/admin/views.py:886
+msgid "Last changed"
+msgstr "Изменено"
+
+#: medllmbot/admin/templates/analytics.html:6
+msgid "Period"
+msgstr "Период"
+
+#: medllmbot/admin/templates/analytics.html:9
+#, python-format
+msgid "%(num)s day"
+msgid_plural "%(num)s days"
+msgstr[0] "%(num)s день"
+msgstr[1] "%(num)s дня"
+msgstr[2] "%(num)s дней"
+
+#: medllmbot/admin/templates/analytics.html:14
+#, python-format
+msgid "The log is kept for %(count)s day (%(settings)s), so analytics covers only that period."
+msgid_plural "The log is kept for %(count)s days (%(settings)s), so analytics covers only that period."
+msgstr[0] "Срок хранения журнала — %(count)s дн. (%(settings)s), поэтому аналитика — только за них."
+msgstr[1] "Срок хранения журнала — %(count)s дн. (%(settings)s), поэтому аналитика — только за них."
+msgstr[2] "Срок хранения журнала — %(count)s дн. (%(settings)s), поэтому аналитика — только за них."
+
+#: medllmbot/admin/templates/analytics.html:26
+msgid "There were no questions in this period."
+msgstr "За этот период вопросов не было."
+
+#: medllmbot/admin/templates/analytics.html:26
+msgid "Write to the bot and the question will appear here."
+msgstr "Напишите боту — вопрос появится здесь."
+
+#: medllmbot/admin/templates/analytics.html:41
+msgid "Questions"
+msgstr "Вопросы"
+
+#: medllmbot/admin/templates/analytics.html:43
+msgid "Dialogs"
+msgstr "Диалоги"
+
+#: medllmbot/admin/templates/analytics.html:43
+msgid "a pause of more than a day starts a new dialog"
+msgstr "пауза больше суток — новый диалог"
+
+#: medllmbot/admin/templates/analytics.html:44
+msgid "With a lead"
+msgstr "С заявкой"
+
+#: medllmbot/admin/templates/analytics.html:44
+#, python-format
+msgid "%(percent)s%% of dialogs"
+msgstr "%(percent)s%% диалогов"
+
+#: medllmbot/admin/templates/analytics.html:45
+msgid "Unanswered"
+msgstr "Без ответа"
+
+#: medllmbot/admin/templates/analytics.html:45
+#, python-format
+msgid "%(percent)s%% of questions"
+msgstr "%(percent)s%% вопросов"
+
+#: medllmbot/admin/templates/analytics.html:46
+msgid "Asked for an operator"
+msgstr "Позвали оператора"
+
+#: medllmbot/admin/templates/analytics.html:46
+msgid "asked for a live person"
+msgstr "просили живого человека"
+
+#: medllmbot/admin/templates/analytics.html:51
+msgid "Common topics"
+msgstr "Частые темы"
+
+#: medllmbot/admin/templates/analytics.html:52
+#, python-format
+msgid "profile “%(profile)s”"
+msgstr "профиль «%(profile)s»"
+
+#: medllmbot/admin/templates/analytics.html:58
+msgid "Topic"
+msgstr "Тема"
+
+#: medllmbot/admin/templates/analytics.html:59
+msgid "Questions asked"
+msgstr "Вопросов"
+
+#: medllmbot/admin/templates/analytics.html:60
+msgid "Share"
+msgstr "Доля"
+
+#: medllmbot/admin/templates/analytics.html:61
+msgid "Dialogs with a lead"
+msgstr "Диалогов с заявкой"
+
+#: medllmbot/admin/templates/analytics.html:70
+#, python-format
+msgid "“%(question)s”"
+msgstr "«%(question)s»"
+
+#: medllmbot/admin/templates/analytics.html:80
+#, python-format
+msgid "%(share)s of questions"
+msgstr "%(share)s вопросов"
+
+#: medllmbot/admin/templates/analytics.html:85
+#, python-format
+msgid "%(leads)s of %(dialogs)s"
+msgstr "%(leads)s из %(dialogs)s"
+
+#: medllmbot/admin/templates/analytics.html:99
+msgid "Unanswered questions"
+msgstr "Вопросы без ответа"
+
+#: medllmbot/admin/templates/analytics.html:101
+#, python-format
+msgid "Add answers to %(faq)s, %(about)s or %(catalog)s"
+msgstr "Ответы добавляют в %(faq)s, %(about)s или %(catalog)s"
+
+#: medllmbot/admin/templates/analytics.html:112
+msgid "Times"
+msgstr "Раз"
+
+#: medllmbot/admin/templates/analytics.html:113
+msgid "Reason"
+msgstr "Причина"
+
+#: medllmbot/admin/templates/analytics.html:114
+msgid "Bot answer"
+msgstr "Ответ бота"
+
+#: medllmbot/admin/templates/analytics.html:115
+msgid "Last time"
+msgstr "Последний раз"
+
+#: medllmbot/admin/templates/analytics.html:137
+#, python-format
+msgid "Showing the %(shown)s most frequent of %(total)s."
+msgstr "Показаны %(shown)s самых частых из %(total)s."
+
+#: medllmbot/admin/templates/analytics.html:141
+msgid "The bot answered every question in this period."
+msgstr "Бот ответил на все вопросы за этот период."
+
+#: medllmbot/admin/templates/costs.html:6
+msgid "There have been no model requests yet."
+msgstr "Запросов к модели ещё не было."
+
+#: medllmbot/admin/templates/costs.html:18
+#, python-format
+msgid "month forecast: %(cost)s"
+msgstr "прогноз на месяц: %(cost)s"
+
+#: medllmbot/admin/templates/costs.html:32
+msgid "Cost"
+msgstr "Стоимость"
+
+#: medllmbot/admin/templates/costs.html:52
+#, python-format
+msgid "%(num)s request has no price: add its model to “Model prices”, otherwise the total is too low."
+msgid_plural "%(num)s requests have no price: add their models to “Model prices”, otherwise the total is too low."
+msgstr[0] "%(num)s запрос(ов) без цены — добавьте модель в «Цены моделей», иначе итог занижен."
+msgstr[1] "%(num)s запрос(ов) без цены — добавьте модель в «Цены моделей», иначе итог занижен."
+msgstr[2] "%(num)s запрос(ов) без цены — добавьте модель в «Цены моделей», иначе итог занижен."
+
+#: medllmbot/admin/templates/help/_macros.html:14
+#, python-format
+msgid "“%(section)s”"
+msgstr "«%(section)s»"
+
+#: medllmbot/admin/templates/help/_macros.html:17
+#, python-format
+msgid "[no section %(identity)s]"
+msgstr "[нет раздела %(identity)s]"
+
+#: medllmbot/admin/templates/help/_panel.html:27
+msgid "All help"
+msgstr "Вся справка"
+
+#: medllmbot/admin/templates/help/_panel.html:28
+msgid "Close"
+msgstr "Закрыть"
+
+#: medllmbot/admin/templates/help/_panel.html:32
+msgid "F1 or “?” on the keyboard opens and closes the help."
+msgstr "F1 или «?» на клавиатуре — открыть и закрыть справку."
+
+#: medllmbot/admin/templates/help/_panel.html:39
+#, python-format
+msgid "Help: %(text)s"
+msgstr "Справка: %(text)s"
+
+#: medllmbot/admin/templates/help/_panel.html:40
+msgid "Click for detailed help."
+msgstr "Нажмите — подробная справка."
+
+#: medllmbot/admin/templates/help/_topic.html:9
+msgid "Fields and columns"
+msgstr "Поля и колонки"
+
+#: medllmbot/admin/templates/help/page.html:14
+msgid "Sections"
+msgstr "Разделы"
+
+#: medllmbot/admin/templates/help/page.html:35
+msgid "Open section"
+msgstr "Открыть раздел"
+
+#: medllmbot/admin/templates/live/sortable_list.html:17
+msgid "To change the order, drag a row by the handle in the “Order” column; the order is saved right away."
+msgstr "Чтобы поменять порядок, перетащите строку за значок в колонке «Порядок» — он сохранится сразу."
+
+#: medllmbot/admin/templates/live/sortable_list.html:21
+msgid "Dragging works when the list has no search or filters and all records are on one page."
+msgstr "Перетаскивание работает, когда в списке нет поиска и фильтров и все записи на одной странице."
+
+#: medllmbot/admin/templates/live/sortable_list.html:22
+msgid "Show the whole list"
+msgstr "Показать весь список"
+
+#: medllmbot/admin/templates/live/sortable_list.html:45
+msgid "Clear the search and filters to change the order"
+msgstr "Сбросьте поиск и фильтры, чтобы менять порядок"
+
+#: medllmbot/admin/templates/sqladmin/index.html:9
+msgid "How the bot works"
+msgstr "Как работает бот"
+
+#: medllmbot/admin/templates/sqladmin/index.html:16
+#, python-format
+msgid "<b>A client writes to the bot</b> in Telegram and appears in %(clients)s."
+msgstr "<b>Клиент пишет боту</b> в Telegram и появляется в %(clients)s."
+
+#: medllmbot/admin/templates/sqladmin/index.html:19
+msgid "<b>Checks before Claude:</b> whether the client is blocked, writes too often or sends a message that is too long, and whether the message shows attack signs."
+msgstr "<b>Проверки до Claude:</b> заблокирован ли клиент, не пишет ли слишком часто, не слишком ли длинное сообщение, нет ли признаков атаки."
+
+#: medllmbot/admin/templates/sqladmin/index.html:23
+#, python-format
+msgid "<b>Claude answers</b> from the knowledge base — %(catalog)s, %(faq)s, %(about)s — and from the latest messages in %(history)s."
+msgstr "<b>Claude отвечает</b> по базе знаний — %(catalog)s, %(faq)s, %(about)s — и по последним сообщениям из %(history)s."
+
+#: medllmbot/admin/templates/sqladmin/index.html:28
+msgid "<b>Answer check:</b> made-up prices and fragments of the bot's rules never reach the client."
+msgstr "<b>Проверка ответа:</b> выдуманные цены и фрагменты правил бота клиенту не уходят."
+
+#: medllmbot/admin/templates/sqladmin/index.html:31
+#, python-format
+msgid "<b>Accounting:</b> every message goes to %(log)s, and its cost to %(costs)s."
+msgstr "<b>Учёт:</b> каждое сообщение попадает в %(log)s, стоимость — в %(costs)s."
+
+#: medllmbot/admin/templates/sqladmin/index.html:34
+#, python-format
+msgid "<b>A phone number in a message</b> is a lead: it appears in %(leads)s, and the administrator gets a notification in Telegram."
+msgstr "<b>Телефон в сообщении</b> — это заявка: она появляется в %(leads)s, а администратор получает уведомление в Telegram."
+
+#: medllmbot/admin/templates/sqladmin/index.html:38
+#, python-format
+msgid "<b>Live operator:</b> when a client asks for a person, you get a notification in Telegram and reply right from there, while the bot stays silent in that chat. Who is with the operator now is shown in %(clients)s."
+msgstr "<b>Живой оператор:</b> клиент просит человека — вы получаете уведомление в Telegram и отвечаете ему прямо оттуда, а бот в этом чате молчит. Кто сейчас с оператором — в %(clients)s."
+
+#: medllmbot/admin/templates/sqladmin/index.html:43
+#, python-format
+msgid "<b>Analytics:</b> what clients ask about, how many dialogs end with a lead and which questions the bot found no answer to — in %(analytics)s."
+msgstr "<b>Аналитика:</b> о чём спрашивают клиенты, сколько диалогов заканчиваются заявкой и на какие вопросы бот не нашёл ответа — в %(analytics)s."
+
+#: medllmbot/admin/templates/sqladmin/index.html:49
+#, python-format
+msgid "Each section has a %(icon)s icon next to its title: hover over it for a short hint, click it for detailed help on the side."
+msgstr "У каждого раздела рядом с заголовком есть значок %(icon)s: наведите — короткая подсказка, нажмите — подробная справка сбоку."
+
+#: medllmbot/admin/templates/sqladmin/index.html:52
+msgid "Fields and columns have the same icons."
+msgstr "Такие же значки стоят у полей и колонок."
+
+#: medllmbot/admin/templates/sqladmin/index.html:53
+msgid "The F1 or “?” key opens the section's help."
+msgstr "Клавиши F1 или «?» открывают справку раздела."
+
+#: medllmbot/admin/templates/sqladmin/index.html:63
+msgid "Settings"
+msgstr "Настройки"
+
+#: medllmbot/admin/templates/sqladmin/layout.html:28
+msgid "Could not save the changes. Reload the page and try again."
+msgstr "Не удалось сохранить изменения. Обновите страницу и попробуйте ещё раз."
+
+#: medllmbot/admin/templates/sqladmin/login.html:7
+#, python-format
+msgid "Login to %(title)s"
+msgstr "Вход в %(title)s"
+
+#: medllmbot/admin/templates/sqladmin/login.html:9
+msgid "Username"
+msgstr "Имя пользователя"
+
+#: medllmbot/admin/templates/sqladmin/login.html:11
+#: medllmbot/admin/templates/sqladmin/login.html:15
+msgid "Enter username"
+msgstr "Введите имя пользователя"
+
+#: medllmbot/admin/templates/sqladmin/login.html:20
+#: medllmbot/admin/templates/sqladmin/login.html:24
+#: medllmbot/admin/templates/sqladmin/login.html:28
+msgid "Password"
+msgstr "Пароль"
+
+#: medllmbot/admin/templates/sqladmin/login.html:33
+msgid "Login"
+msgstr "Вход"
+
+#: medllmbot/admin/templates/sqladmin/filters/operation_filter.html:14
+#, python-format
+msgid "Current: %(operation)s %(value)s"
+msgstr "Сейчас: %(operation)s %(value)s"
+
+#: medllmbot/admin/templates/sqladmin/filters/operation_filter.html:15
+msgid "clear"
+msgstr "сбросить"
+
+#: medllmbot/admin/templates/sqladmin/filters/operation_filter.html:27
+msgid "Condition…"
+msgstr "Условие…"
+
+#: medllmbot/admin/templates/sqladmin/filters/operation_filter.html:36
+msgid "Value"
+msgstr "Значение"
+
+#: medllmbot/admin/templates/sqladmin/filters/operation_filter.html:41
+msgid "Apply Filter"
+msgstr "Применить фильтр"
+
+#: medllmbot/db/models.py:88
+msgid "New"
+msgstr "Новая"
+
+#: medllmbot/db/models.py:89
+msgid "In progress"
+msgstr "В работе"
+
+#: medllmbot/db/models.py:90
+msgid "Done"
+msgstr "Выполнена"
+
+#: medllmbot/db/models.py:91
+msgid "Rejected"
+msgstr "Отказ"
+
+#: medllmbot/db/models.py:129
+msgid "Answered"
+msgstr "Ответ"
+
+#: medllmbot/db/models.py:130
+msgid "Price replaced"
+msgstr "Цена заменена"
+
+#: medllmbot/db/models.py:131
+msgid "Prompt leak"
+msgstr "Утечка промпта"
+
+#: medllmbot/db/models.py:132
+msgid "Model refusal"
+msgstr "Отказ модели"
+
+#: medllmbot/db/models.py:133
+msgid "Answer cut off"
+msgstr "Ответ обрезан"
+
+#: medllmbot/db/models.py:134
+msgid "Empty answer"
+msgstr "Пустой ответ"
+
+#: medllmbot/db/models.py:135
+msgid "API error"
+msgstr "Ошибка API"
+
+#: medllmbot/db/models.py:136
+msgid "Too long"
+msgstr "Слишком длинное"
+
+#: medllmbot/db/models.py:137
+msgid "Spend limit"
+msgstr "Лимит расходов"
+
+#: medllmbot/db/models.py:138
+msgid "Greeting"
+msgstr "Приветствие"
+
+#: medllmbot/db/models.py:139
+msgid "Not text"
+msgstr "Не текст"
+
+#: medllmbot/db/models.py:140
+msgid "Rate limit"
+msgstr "Rate-limit"
+
+#: medllmbot/db/models.py:141
+msgid "Client blocked"
+msgstr "Клиент заблокирован"
+
+#: medllmbot/db/models.py:142
+msgid "Asked for operator"
+msgstr "Позвал оператора"
+
+#: medllmbot/db/models.py:143
+msgid "Sent to operator"
+msgstr "Переслано оператору"
+
+#: medllmbot/db/models.py:144
+msgid "Operator reply"
+msgstr "Ответ оператора"
+
+#: medllmbot/db/models.py:342
+msgid "Accepted"
+msgstr "Принят"
+
+#: medllmbot/db/models.py:343
+msgid "Confirmed"
+msgstr "Подтверждён"
+
+#: medllmbot/db/models.py:344
+msgid "Out for delivery"
+msgstr "Передан в доставку"
+
+#: medllmbot/db/models.py:345
+msgid "Ready for pickup"
+msgstr "Ждёт в пункте самовывоза"
+
+#: medllmbot/db/models.py:346
+msgid "Delivered"
+msgstr "Получен"
+
+#: medllmbot/db/models.py:347
+msgid "Cancelled"
+msgstr "Отменён"
+
+#: medllmbot/db/models.py:391
+msgid "Dental clinic"
+msgstr "Стоматология"
+
+#: medllmbot/db/models.py:392
+msgid "Electronics store"
+msgstr "Магазин электроники"
+

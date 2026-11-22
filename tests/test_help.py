@@ -39,8 +39,10 @@ def test_identities_are_unique() -> None:
 
 
 @pytest.mark.parametrize("view", VIEWS, ids=_view_id)
+@pytest.mark.usefixtures("russian_admin")
 def test_title_matches_menu(view: type[ModelView]) -> None:
-    assert HELP[view.identity].title == view.name_plural
+    # The help is in Russian; the menu name is a translated string, compared in Russian
+    assert HELP[view.identity].title == str(view.name_plural)
 
 
 @pytest.mark.parametrize("view", VIEWS, ids=_view_id)

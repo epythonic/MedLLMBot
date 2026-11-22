@@ -18,7 +18,7 @@
 <table class="table table-sm">
   <tbody>
     {% for flag in flag_help %}
-    <tr><td>{{ flag.label }}</td><td>{{ flag.example }}</td></tr>
+    <tr><td>{{ _(flag.label) }}</td><td>{{ flag.example }}</td></tr>
     {% endfor %}
   </tbody>
 </table>

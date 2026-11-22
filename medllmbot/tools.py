@@ -11,7 +11,15 @@ from sqlalchemy.exc import SQLAlchemyError
 from medllmbot.db.models import BusinessProfile
 from medllmbot.db.repository import CatalogPage, Repository
 from medllmbot.llm import ToolOutput, ToolRunner
-from medllmbot.orders import LookupLimits, OrderBackend, OrderInfo, normalize_number, order_key, phone_matches
+from medllmbot.orders import (
+    STATUS_TEXT,
+    LookupLimits,
+    OrderBackend,
+    OrderInfo,
+    normalize_number,
+    order_key,
+    phone_matches,
+)
 from medllmbot.profiles import PROFILES
 from medllmbot.prompts import service_line
 
@@ -163,7 +171,12 @@ def render_order(order: OrderInfo) -> str:
         f"Ожидаемая дата доставки или выдачи: {order.delivery_date:%d.%m.%Y}." if order.delivery_date is not None else NO_DATE
     )
     return "\n".join(
-        [f"Заказ {order.number}: {order.status}.", f"Состав: {order.items.strip()}", f"Сумма: {order.total} лей.", date_line]
+        [
+            f"Заказ {order.number}: {STATUS_TEXT[order.status]}.",
+            f"Состав: {order.items.strip()}",
+            f"Сумма: {order.total} лей.",
+            date_line,
+        ]
     )
 
 
@@ -217,7 +230,8 @@ class OrderTools:
             return ToolOutput(ORDER_NOT_FOUND, f"{name} {number} → {reason}")
         by_chat.succeeded(self.chat_id)
         by_order.succeeded(key)
-        return ToolOutput(render_order(order), f"{name} {order.number} → {order.status}", prices=(order.total,))
+        summary = f"{name} {order.number} → {STATUS_TEXT[order.status]}"
+        return ToolOutput(render_order(order), summary, prices=(order.total,))
 
 
 class Toolbox:

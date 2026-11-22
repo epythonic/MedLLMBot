@@ -17,6 +17,7 @@ from sqladmin import BaseView, expose
 from starlette.requests import Request
 from starlette.responses import Response
 
+from medllmbot.admin.i18n import lazy_gettext
 from medllmbot.analytics import GapReason
 from medllmbot.db.models import AuditOutcome
 from medllmbot.security import FLAG_LABELS, LEAK_CODE
@@ -364,9 +365,9 @@ FLAG_HELP: tuple[FlagHelp, ...] = tuple(
 
 @final
 class HelpView(BaseView):
-    """«Справка» page: help for all sections on one page, with a table of contents."""
+    """The help page: help for all sections on one page, with a table of contents."""
 
-    name = "Справка"
+    name = lazy_gettext("Help")
     icon = "fa-solid fa-book"
     identity = "help"
 

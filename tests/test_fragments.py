@@ -1,19 +1,29 @@
-"""HTML fragments for HTMX: states, hx-* attributes and escaping."""
+"""HTML fragments for HTMX: states, hx-* attributes, escaping and languages."""
 
 import re
 
+import pytest
+from sqladmin.i18n import set_locale
+
 from medllmbot.admin.fragments import (
     POLL_EVERY,
+    bad_request,
     client_block_control,
     client_block_loader,
+    lead_not_found,
     lead_status_select,
     new_records_poller,
     poll_loader,
+    reorder_saved,
     sort_handle,
 )
 from medllmbot.db.models import LeadStatus
 
 URL = "/admin/htmx/x"
+
+
+# Fragments are called outside a request here; the Russian ones are checked unless a test switches the language
+pytestmark = pytest.mark.usefixtures("russian_admin")
 
 
 class TestLeadStatusSelect:
@@ -92,3 +102,28 @@ def test_sort_handle_carries_id() -> None:
     html = str(sort_handle(7))
     assert 'class="drag-handle"' in html
     assert '<input type="hidden" name="order" value="7">' in html
+
+
+class TestLanguages:
+    """The same fragment follows the request's language; the Russian tests above run under the fixture."""
+
+    def test_english(self) -> None:
+        set_locale("en")
+        html = str(client_block_control(URL, 42, blocked=False))
+        assert 'hx-confirm="Block client 42? The bot will stop replying to them."' in html
+        assert ">Block client</button>" in html
+        assert 'aria-label="Lead status"' in str(lead_status_select(URL, LeadStatus.NEW))
+        assert "Lead not found" in str(lead_not_found())
+
+    def test_romanian(self) -> None:
+        set_locale("ro")
+        html = str(client_block_control(URL, 42, blocked=False))
+        assert 'hx-confirm="Blocați clientul 42? Botul nu îi va mai răspunde."' in html
+        assert ">Blocați clientul</button>" in html
+        assert 'aria-label="Starea cererii"' in str(lead_status_select(URL, LeadStatus.NEW))
+        assert "Ordinea a fost salvată" in str(reorder_saved())
+        assert "Solicitare incorectă" in str(bad_request())
+
+    def test_message_inside_markup(self) -> None:
+        # The translation is the text of the span; the HTML stays in the template
+        assert str(lead_not_found()) == '<span class="text-danger">Заявка не найдена — обновите страницу</span>'

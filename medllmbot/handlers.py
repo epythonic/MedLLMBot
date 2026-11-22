@@ -15,6 +15,7 @@ from medllmbot.config import BotSettings
 from medllmbot.db.models import AuditOutcome, BotConfig, BusinessProfile
 from medllmbot.db.repository import Repository
 from medllmbot.guards import extract_phone
+from medllmbot.i18n import translation
 from medllmbot.middlewares import incoming_event
 from medllmbot.profiles import PROFILES
 from medllmbot.security import FLAG_LABELS, AlertCooldown
@@ -102,7 +103,8 @@ async def handle_text(
     await send(msg, answer)
 
     if reply.suspicious and alerts.ready(msg.chat.id):
-        labels = ", ".join(FLAG_LABELS.get(flag, flag) for flag in reply.flags)
+        # The notification is in Russian, so are the attack signs (their labels are the admin's English msgids)
+        labels = ", ".join(translation("ru").gettext(FLAG_LABELS.get(flag, flag)) for flag in reply.flags)
         await notify_admin(
             bot,
             settings.admin_id,

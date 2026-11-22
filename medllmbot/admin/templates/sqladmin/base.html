@@ -1,6 +1,6 @@
-{# Copy of sqladmin/base.html (SQLAdmin 0.32) with lang="ru": the original sets the attribute outside blocks, so it cannot be changed otherwise #}
+{# Copy of sqladmin/base.html (SQLAdmin 0.32) with lang set to the interface language: the original hardcodes the attribute outside blocks, so it cannot be changed otherwise #}
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="{{ get_locale() }}">
 
 <head>
   {% block head_meta %}

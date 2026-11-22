@@ -1,0 +1,212 @@
+# Romanian translation of SQLAdmin's own strings (SQLAdmin ships none). Source: sqladmin/translations/admin.pot.
+# Copyright (C) 2026 MedLLMBot
+# This file is distributed under the same license as the MedLLMBot project.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: MedLLMBot\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-09-16 14:31+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: \n"
+"Language: ro\n"
+"Language-Team: ro\n"
+"Plural-Forms: nplurals=3; plural=(n==1 ? 0 : (n==0 || (n%100 > 0 && n%100 < 20)) ? 1 : 2);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+msgid "List"
+msgstr "Listă"
+
+msgid "Details"
+msgstr "Detalii"
+
+msgid "Create"
+msgstr "Creare"
+
+msgid "Edit"
+msgstr "Editează"
+
+msgid "Delete"
+msgstr "Șterge"
+
+msgid "Export"
+msgstr "Export"
+
+msgid "Import"
+msgstr "Import"
+
+msgid "Access"
+msgstr "Acces"
+
+msgid "Page"
+msgstr "Pagină"
+
+msgid "Permissions"
+msgstr "Permisiuni"
+
+#, python-format
+msgid "You are not allowed to grant: %(permissions)s"
+msgstr "Nu aveți dreptul să acordați: %(permissions)s"
+
+#, python-format
+msgid "New %(name)s"
+msgstr "Adaugă: %(name)s"
+
+msgid "Cancel"
+msgstr "Anulează"
+
+msgid "Save"
+msgstr "Salvează"
+
+msgid "Save and continue editing"
+msgstr "Salvează și continuă editarea"
+
+msgid "Save and add another"
+msgstr "Salvează și adaugă altul"
+
+msgid "Column"
+msgstr "Coloană"
+
+msgid "Value"
+msgstr "Valoare"
+
+msgid "Go Back"
+msgstr "Înapoi"
+
+#, python-format
+msgid "Edit %(name)s"
+msgstr "Editare: %(name)s"
+
+msgid "Save as new"
+msgstr "Salvează ca nou"
+
+msgid "Logout"
+msgstr "Ieșire"
+
+msgid "Language"
+msgstr "Limbă"
+
+msgid "Import CSV"
+msgstr "Import CSV"
+
+msgid "You are not authorized to view these records."
+msgstr "Nu aveți dreptul să vedeți aceste înregistrări."
+
+msgid "Actions"
+msgstr "Acțiuni"
+
+msgid "Delete selected items"
+msgstr "Șterge elementele selectate"
+
+msgid "Search"
+msgstr "Caută"
+
+msgid "Select all"
+msgstr "Selectează tot"
+
+msgid "Select item"
+msgstr "Selectează elementul"
+
+msgid "View"
+msgstr "Vizualizare"
+
+#, python-format
+msgid "Showing %(start)s to %(end)s of %(count)s items"
+msgstr "Afișate %(start)s–%(end)s din %(count)s elemente"
+
+msgid "prev"
+msgstr "înapoi"
+
+msgid "next"
+msgstr "înainte"
+
+msgid "Show"
+msgstr "Afișează"
+
+#, python-format
+msgid "%(size)s / Page"
+msgstr "%(size)s / pagină"
+
+msgid "Filters"
+msgstr "Filtre"
+
+#, python-format
+msgid "Login to %(title)s"
+msgstr "Autentificare în %(title)s"
+
+msgid "Username"
+msgstr "Nume de utilizator"
+
+msgid "Enter username"
+msgstr "Introduceți numele de utilizator"
+
+msgid "Password"
+msgstr "Parolă"
+
+msgid "Login"
+msgstr "Autentificare"
+
+msgid "Close"
+msgstr "Închide"
+
+msgid "Done"
+msgstr "Gata"
+
+msgid "Clear filter"
+msgstr "Șterge filtrul"
+
+msgid "Apply Filter"
+msgstr "Aplică filtrul"
+
+msgid "Please confirm"
+msgstr "Confirmați"
+
+msgid "Yes"
+msgstr "Da"
+
+msgid "Choose CSV file"
+msgstr "Alegeți fișierul CSV"
+
+msgid "No file selected"
+msgstr "Niciun fișier selectat"
+
+msgid "Skip invalid rows and continue import"
+msgstr "Omite rândurile invalide și continuă importul"
+
+msgid "Import progress"
+msgstr "Progresul importului"
+
+#, python-format
+msgid "%(processed)s/%(total)s rows processed"
+msgstr "%(processed)s/%(total)s rânduri procesate"
+
+#, python-format
+msgid "%(imported)s imported, %(skipped)s skipped, %(processed)s/%(total)s rows processed"
+msgstr "%(imported)s importate, %(skipped)s omise, %(processed)s/%(total)s rânduri procesate"
+
+#, python-format
+msgid ""
+"%(imported)s imported, %(skipped)s skipped, %(processed)s/%(total)s rows processed - saving valid rows... "
+"(%(seconds)ss)"
+msgstr ""
+"%(imported)s importate, %(skipped)s omise, %(processed)s/%(total)s rânduri procesate — se salvează rândurile "
+"valide... (%(seconds)s s)"
+
+msgid "Import result"
+msgstr "Rezultatul importului"
+
+msgid "Missed rows"
+msgstr "Rânduri omise"
+
+msgid "Download CSV"
+msgstr "Descarcă CSV"
+
+msgid "Download TXT"
+msgstr "Descarcă TXT"
+
+msgid "Refresh list"
+msgstr "Reîmprospătează lista"
+

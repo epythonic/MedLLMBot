@@ -6,31 +6,51 @@
 <div class="col-12">
   <div class="card">
     <div class="card-header">
-      <h3 class="card-title">Как работает бот</h3>
+      <h3 class="card-title">{{ _("How the bot works") }}</h3>
       <div class="card-actions">
-        <a class="btn btn-sm" href="{{ url_for('admin:view-help') }}"><i class="fa-solid fa-book me-2"></i>Справка</a>
+        <a class="btn btn-sm" href="{{ url_for('admin:view-help') }}"><i class="fa-solid fa-book me-2"></i>{{ _("Help") }}</a>
       </div>
     </div>
     <div class="card-body help-doc">
       <ol>
-        <li><b>Клиент пишет боту</b> в Telegram и появляется в {{ section_link('client') }}.</li>
-        <li><b>Проверки до Claude:</b> заблокирован ли клиент, не пишет ли слишком часто, не слишком ли длинное
-          сообщение, нет ли признаков атаки.</li>
-        <li><b>Claude отвечает</b> по базе знаний — {{ section_link('service') }}, {{ section_link('faq-item') }},
-          {{ section_link('info-section') }} — и по последним сообщениям из {{ section_link('chat-message') }}.</li>
-        <li><b>Проверка ответа:</b> выдуманные цены и фрагменты правил бота клиенту не уходят.</li>
-        <li><b>Учёт:</b> каждое сообщение попадает в {{ section_link('audit-event') }}, стоимость —
-          в {{ section_link('costs') }}.</li>
-        <li><b>Телефон в сообщении</b> — это заявка: она появляется в {{ section_link('lead') }},
-          а администратор получает уведомление в Telegram.</li>
-        <li><b>Живой оператор:</b> клиент просит человека — вы получаете уведомление в Telegram и отвечаете ему
-          прямо оттуда, а бот в этом чате молчит. Кто сейчас с оператором — в {{ section_link('client') }}.</li>
-        <li><b>Аналитика:</b> о чём спрашивают клиенты, сколько диалогов заканчиваются заявкой и на какие вопросы
-          бот не нашёл ответа — в {{ section_link('analytics') }}.</li>
+        <li>{% trans trimmed clients=section_link('client') %}
+          <b>A client writes to the bot</b> in Telegram and appears in {{ clients }}.
+        {% endtrans %}</li>
+        <li>{% trans trimmed %}
+          <b>Checks before Claude:</b> whether the client is blocked, writes too often or sends a message
+          that is too long, and whether the message shows attack signs.
+        {% endtrans %}</li>
+        <li>{% trans trimmed catalog=section_link('service'), faq=section_link('faq-item'),
+                       about=section_link('info-section'), history=section_link('chat-message') %}
+          <b>Claude answers</b> from the knowledge base — {{ catalog }}, {{ faq }}, {{ about }} — and from the latest
+          messages in {{ history }}.
+        {% endtrans %}</li>
+        <li>{% trans trimmed %}
+          <b>Answer check:</b> made-up prices and fragments of the bot's rules never reach the client.
+        {% endtrans %}</li>
+        <li>{% trans trimmed log=section_link('audit-event'), costs=section_link('costs') %}
+          <b>Accounting:</b> every message goes to {{ log }}, and its cost to {{ costs }}.
+        {% endtrans %}</li>
+        <li>{% trans trimmed leads=section_link('lead') %}
+          <b>A phone number in a message</b> is a lead: it appears in {{ leads }}, and the administrator gets
+          a notification in Telegram.
+        {% endtrans %}</li>
+        <li>{% trans trimmed clients=section_link('client') %}
+          <b>Live operator:</b> when a client asks for a person, you get a notification in Telegram and reply
+          right from there, while the bot stays silent in that chat. Who is with the operator now is shown
+          in {{ clients }}.
+        {% endtrans %}</li>
+        <li>{% trans trimmed analytics=section_link('analytics') %}
+          <b>Analytics:</b> what clients ask about, how many dialogs end with a lead and which questions
+          the bot found no answer to — in {{ analytics }}.
+        {% endtrans %}</li>
       </ol>
-      <p class="mb-0">У каждого раздела рядом с заголовком есть значок <i class="fa-regular fa-circle-question"></i>:
-        наведите — короткая подсказка, нажмите — подробная справка сбоку. Такие же значки стоят у полей
-        и колонок. Клавиши F1 или «?» открывают справку раздела.</p>
+      {% set icon %}<i class="fa-regular fa-circle-question"></i>{% endset %}
+      <p class="mb-0">{% trans trimmed icon=icon %}
+        Each section has a {{ icon }} icon next to its title: hover over it for a short hint, click it
+        for detailed help on the side.
+      {% endtrans %} {{ _("Fields and columns have the same icons.") }}
+        {{ _("The F1 or “?” key opens the section's help.") }}</p>
     </div>
   </div>
 </div>
@@ -40,7 +60,7 @@
 <div class="col-md-6 col-xl-4">
   <div class="card">
     <div class="card-body">
-      <div class="text-secondary small">{{ view.category or "Настройки" }}</div>
+      <div class="text-secondary small">{{ view.category or _("Settings") }}</div>
       <h3 class="card-title mb-2">
         <i class="{{ view.icon }} me-2"></i><a href="{{ section_url(view) }}">{{ topic.title }}</a>
       </h3>

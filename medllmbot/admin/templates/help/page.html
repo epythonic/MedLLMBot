@@ -11,7 +11,7 @@
 <div class="col-12 col-xl-3 align-items-start">
   <div class="card help-toc">
     <div class="card-header">
-      <h3 class="card-title">Разделы</h3>
+      <h3 class="card-title">{{ _("Sections") }}</h3>
     </div>
     <div class="list-group list-group-flush">
       {% for view in admin.views if help_topic(view.identity) %}
@@ -32,7 +32,7 @@
     <div class="card-header">
       <h3 class="card-title"><i class="{{ view.icon }} me-2"></i>{{ topic.title }}</h3>
       <div class="card-actions">
-        <a class="btn btn-sm" href="{{ section_url(view) }}">Открыть раздел</a>
+        <a class="btn btn-sm" href="{{ section_url(view) }}">{{ _("Open section") }}</a>
       </div>
     </div>
     <div class="card-body help-doc">

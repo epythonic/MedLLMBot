@@ -6,7 +6,7 @@
   <p class="text-secondary">{{ topic.summary }}</p>
   {% include topic.template %}
   {% if topic.fields %}
-  <h3 id="{{ topic.anchor('fields') }}">Поля и колонки</h3>
+  <h3 id="{{ topic.anchor('fields') }}">{{ _("Fields and columns") }}</h3>
   <table class="table table-sm">
     <tbody>
       {% for name, text in topic.fields.items() %}

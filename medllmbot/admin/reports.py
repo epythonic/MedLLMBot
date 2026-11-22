@@ -1,4 +1,4 @@
-"""Custom admin pages without a model: «Клиенты → Аналитика» and «Расходы → Отчёт по месяцам»."""
+"""Custom admin pages without a model: Clients → Analytics and Costs → Monthly report."""
 
 from datetime import UTC, datetime
 from typing import final
@@ -7,7 +7,8 @@ from sqladmin import BaseView, expose
 from starlette.requests import Request
 from starlette.responses import Response
 
-from medllmbot.admin.views import CLIENTS
+from medllmbot.admin.i18n import gettext, lazy_gettext, ngettext
+from medllmbot.admin.views import CLIENTS, COSTS
 from medllmbot.analytics import PERIODS, collect, parse_period
 from medllmbot.costs import build_report
 from medllmbot.db.repository import Repository
@@ -20,9 +21,9 @@ def make_cost_report_view(repo: Repository) -> type[BaseView]:
 
     @final
     class CostReportView(BaseView):
-        name = "Отчёт по месяцам"
+        name = lazy_gettext("Monthly report")
         icon = "fa-solid fa-chart-column"
-        category = "Расходы"
+        category = COSTS
         identity = "costs"
 
         # In SQLAdmin the expose decorator and TemplateResponse are typed with Any and a bare dict;
@@ -34,7 +35,12 @@ def make_cost_report_view(repo: Repository) -> type[BaseView]:
             return await self.templates.TemplateResponse(  # pyright: ignore[reportUnknownMemberType]
                 request,
                 "costs.html",
-                {"title": "Расходы на Claude API", "subtitle": "по месяцам, UTC", "months": months, "help_identity": "costs"},
+                {
+                    "title": gettext("Claude API costs"),
+                    "subtitle": gettext("by month, UTC"),
+                    "months": months,
+                    "help_identity": "costs",
+                },
             )
 
     return CostReportView
@@ -45,7 +51,7 @@ def make_analytics_view(repo: Repository) -> type[BaseView]:
 
     @final
     class AnalyticsView(BaseView):
-        name = "Аналитика"
+        name = lazy_gettext("Analytics")
         icon = "fa-solid fa-chart-pie"
         category = CLIENTS
         identity = "analytics"
@@ -60,8 +66,9 @@ def make_analytics_view(repo: Repository) -> type[BaseView]:
                 request,
                 "analytics.html",
                 {
-                    "title": "Аналитика вопросов",
-                    "subtitle": f"за последние {days} дней, UTC",
+                    "title": gettext("Question analytics"),
+                    "subtitle": ngettext("over the last %(days)s day, UTC", "over the last %(days)s days, UTC", days)
+                    % {"days": days},
                     "report": report,
                     "days": days,
                     "periods": PERIODS,

@@ -1,13 +1,17 @@
-"""Admin forms: error messages in Russian and decimal numbers with a comma."""
+"""Admin forms: error messages in the admin language and decimal numbers with a comma."""
 
 from typing import final
 
 import pytest
+from sqladmin.i18n import set_locale
 from starlette.datastructures import FormData
 from wtforms import IntegerField, StringField
 from wtforms.validators import InputRequired, Length, NumberRange
 
 from medllmbot.admin.forms import AdminForm, CommaFloatField
+
+# Forms are validated outside a request here; the Russian messages are checked unless a test switches the language
+pytestmark = pytest.mark.usefixtures("russian_admin")
 
 
 @final
@@ -54,3 +58,15 @@ class TestRussianMessages:
 
     def test_integer(self) -> None:
         assert "Неверное целое число." in submit(count="два").count.errors
+
+
+class TestOtherLanguages:
+    def test_english(self) -> None:
+        set_locale("en")
+        assert submit(name="").name.errors == ["This field is required."]
+        # The fix for the Russian catalog does not leak into other languages
+        assert submit(count="9").count.errors == ["Number must be between 1 and 5."]
+
+    def test_romanian(self) -> None:
+        set_locale("ro")
+        assert submit(name="").name.errors == ["Acest câmp este obligatoriu."]

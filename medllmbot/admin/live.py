@@ -1,11 +1,11 @@
 """Quick admin actions on HTMX.
 
-- A lead's status changes right in the «Заявки» list.
-- Open «Заявки» and «Журнал» check for new records every 15 seconds and show a badge.
+- A lead's status changes right in the leads list.
+- Open leads and audit log lists check for new records every 15 seconds and show a badge.
 - A client can be blocked from an audit log record page.
-- The order of services, FAQ items and «О компании» sections changes by dragging rows.
+- The order of services, FAQ items and company info sections changes by dragging rows.
 
-Routes return HTML fragments (fragments.py); all logic stays on the server.
+Routes return HTML fragments (fragments.py) in the request's language; all logic stays on the server.
 SQLAdmin checks login (expose → login_required). Modifying requests are accepted only
 with the HX-Request header: another site cannot send it without CORS permission.
 """
@@ -19,16 +19,17 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, Response
 
 from medllmbot.admin.fragments import (
-    BAD_REQUEST,
-    LEAD_NOT_FOUND,
-    REORDER_CONFLICT,
-    REORDER_SAVED,
+    bad_request,
     client_block_control,
     client_block_loader,
+    lead_not_found,
     lead_status_select,
     new_records_poller,
+    reorder_conflict,
+    reorder_saved,
     sort_handle,
 )
+from medllmbot.admin.i18n import gettext, lazy_gettext
 from medllmbot.db.models import AuditEvent, FaqItem, InfoSection, Lead, LeadStatus, Service
 from medllmbot.db.repository import Repository
 
@@ -81,12 +82,12 @@ def _poll_url(request: Request, after_id: int) -> str:
 
 
 def lead_status_cell(model: Lead, _attr: object, request: Request) -> Markup:
-    """«Статус» column in the leads list: a dropdown that saves immediately."""
+    """Status column in the leads list: a dropdown that saves immediately."""
     return lead_status_select(str(request.url_for(route_name(LEAD_STATUS), lead_id=model.id)), model.status)
 
 
 def sort_handle_cell(model: Service | FaqItem | InfoSection, _attr: object) -> Markup:
-    """«Порядок» column in the knowledge base: the icon used to drag the row."""
+    """Sort column in the knowledge base: the icon used to drag the row."""
     return sort_handle(model.id)
 
 
@@ -108,7 +109,7 @@ def make_live_view(repo: Repository) -> type[BaseView]:
 
     @final
     class LiveView(BaseView):
-        name = "Быстрые действия"
+        name = lazy_gettext("Quick actions")
         identity = "live"
 
         @override
@@ -122,10 +123,10 @@ def make_live_view(repo: Repository) -> type[BaseView]:
             raw = (await request.form()).get("status")
             status = LeadStatus.__members__.get(raw) if isinstance(raw, str) else None
             if not is_htmx(request) or lead_id is None or status is None:
-                return _fragment(BAD_REQUEST, 400)
+                return _fragment(bad_request(), 400)
             lead = await repo.set_lead_status(lead_id, status)
             if lead is None:
-                return _fragment(LEAD_NOT_FOUND, 404)
+                return _fragment(lead_not_found(), 404)
             return _fragment(lead_status_select(str(request.url), lead.status, saved=True))
 
         @_route("/htmx/new-leads", identity=NEW_LEADS)
@@ -134,7 +135,7 @@ def make_live_view(repo: Repository) -> type[BaseView]:
             records = await repo.new_leads(after or 0)
             if after is None:  # first request from the page: remember the baseline
                 return _fragment(new_records_poller(_poll_url(request, records.last_id)))
-            text = f"Новых заявок: {records.count}" if records.count else None
+            text = gettext("New leads: %(count)s") % {"count": records.count} if records.count else None
             return _fragment(new_records_poller(_poll_url(request, after), text=text))
 
         @_route("/htmx/new-audit-events", identity=NEW_AUDIT_EVENTS)
@@ -144,17 +145,20 @@ def make_live_view(repo: Repository) -> type[BaseView]:
             if after is None:
                 return _fragment(new_records_poller(_poll_url(request, records.last_id)))
             text = None
-            if records.count:
-                text = f"Новых событий в журнале: {records.count}"
-                if records.suspicious:
-                    text += f", из них подозрительных: {records.suspicious}"
+            if records.count and records.suspicious:
+                text = gettext("New log events: %(count)s, suspicious among them: %(suspicious)s") % {
+                    "count": records.count,
+                    "suspicious": records.suspicious,
+                }
+            elif records.count:
+                text = gettext("New log events: %(count)s") % {"count": records.count}
             return _fragment(new_records_poller(_poll_url(request, after), text=text, warning=records.suspicious > 0))
 
         @_route("/htmx/client/{chat_id:int}/block-state", identity=CLIENT_BLOCK_STATE)
         async def client_block_state(self, request: Request) -> Response:
             chat_id = _path_int(request, "chat_id")
             if chat_id is None:
-                return _fragment(BAD_REQUEST, 400)
+                return _fragment(bad_request(), 400)
             client = await repo.get_client(chat_id)
             return block_control(request, chat_id, client.is_blocked if client else None)
 
@@ -163,7 +167,7 @@ def make_live_view(repo: Repository) -> type[BaseView]:
             chat_id = _path_int(request, "chat_id")
             raw = (await request.form()).get("blocked")
             if not is_htmx(request) or chat_id is None or raw not in ("true", "false"):
-                return _fragment(BAD_REQUEST, 400)
+                return _fragment(bad_request(), 400)
             client = await repo.set_client_blocked(chat_id, raw == "true")
             return block_control(request, chat_id, client.is_blocked if client else None)
 
@@ -172,7 +176,7 @@ def make_live_view(repo: Repository) -> type[BaseView]:
             raw = (await request.form()).getlist("order")
             ids = [int(value) for value in raw if isinstance(value, str) and value.isdecimal()]
             if not is_htmx(request) or not ids or len(ids) != len(raw):
-                return _fragment(BAD_REQUEST, 400)
+                return _fragment(bad_request(), 400)
             match request.path_params.get("section"):
                 case "service":
                     saved = await repo.reorder(Service, ids)
@@ -181,7 +185,7 @@ def make_live_view(repo: Repository) -> type[BaseView]:
                 case "info-section":
                     saved = await repo.reorder(InfoSection, ids)
                 case _:
-                    return _fragment(BAD_REQUEST, 404)
-            return _fragment(REORDER_SAVED) if saved else _fragment(REORDER_CONFLICT, 409)
+                    return _fragment(bad_request(), 404)
+            return _fragment(reorder_saved()) if saved else _fragment(reorder_conflict(), 409)
 
     return LiveView

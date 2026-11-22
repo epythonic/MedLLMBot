@@ -16,6 +16,16 @@ from medllmbot.db.models import OrderStatus
 from medllmbot.db.repository import Repository
 
 LAST_DIGITS = 4  # how many last phone digits the client gives
+# How the model and the audit log name a status. Russian like the rest of the prompt, independent of the admin's
+# translated labels (OrderStatus values)
+STATUS_TEXT: dict[OrderStatus, str] = {
+    OrderStatus.NEW: "Принят",
+    OrderStatus.CONFIRMED: "Подтверждён",
+    OrderStatus.SHIPPED: "Передан в доставку",
+    OrderStatus.READY: "Ждёт в пункте самовывоза",
+    OrderStatus.DELIVERED: "Получен",
+    OrderStatus.CANCELLED: "Отменён",
+}
 
 # Order number in canonical form: Latin letters and digits, parts joined by hyphens, e.g. DE-10023
 ORDER_NUMBER = re.compile(r"[A-Z0-9]+(?:-[A-Z0-9]+)*")

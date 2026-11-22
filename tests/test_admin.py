@@ -35,6 +35,7 @@ from medllmbot.db.models import (
 )
 from medllmbot.db.repository import Repository
 from medllmbot.db.seed import DEMO_SERVICES, seed_demo
+from medllmbot.i18n import translation
 
 PASSWORD = "secret-pass"
 
@@ -85,7 +86,8 @@ def db(settings: AdminSettings) -> Path:
 
 @pytest.fixture
 def client(settings: AdminSettings, db: Path) -> Iterator[TestClient]:
-    with TestClient(create_app(settings, engine=create_engine(db))) as c:
+    # These tests read the Russian UI; the other languages and how one is picked are tested in TestLanguages
+    with TestClient(create_app(settings, engine=create_engine(db)), headers={"Accept-Language": "ru"}) as c:
         yield c
 
 
@@ -817,7 +819,8 @@ class TestHelp:
         for text in OUTCOME_HELP.values():
             assert str(escape(text)) in page
         for flag in FLAG_HELP:
-            assert str(escape(flag.label)) in page
+            # Labels are English msgids; the Russian page shows their translation
+            assert str(escape(translation("ru").gettext(flag.label))) in page
         assert "выдаёт себя за владельца или разработчика бота" in page
 
     def test_help_page_contains_every_section(self, admin: TestClient) -> None:

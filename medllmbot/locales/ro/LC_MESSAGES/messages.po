@@ -1,0 +1,1262 @@
+# Romanian translations for MedLLMBot.
+# Copyright (C) 2026 MedLLMBot
+# This file is distributed under the same license as the MedLLMBot project.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: MedLLMBot VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-11-22 10:33+0300\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: ro\n"
+"Language-Team: ro\n"
+"Plural-Forms: nplurals=3; plural=(n==1 ? 0 : (n==0 || (n%100 > 0 && n%100 < 20)) ? 1 : 2);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: medllmbot/analytics.py:34
+msgid "Other"
+msgstr "Altele"
+
+#: medllmbot/analytics.py:35
+msgid "Left a phone number"
+msgstr "Au lăsat numărul de telefon"
+
+#: medllmbot/analytics.py:77
+msgid "Prices"
+msgstr "Prețuri"
+
+#: medllmbot/analytics.py:83
+msgid "Payment and installments"
+msgstr "Plată și rate"
+
+#: medllmbot/analytics.py:92
+msgid "Address and opening hours"
+msgstr "Adresă și program"
+
+#: medllmbot/analytics.py:104
+msgid "Appointments"
+msgstr "Programări"
+
+#: medllmbot/analytics.py:111
+msgid "Pain and urgent care"
+msgstr "Durere și urgențe"
+
+#: medllmbot/analytics.py:117
+msgid "Dental treatment"
+msgstr "Tratament dentar"
+
+#: medllmbot/analytics.py:124
+msgid "Implants and prosthetics"
+msgstr "Implanturi și proteze"
+
+#: medllmbot/analytics.py:129
+msgid "Hygiene and whitening"
+msgstr "Igienă și albire"
+
+#: medllmbot/analytics.py:134
+msgid "Braces and bite"
+msgstr "Aparat dentar și ocluzie"
+
+#: medllmbot/analytics.py:139
+msgid "Children's dentistry"
+msgstr "Stomatologie pediatrică"
+
+#: medllmbot/analytics.py:148
+msgid "Product choice"
+msgstr "Alegerea produsului"
+
+#: medllmbot/analytics.py:157
+msgid "Availability"
+msgstr "Disponibilitate"
+
+#: medllmbot/analytics.py:165
+msgid "Order status"
+msgstr "Starea comenzii"
+
+#: medllmbot/analytics.py:173
+msgid "Purchase and checkout"
+msgstr "Cumpărare și comandă"
+
+#: medllmbot/analytics.py:178
+msgid "Delivery and pickup"
+msgstr "Livrare și ridicare"
+
+#: medllmbot/analytics.py:184
+msgid "Returns and exchanges"
+msgstr "Retur și schimb"
+
+#: medllmbot/analytics.py:188
+msgid "Warranty and repair"
+msgstr "Garanție și reparații"
+
+#: medllmbot/analytics.py:216
+msgid "Not in the knowledge base"
+msgstr "Nu e în baza de cunoștințe"
+
+#: medllmbot/analytics.py:217
+msgid "Not in the catalog"
+msgstr "Nu e în catalog"
+
+#: medllmbot/analytics.py:218
+msgid "Price not from the catalog"
+msgstr "Preț care nu e din catalog"
+
+#: medllmbot/analytics.py:219
+msgid "Bot did not answer"
+msgstr "Botul nu a răspuns"
+
+#: medllmbot/security.py:32
+msgid "asks to ignore instructions"
+msgstr "cere să ignore instrucțiunile"
+
+#: medllmbot/security.py:45
+msgid "tries to change the bot's role"
+msgstr "încearcă să schimbe rolul botului"
+
+#: medllmbot/security.py:58
+msgid "poses as the bot's owner or developer"
+msgstr "se dă drept proprietarul sau dezvoltatorul botului"
+
+#: medllmbot/security.py:84
+msgid "tries to get the system prompt"
+msgstr "încearcă să afle promptul de sistem"
+
+#: medllmbot/security.py:101
+msgid "service markup in the message"
+msgstr "marcaj de serviciu în mesaj"
+
+#: medllmbot/security.py:106
+msgid "known jailbreak technique"
+msgstr "tehnică cunoscută de ocolire a restricțiilor"
+
+#: medllmbot/security.py:113
+msgid "system prompt fragments in the model's answer"
+msgstr "fragmente din promptul de sistem în răspunsul modelului"
+
+#: medllmbot/admin/app.py:60
+msgid "Bad request"
+msgstr "Solicitare incorectă"
+
+#: medllmbot/admin/app.py:61
+msgid "Malformed address or request parameter."
+msgstr "Adresă sau parametru de solicitare incorect."
+
+#: medllmbot/admin/app.py:62
+msgid "To the admin home page"
+msgstr "La pagina principală a administrării"
+
+#: medllmbot/admin/app.py:107
+msgid "MedLLMBot admin"
+msgstr "MedLLMBot — administrare"
+
+#: medllmbot/admin/auth.py:83
+msgid "Too many failed login attempts."
+msgstr "Prea multe încercări eșuate de autentificare."
+
+#: medllmbot/admin/auth.py:83
+msgid "Try again in 15 minutes."
+msgstr "Încercați din nou peste 15 minute."
+
+#: medllmbot/admin/auth.py:98
+msgid "Wrong username or password."
+msgstr "Nume de utilizator sau parolă greșită."
+
+#: medllmbot/admin/fragments.py:21
+msgid "Lead not found — refresh the page"
+msgstr "Cererea nu a fost găsită — reîncărcați pagina"
+
+#: medllmbot/admin/fragments.py:25
+msgid "Invalid request — refresh the page"
+msgstr "Solicitare incorectă — reîncărcați pagina"
+
+#: medllmbot/admin/fragments.py:40
+msgid "Lead status"
+msgstr "Starea cererii"
+
+#: medllmbot/admin/fragments.py:62
+msgid "Show"
+msgstr "Afișați"
+
+#: medllmbot/admin/fragments.py:73
+msgid "client not found"
+msgstr "clientul nu a fost găsit"
+
+#: medllmbot/admin/fragments.py:79 medllmbot/admin/views.py:284
+#: medllmbot/admin/views.py:293
+msgid "Blocked"
+msgstr "Blocat"
+
+#: medllmbot/admin/fragments.py:79
+msgid "Unblock"
+msgstr "Deblocați"
+
+#: medllmbot/admin/fragments.py:80
+#, python-format
+msgid "Block client %(chat_id)s? The bot will stop replying to them."
+msgstr "Blocați clientul %(chat_id)s? Botul nu îi va mai răspunde."
+
+#: medllmbot/admin/fragments.py:86
+msgid "Block client"
+msgstr "Blocați clientul"
+
+#: medllmbot/admin/fragments.py:94
+msgid "Order saved — the bot uses it from the next question."
+msgstr "Ordinea a fost salvată — botul o folosește începând cu următoarea întrebare."
+
+#: medllmbot/admin/fragments.py:99
+msgid "The list changed while you were sorting it: refresh the page and try again."
+msgstr "Lista s-a modificat în timp ce o sortați: reîncărcați pagina și încercați din nou."
+
+#: medllmbot/admin/fragments.py:108
+msgid "Drag to change the order"
+msgstr "Trageți pentru a schimba ordinea"
+
+#: medllmbot/admin/help.py:370 medllmbot/admin/templates/sqladmin/index.html:11
+msgid "Help"
+msgstr "Ajutor"
+
+#: medllmbot/admin/live.py:112
+msgid "Quick actions"
+msgstr "Acțiuni rapide"
+
+#: medllmbot/admin/live.py:138
+#, python-format
+msgid "New leads: %(count)s"
+msgstr "Cereri noi: %(count)s"
+
+#: medllmbot/admin/live.py:149
+#, python-format
+msgid "New log events: %(count)s, suspicious among them: %(suspicious)s"
+msgstr "Evenimente noi în jurnal: %(count)s, dintre care suspecte: %(suspicious)s"
+
+#: medllmbot/admin/live.py:154
+#, python-format
+msgid "New log events: %(count)s"
+msgstr "Evenimente noi în jurnal: %(count)s"
+
+#: medllmbot/admin/reports.py:24
+msgid "Monthly report"
+msgstr "Raport lunar"
+
+#: medllmbot/admin/reports.py:39
+msgid "Claude API costs"
+msgstr "Cheltuieli pentru Claude API"
+
+#: medllmbot/admin/reports.py:40
+msgid "by month, UTC"
+msgstr "pe luni, UTC"
+
+#: medllmbot/admin/reports.py:54
+msgid "Analytics"
+msgstr "Analiză"
+
+#: medllmbot/admin/reports.py:69
+msgid "Question analytics"
+msgstr "Analiza întrebărilor"
+
+#: medllmbot/admin/reports.py:70
+#, python-format
+msgid "over the last %(days)s day, UTC"
+msgid_plural "over the last %(days)s days, UTC"
+msgstr[0] "în ultima %(days)s zi, UTC"
+msgstr[1] "în ultimele %(days)s zile, UTC"
+msgstr[2] "în ultimele %(days)s de zile, UTC"
+
+#: medllmbot/admin/templates/analytics.html:42 medllmbot/admin/views.py:51
+#: medllmbot/admin/views.py:266
+msgid "Clients"
+msgstr "Clienți"
+
+#: medllmbot/admin/views.py:52
+msgid "Knowledge base"
+msgstr "Bază de cunoștințe"
+
+#: medllmbot/admin/views.py:53
+msgid "Security"
+msgstr "Securitate"
+
+#: medllmbot/admin/views.py:54
+msgid "Costs"
+msgstr "Cheltuieli"
+
+#: medllmbot/admin/views.py:113 medllmbot/admin/views.py:131
+msgid "Yes"
+msgstr "Da"
+
+#: medllmbot/admin/views.py:131 medllmbot/admin/views.py:138
+msgid "All"
+msgstr "Toate"
+
+#: medllmbot/admin/views.py:131
+msgid "No"
+msgstr "Nu"
+
+#: medllmbot/admin/views.py:142
+msgid "Equals"
+msgstr "Egal cu"
+
+#: medllmbot/admin/views.py:143
+msgid "Contains"
+msgstr "Conține"
+
+#: medllmbot/admin/views.py:144
+msgid "Starts with"
+msgstr "Începe cu"
+
+#: medllmbot/admin/views.py:145
+msgid "Ends with"
+msgstr "Se termină cu"
+
+#: medllmbot/admin/views.py:146
+msgid "Greater than"
+msgstr "Mai mare decât"
+
+#: medllmbot/admin/views.py:147
+msgid "Less than"
+msgstr "Mai mic decât"
+
+#: medllmbot/admin/views.py:174
+msgid "Record not saved: it already exists or the values break database constraints."
+msgstr "Înregistrarea nu a fost salvată: există deja sau valorile încalcă restricțiile bazei de date."
+
+#: medllmbot/admin/views.py:216
+msgid "Lead"
+msgstr "Cerere"
+
+#: medllmbot/admin/views.py:217
+msgid "Leads"
+msgstr "Cereri"
+
+#: medllmbot/admin/views.py:235 medllmbot/admin/views.py:246
+#: medllmbot/admin/views.py:346 medllmbot/admin/views.py:388
+msgid "Status"
+msgstr "Status"
+
+#: medllmbot/admin/views.py:243 medllmbot/admin/views.py:447
+#: medllmbot/admin/views.py:615
+msgid "No."
+msgstr "Nr."
+
+#: medllmbot/admin/views.py:244
+msgid "Created"
+msgstr "Creată"
+
+#: medllmbot/admin/views.py:245
+msgid "Updated"
+msgstr "Modificată"
+
+#: medllmbot/admin/views.py:247 medllmbot/admin/views.py:265
+msgid "Client"
+msgstr "Client"
+
+#: medllmbot/admin/views.py:248 medllmbot/admin/views.py:390
+msgid "Phone"
+msgstr "Telefon"
+
+#: medllmbot/admin/views.py:249 medllmbot/admin/views.py:422
+msgid "Message"
+msgstr "Mesaj"
+
+#: medllmbot/admin/views.py:250
+msgid "Administrator note"
+msgstr "Nota administratorului"
+
+#: medllmbot/admin/views.py:292
+msgid "Full name"
+msgstr "Nume"
+
+#: medllmbot/admin/views.py:294
+msgid "With operator until"
+msgstr "Cu operatorul până la"
+
+#: medllmbot/admin/views.py:295
+msgid "First message"
+msgstr "Primul mesaj"
+
+#: medllmbot/admin/views.py:296
+msgid "Last message"
+msgstr "Ultimul mesaj"
+
+#: medllmbot/admin/views.py:323
+msgid "Order number: Latin letters, digits and hyphens, 3 to 32 characters, for example DE-10023."
+msgstr "Numărul comenzii: litere latine, cifre și cratime, între 3 și 32 de caractere, de exemplu DE-10023."
+
+#: medllmbot/admin/views.py:329
+msgid "Order"
+msgstr "Comandă"
+
+#: medllmbot/admin/views.py:330
+msgid "Orders"
+msgstr "Comenzi"
+
+#: medllmbot/admin/views.py:333
+msgid "An order with this number already exists: open it and edit it instead."
+msgstr "Există deja o comandă cu acest număr: deschideți-o și modificați-o."
+
+#: medllmbot/admin/views.py:364
+msgid "As on the receipt, for example DE-10023."
+msgstr "Ca pe bon, de exemplu DE-10023."
+
+#: medllmbot/admin/views.py:365
+msgid "The customer gives it to the bot"
+msgstr "Clientul îl comunică botului"
+
+#: medllmbot/admin/views.py:374
+msgid "The bot shows the status only if the customer gives the last 4 digits of this number"
+msgstr "Botul arată statusul doar dacă clientul spune ultimele 4 cifre ale acestui număr"
+
+#: medllmbot/admin/views.py:378
+msgid "Lei, a whole number"
+msgstr "Lei, număr întreg"
+
+#: medllmbot/admin/views.py:380
+msgid "When delivery or pickup is expected; empty means the date is not known yet"
+msgstr "Când este așteptată livrarea sau ridicarea; gol — data nu se știe încă"
+
+#: medllmbot/admin/views.py:385
+msgid "Number"
+msgstr "Număr"
+
+#: medllmbot/admin/views.py:386
+msgid "Placed"
+msgstr "Plasată"
+
+#: medllmbot/admin/views.py:387
+msgid "Last updated"
+msgstr "Ultima actualizare"
+
+#: medllmbot/admin/views.py:389
+msgid "Customer"
+msgstr "Cumpărător"
+
+#: medllmbot/admin/views.py:391
+msgid "Items"
+msgstr "Produse"
+
+#: medllmbot/admin/views.py:392
+msgid "Total, lei"
+msgstr "Total, lei"
+
+#: medllmbot/admin/views.py:393
+msgid "Delivery date"
+msgstr "Data livrării"
+
+#: medllmbot/admin/views.py:417
+msgid "user — client"
+msgstr "user — client"
+
+#: medllmbot/admin/views.py:417
+msgid "assistant — bot"
+msgstr "assistant — bot"
+
+#: medllmbot/admin/views.py:423
+msgid "Chat history"
+msgstr "Conversații"
+
+#: medllmbot/admin/views.py:442 medllmbot/admin/views.py:450
+msgid "Role"
+msgstr "Rol"
+
+#: medllmbot/admin/views.py:448 medllmbot/admin/views.py:616
+msgid "Time"
+msgstr "Ora"
+
+#: medllmbot/admin/views.py:451 medllmbot/admin/views.py:557
+msgid "Text"
+msgstr "Text"
+
+#: medllmbot/admin/views.py:459
+msgid "Lower numbers come first."
+msgstr "Mai mic — mai sus în listă."
+
+#: medllmbot/admin/views.py:460
+msgid "In the list it is easier to change the order by dragging"
+msgstr "În listă ordinea se schimbă mai ușor prin glisare"
+
+#: medllmbot/admin/views.py:471
+msgid "Item"
+msgstr "Poziție"
+
+#: medllmbot/admin/views.py:472
+msgid "Catalog and prices"
+msgstr "Catalog și prețuri"
+
+#: medllmbot/admin/views.py:482 medllmbot/admin/views.py:501
+msgid "Active"
+msgstr "Activă"
+
+#: medllmbot/admin/views.py:492
+msgid "In lei"
+msgstr "În lei"
+
+#: medllmbot/admin/views.py:493
+msgid "Optional: a note for the bot"
+msgstr "Opțional: o precizare pentru bot"
+
+#: medllmbot/admin/views.py:497 medllmbot/admin/views.py:522
+#: medllmbot/admin/views.py:555
+msgid "Sort order"
+msgstr "Ordine"
+
+#: medllmbot/admin/views.py:498
+msgid "Name"
+msgstr "Denumire"
+
+#: medllmbot/admin/views.py:499
+msgid "Price, lei"
+msgstr "Preț, lei"
+
+#: medllmbot/admin/views.py:500
+msgid "Description"
+msgstr "Descriere"
+
+#: medllmbot/admin/templates/analytics.html:111 medllmbot/admin/views.py:507
+#: medllmbot/admin/views.py:523
+msgid "Question"
+msgstr "Întrebare"
+
+#: medllmbot/admin/views.py:508
+msgid "FAQ"
+msgstr "Întrebări frecvente"
+
+#: medllmbot/admin/views.py:524
+msgid "Answer"
+msgstr "Răspuns"
+
+#: medllmbot/admin/views.py:525 medllmbot/admin/views.py:558
+msgid "Enabled"
+msgstr "Activă"
+
+#: medllmbot/admin/views.py:531
+msgid "Section"
+msgstr "Secțiune"
+
+#: medllmbot/admin/views.py:532
+msgid "About the business"
+msgstr "Despre companie"
+
+#: medllmbot/admin/views.py:556
+msgid "Title"
+msgstr "Titlu"
+
+#: medllmbot/admin/views.py:569
+msgid "Event"
+msgstr "Eveniment"
+
+#: medllmbot/admin/views.py:570
+msgid "Log"
+msgstr "Jurnal"
+
+#: medllmbot/admin/views.py:595 medllmbot/admin/views.py:619
+msgid "Suspicious"
+msgstr "Suspect"
+
+#: medllmbot/admin/views.py:596 medllmbot/admin/views.py:618
+msgid "Outcome"
+msgstr "Rezultat"
+
+#: medllmbot/admin/views.py:620
+msgid "Attack signs"
+msgstr "Semne de atac"
+
+#: medllmbot/admin/views.py:621
+msgid "Client message"
+msgstr "Mesajul clientului"
+
+#: medllmbot/admin/views.py:622
+msgid "Model answer"
+msgstr "Răspunsul modelului"
+
+#: medllmbot/admin/views.py:623
+msgid "Sent to client"
+msgstr "Trimis clientului"
+
+#: medllmbot/admin/templates/costs.html:26 medllmbot/admin/views.py:624
+#: medllmbot/admin/views.py:691 medllmbot/admin/views.py:727
+#: medllmbot/admin/views.py:874
+msgid "Model"
+msgstr "Model"
+
+#: medllmbot/admin/views.py:626
+msgid "Input tokens"
+msgstr "Tokenuri de intrare"
+
+#: medllmbot/admin/views.py:627
+msgid "Output tokens"
+msgstr "Tokenuri de ieșire"
+
+#: medllmbot/admin/views.py:628
+msgid "Cache read tokens"
+msgstr "Tokenuri citite din cache"
+
+#: medllmbot/admin/views.py:629
+msgid "Cache write tokens"
+msgstr "Tokenuri scrise în cache"
+
+#: medllmbot/admin/views.py:630 medllmbot/admin/views.py:733
+msgid "Cost, USD"
+msgstr "Cost, USD"
+
+#: medllmbot/admin/views.py:631
+msgid "Latency, ms"
+msgstr "Latență, ms"
+
+#: medllmbot/admin/views.py:632
+msgid "What the bot searched for"
+msgstr "Ce a căutat botul"
+
+#: medllmbot/admin/views.py:641
+msgid "USD per million tokens, a decimal comma is fine: 0,15"
+msgstr "USD per milion de tokenuri, se poate cu virgulă: 0,15"
+
+#: medllmbot/admin/views.py:647
+msgid "Model price"
+msgstr "Prețul modelului"
+
+#: medllmbot/admin/views.py:648
+msgid "Model prices"
+msgstr "Prețurile modelelor"
+
+#: medllmbot/admin/views.py:652
+msgid "This model already has a rate with this «From prompt length» value: edit the existing row."
+msgstr "Modelul are deja un tarif cu această valoare „De la lungimea promptului”: modificați rândul existent."
+
+#: medllmbot/admin/views.py:680
+msgid "Model ID as in the bot settings, for example claude-haiku-5-5"
+msgstr "ID-ul modelului, ca în setările botului, de exemplu claude-haiku-5-5"
+
+#: medllmbot/admin/views.py:683
+msgid "Rate for prompts of at least this many tokens; usually 0"
+msgstr "Tariful pentru prompturile de cel puțin atâtea tokenuri; de obicei 0"
+
+#: medllmbot/admin/views.py:692
+msgid "From prompt length"
+msgstr "De la lungimea promptului"
+
+#: medllmbot/admin/templates/costs.html:28 medllmbot/admin/views.py:693
+#: medllmbot/admin/views.py:729
+msgid "Input"
+msgstr "Intrare"
+
+#: medllmbot/admin/templates/costs.html:29 medllmbot/admin/views.py:694
+#: medllmbot/admin/views.py:730
+msgid "Output"
+msgstr "Ieșire"
+
+#: medllmbot/admin/views.py:695
+msgid "Writing to cache"
+msgstr "Scriere în cache"
+
+#: medllmbot/admin/views.py:696
+msgid "Reading from cache"
+msgstr "Citire din cache"
+
+#: medllmbot/admin/views.py:702
+msgid "Day"
+msgstr "Zi"
+
+#: medllmbot/admin/views.py:703
+msgid "Daily spend"
+msgstr "Cheltuieli pe zile"
+
+#: medllmbot/admin/views.py:726
+msgid "Day (UTC)"
+msgstr "Ziua (UTC)"
+
+#: medllmbot/admin/templates/costs.html:27 medllmbot/admin/views.py:728
+msgid "Requests"
+msgstr "Solicitări"
+
+#: medllmbot/admin/templates/costs.html:30 medllmbot/admin/views.py:731
+msgid "Cache read"
+msgstr "Din cache"
+
+#: medllmbot/admin/templates/costs.html:31 medllmbot/admin/views.py:732
+msgid "Cache write"
+msgstr "În cache"
+
+#: medllmbot/admin/views.py:734
+msgid "Unpriced"
+msgstr "Fără preț"
+
+#: medllmbot/admin/views.py:747 medllmbot/admin/views.py:748
+msgid "Bot settings"
+msgstr "Setările botului"
+
+#: medllmbot/admin/views.py:757
+#, python-format
+msgid "No price for model «%(model)s» in «Costs → Model prices»."
+msgstr "Modelul „%(model)s” nu are preț în „Cheltuieli → Prețurile modelelor”."
+
+#: medllmbot/admin/views.py:758
+msgid "Check the model ID or add its price first."
+msgstr "Verificați ID-ul modelului sau adăugați mai întâi prețul."
+
+#: medllmbot/admin/views.py:806
+msgid "Claude model ID, for example claude-haiku-5-5 or claude-sonnet-5-5."
+msgstr "ID-ul modelului Claude, de exemplu claude-haiku-5-5 sau claude-sonnet-5-5."
+
+#: medllmbot/admin/views.py:807
+msgid "The model needs a price in «Costs → Model prices»"
+msgstr "Modelul trebuie să aibă preț în „Cheltuieli → Prețurile modelelor”"
+
+#: medllmbot/admin/views.py:814
+msgid "In Russian."
+msgstr "În rusă."
+
+#: medllmbot/admin/views.py:816
+msgid "Clients whose Telegram is in neither Russian nor Romanian get it together with the Romanian one"
+msgstr "Clienții cu Telegram în altă limbă decât rusa și româna îl primesc împreună cu cel în română"
+
+#: medllmbot/admin/views.py:823
+msgid "For clients whose Telegram is in Romanian."
+msgstr "Pentru clienții cu Telegram în română."
+
+#: medllmbot/admin/views.py:824
+msgid "Empty: everyone gets the greeting above"
+msgstr "Gol — toți primesc salutul de mai sus"
+
+#: medllmbot/admin/views.py:829
+msgid "Length of the bot's answer, not of the client's question"
+msgstr "Lungimea răspunsului botului, nu a întrebării clientului"
+
+#: medllmbot/admin/views.py:834
+msgid "Characters."
+msgstr "Caractere."
+
+#: medllmbot/admin/views.py:835
+msgid "To a longer message the bot replies how many characters are allowed"
+msgstr "La un mesaj mai lung botul răspunde câte caractere sunt permise"
+
+#: medllmbot/admin/views.py:840
+msgid "How many recent messages to pass to the model"
+msgstr "Câte mesaje recente se transmit modelului"
+
+#: medllmbot/admin/views.py:843
+msgid "Seconds"
+msgstr "Secunde"
+
+#: medllmbot/admin/views.py:847
+msgid "Dollars per day (UTC), 0 means no limit."
+msgstr "Dolari pe zi (UTC), 0 — fără limită."
+
+#: medllmbot/admin/views.py:848
+msgid "Past the limit the bot answers without Claude; leads are still saved"
+msgstr "Peste limită botul răspunde fără Claude, cererile se salvează în continuare"
+
+#: medllmbot/admin/views.py:854
+msgid "A catalog with more active items than this is searched instead of read whole."
+msgstr "Dacă în catalog sunt mai multe poziții active decât acest număr, botul caută în el în loc să-l citească integral."
+
+#: medllmbot/admin/views.py:855
+msgid "0 means always search"
+msgstr "0 — căutare mereu"
+
+#: medllmbot/admin/views.py:862
+msgid "For this many hours the bot stays silent after a client asks for a human, if the operator has not replied."
+msgstr "Atâtea ore botul tace după ce clientul cere un om, dacă operatorul nu a răspuns."
+
+#: medllmbot/admin/views.py:864
+msgid "Each operator reply extends the period"
+msgstr "Fiecare răspuns al operatorului prelungește perioada"
+
+#: medllmbot/admin/views.py:869
+msgid "Log records older than this are deleted automatically"
+msgstr "Înregistrările din jurnal mai vechi de atât se șterg automat"
+
+#: medllmbot/admin/views.py:873
+msgid "Business profile"
+msgstr "Profilul afacerii"
+
+#: medllmbot/admin/views.py:875
+msgid "Answer token limit"
+msgstr "Limita de tokenuri a răspunsului"
+
+#: medllmbot/admin/views.py:876
+msgid "Max client message length"
+msgstr "Lungimea max. a mesajului clientului"
+
+#: medllmbot/admin/views.py:877
+msgid "History depth"
+msgstr "Adâncimea istoricului"
+
+#: medllmbot/admin/views.py:878
+msgid "Messages per window"
+msgstr "Mesaje pe fereastră"
+
+#: medllmbot/admin/views.py:879
+msgid "Rate-limit window, s"
+msgstr "Fereastra rate-limit, s"
+
+#: medllmbot/admin/views.py:880
+msgid "Greeting (/start)"
+msgstr "Salut (/start)"
+
+#: medllmbot/admin/views.py:881
+msgid "Greeting in Romanian"
+msgstr "Salut în română"
+
+#: medllmbot/admin/views.py:882
+msgid "Keep log, days"
+msgstr "Păstrarea jurnalului, zile"
+
+#: medllmbot/admin/views.py:883
+msgid "Daily spend limit, $"
+msgstr "Limita de cheltuieli pe zi, $"
+
+#: medllmbot/admin/views.py:884
+msgid "Catalog in prompt, up to items"
+msgstr "Catalog în prompt, până la poziții"
+
+#: medllmbot/admin/views.py:885
+msgid "Operator handles chat, hours"
+msgstr "Operatorul preia dialogul, ore"
+
+#: medllmbot/admin/views.py:886
+msgid "Last changed"
+msgstr "Ultima modificare"
+
+#: medllmbot/admin/templates/analytics.html:6
+msgid "Period"
+msgstr "Perioadă"
+
+#: medllmbot/admin/templates/analytics.html:9
+#, python-format
+msgid "%(num)s day"
+msgid_plural "%(num)s days"
+msgstr[0] "%(num)s zi"
+msgstr[1] "%(num)s zile"
+msgstr[2] "%(num)s de zile"
+
+#: medllmbot/admin/templates/analytics.html:14
+#, python-format
+msgid "The log is kept for %(count)s day (%(settings)s), so analytics covers only that period."
+msgid_plural "The log is kept for %(count)s days (%(settings)s), so analytics covers only that period."
+msgstr[0] "Jurnalul se păstrează %(count)s zi (%(settings)s), de aceea analiza acoperă doar această perioadă."
+msgstr[1] "Jurnalul se păstrează %(count)s zile (%(settings)s), de aceea analiza acoperă doar această perioadă."
+msgstr[2] "Jurnalul se păstrează %(count)s de zile (%(settings)s), de aceea analiza acoperă doar această perioadă."
+
+#: medllmbot/admin/templates/analytics.html:26
+msgid "There were no questions in this period."
+msgstr "În această perioadă nu au fost întrebări."
+
+#: medllmbot/admin/templates/analytics.html:26
+msgid "Write to the bot and the question will appear here."
+msgstr "Scrieți-i botului — întrebarea va apărea aici."
+
+#: medllmbot/admin/templates/analytics.html:41
+msgid "Questions"
+msgstr "Întrebări"
+
+#: medllmbot/admin/templates/analytics.html:43
+msgid "Dialogs"
+msgstr "Dialoguri"
+
+#: medllmbot/admin/templates/analytics.html:43
+msgid "a pause of more than a day starts a new dialog"
+msgstr "o pauză de peste o zi începe un dialog nou"
+
+#: medllmbot/admin/templates/analytics.html:44
+msgid "With a lead"
+msgstr "Cu cerere"
+
+#: medllmbot/admin/templates/analytics.html:44
+#, python-format
+msgid "%(percent)s%% of dialogs"
+msgstr "%(percent)s%% din dialoguri"
+
+#: medllmbot/admin/templates/analytics.html:45
+msgid "Unanswered"
+msgstr "Fără răspuns"
+
+#: medllmbot/admin/templates/analytics.html:45
+#, python-format
+msgid "%(percent)s%% of questions"
+msgstr "%(percent)s%% din întrebări"
+
+#: medllmbot/admin/templates/analytics.html:46
+msgid "Asked for an operator"
+msgstr "Au cerut un operator"
+
+#: medllmbot/admin/templates/analytics.html:46
+msgid "asked for a live person"
+msgstr "au cerut să vorbească cu un om"
+
+#: medllmbot/admin/templates/analytics.html:51
+msgid "Common topics"
+msgstr "Subiecte frecvente"
+
+#: medllmbot/admin/templates/analytics.html:52
+#, python-format
+msgid "profile “%(profile)s”"
+msgstr "profilul „%(profile)s”"
+
+#: medllmbot/admin/templates/analytics.html:58
+msgid "Topic"
+msgstr "Subiect"
+
+#: medllmbot/admin/templates/analytics.html:59
+msgid "Questions asked"
+msgstr "Întrebări"
+
+#: medllmbot/admin/templates/analytics.html:60
+msgid "Share"
+msgstr "Pondere"
+
+#: medllmbot/admin/templates/analytics.html:61
+msgid "Dialogs with a lead"
+msgstr "Dialoguri cu cerere"
+
+#: medllmbot/admin/templates/analytics.html:70
+#, python-format
+msgid "“%(question)s”"
+msgstr "„%(question)s”"
+
+#: medllmbot/admin/templates/analytics.html:80
+#, python-format
+msgid "%(share)s of questions"
+msgstr "%(share)s din întrebări"
+
+#: medllmbot/admin/templates/analytics.html:85
+#, python-format
+msgid "%(leads)s of %(dialogs)s"
+msgstr "%(leads)s din %(dialogs)s"
+
+#: medllmbot/admin/templates/analytics.html:99
+msgid "Unanswered questions"
+msgstr "Întrebări fără răspuns"
+
+#: medllmbot/admin/templates/analytics.html:101
+#, python-format
+msgid "Add answers to %(faq)s, %(about)s or %(catalog)s"
+msgstr "Adăugați răspunsurile în %(faq)s, %(about)s sau %(catalog)s"
+
+#: medllmbot/admin/templates/analytics.html:112
+msgid "Times"
+msgstr "De câte ori"
+
+#: medllmbot/admin/templates/analytics.html:113
+msgid "Reason"
+msgstr "Motiv"
+
+#: medllmbot/admin/templates/analytics.html:114
+msgid "Bot answer"
+msgstr "Răspunsul botului"
+
+#: medllmbot/admin/templates/analytics.html:115
+msgid "Last time"
+msgstr "Ultima dată"
+
+#: medllmbot/admin/templates/analytics.html:137
+#, python-format
+msgid "Showing the %(shown)s most frequent of %(total)s."
+msgstr "Sunt afișate cele mai frecvente %(shown)s din %(total)s."
+
+#: medllmbot/admin/templates/analytics.html:141
+msgid "The bot answered every question in this period."
+msgstr "Botul a răspuns la toate întrebările din această perioadă."
+
+#: medllmbot/admin/templates/costs.html:6
+msgid "There have been no model requests yet."
+msgstr "Încă nu au existat solicitări către model."
+
+#: medllmbot/admin/templates/costs.html:18
+#, python-format
+msgid "month forecast: %(cost)s"
+msgstr "prognoza pe lună: %(cost)s"
+
+#: medllmbot/admin/templates/costs.html:32
+msgid "Cost"
+msgstr "Cost"
+
+#: medllmbot/admin/templates/costs.html:52
+#, python-format
+msgid "%(num)s request has no price: add its model to “Model prices”, otherwise the total is too low."
+msgid_plural "%(num)s requests have no price: add their models to “Model prices”, otherwise the total is too low."
+msgstr[0] "%(num)s solicitare nu are preț — adăugați modelul în „Prețurile modelelor”, altfel totalul este subestimat."
+msgstr[1] "%(num)s solicitări nu au preț — adăugați modelele în „Prețurile modelelor”, altfel totalul este subestimat."
+msgstr[2] "%(num)s de solicitări nu au preț — adăugați modelele în „Prețurile modelelor”, altfel totalul este subestimat."
+
+#: medllmbot/admin/templates/help/_macros.html:14
+#, python-format
+msgid "“%(section)s”"
+msgstr "„%(section)s”"
+
+#: medllmbot/admin/templates/help/_macros.html:17
+#, python-format
+msgid "[no section %(identity)s]"
+msgstr "[nu există secțiunea %(identity)s]"
+
+#: medllmbot/admin/templates/help/_panel.html:27
+msgid "All help"
+msgstr "Tot ajutorul"
+
+#: medllmbot/admin/templates/help/_panel.html:28
+msgid "Close"
+msgstr "Închideți"
+
+#: medllmbot/admin/templates/help/_panel.html:32
+msgid "F1 or “?” on the keyboard opens and closes the help."
+msgstr "F1 sau „?” de pe tastatură deschide și închide ajutorul."
+
+#: medllmbot/admin/templates/help/_panel.html:39
+#, python-format
+msgid "Help: %(text)s"
+msgstr "Ajutor: %(text)s"
+
+#: medllmbot/admin/templates/help/_panel.html:40
+msgid "Click for detailed help."
+msgstr "Faceți clic pentru ajutor detaliat."
+
+#: medllmbot/admin/templates/help/_topic.html:9
+msgid "Fields and columns"
+msgstr "Câmpuri și coloane"
+
+#: medllmbot/admin/templates/help/page.html:14
+msgid "Sections"
+msgstr "Secțiuni"
+
+#: medllmbot/admin/templates/help/page.html:35
+msgid "Open section"
+msgstr "Deschideți secțiunea"
+
+#: medllmbot/admin/templates/live/sortable_list.html:17
+msgid "To change the order, drag a row by the handle in the “Order” column; the order is saved right away."
+msgstr "Pentru a schimba ordinea, trageți rândul de pictograma din coloana „Ordine” — ordinea se salvează imediat."
+
+#: medllmbot/admin/templates/live/sortable_list.html:21
+msgid "Dragging works when the list has no search or filters and all records are on one page."
+msgstr "Tragerea funcționează când lista nu are căutare sau filtre și toate înregistrările sunt pe o singură pagină."
+
+#: medllmbot/admin/templates/live/sortable_list.html:22
+msgid "Show the whole list"
+msgstr "Afișați toată lista"
+
+#: medllmbot/admin/templates/live/sortable_list.html:45
+msgid "Clear the search and filters to change the order"
+msgstr "Resetați căutarea și filtrele pentru a schimba ordinea"
+
+#: medllmbot/admin/templates/sqladmin/index.html:9
+msgid "How the bot works"
+msgstr "Cum funcționează botul"
+
+#: medllmbot/admin/templates/sqladmin/index.html:16
+#, python-format
+msgid "<b>A client writes to the bot</b> in Telegram and appears in %(clients)s."
+msgstr "<b>Clientul îi scrie botului</b> în Telegram și apare în %(clients)s."
+
+#: medllmbot/admin/templates/sqladmin/index.html:19
+msgid "<b>Checks before Claude:</b> whether the client is blocked, writes too often or sends a message that is too long, and whether the message shows attack signs."
+msgstr "<b>Verificări înainte de Claude:</b> dacă clientul este blocat, dacă nu scrie prea des, dacă mesajul nu este prea lung și dacă nu are semne de atac."
+
+#: medllmbot/admin/templates/sqladmin/index.html:23
+#, python-format
+msgid "<b>Claude answers</b> from the knowledge base — %(catalog)s, %(faq)s, %(about)s — and from the latest messages in %(history)s."
+msgstr "<b>Claude răspunde</b> folosind baza de cunoștințe — %(catalog)s, %(faq)s, %(about)s — și ultimele mesaje din %(history)s."
+
+#: medllmbot/admin/templates/sqladmin/index.html:28
+msgid "<b>Answer check:</b> made-up prices and fragments of the bot's rules never reach the client."
+msgstr "<b>Verificarea răspunsului:</b> prețurile inventate și fragmentele din regulile botului nu ajung la client."
+
+#: medllmbot/admin/templates/sqladmin/index.html:31
+#, python-format
+msgid "<b>Accounting:</b> every message goes to %(log)s, and its cost to %(costs)s."
+msgstr "<b>Evidență:</b> fiecare mesaj ajunge în %(log)s, iar costul lui — în %(costs)s."
+
+#: medllmbot/admin/templates/sqladmin/index.html:34
+#, python-format
+msgid "<b>A phone number in a message</b> is a lead: it appears in %(leads)s, and the administrator gets a notification in Telegram."
+msgstr "<b>Un număr de telefon în mesaj</b> înseamnă o cerere: ea apare în %(leads)s, iar administratorul primește o notificare în Telegram."
+
+#: medllmbot/admin/templates/sqladmin/index.html:38
+#, python-format
+msgid "<b>Live operator:</b> when a client asks for a person, you get a notification in Telegram and reply right from there, while the bot stays silent in that chat. Who is with the operator now is shown in %(clients)s."
+msgstr "<b>Operator:</b> clientul cere să vorbească cu un om — primiți o notificare în Telegram și îi răspundeți direct de acolo, iar botul tace în acest chat. Cine vorbește acum cu operatorul vedeți în %(clients)s."
+
+#: medllmbot/admin/templates/sqladmin/index.html:43
+#, python-format
+msgid "<b>Analytics:</b> what clients ask about, how many dialogs end with a lead and which questions the bot found no answer to — in %(analytics)s."
+msgstr "<b>Analiză:</b> despre ce întreabă clienții, câte dialoguri se încheie cu o cerere și la ce întrebări botul nu a găsit răspuns — în %(analytics)s."
+
+#: medllmbot/admin/templates/sqladmin/index.html:49
+#, python-format
+msgid "Each section has a %(icon)s icon next to its title: hover over it for a short hint, click it for detailed help on the side."
+msgstr "Fiecare secțiune are lângă titlu pictograma %(icon)s: treceți cu mouse-ul peste ea pentru un indiciu scurt, faceți clic pentru ajutor detaliat în lateral."
+
+#: medllmbot/admin/templates/sqladmin/index.html:52
+msgid "Fields and columns have the same icons."
+msgstr "Aceleași pictograme apar și lângă câmpuri și coloane."
+
+#: medllmbot/admin/templates/sqladmin/index.html:53
+msgid "The F1 or “?” key opens the section's help."
+msgstr "Tastele F1 sau „?” deschid ajutorul secțiunii."
+
+#: medllmbot/admin/templates/sqladmin/index.html:63
+msgid "Settings"
+msgstr "Setări"
+
+#: medllmbot/admin/templates/sqladmin/layout.html:28
+msgid "Could not save the changes. Reload the page and try again."
+msgstr "Modificările nu au putut fi salvate. Reîncărcați pagina și încercați din nou."
+
+#: medllmbot/admin/templates/sqladmin/login.html:7
+#, python-format
+msgid "Login to %(title)s"
+msgstr "Autentificare în %(title)s"
+
+#: medllmbot/admin/templates/sqladmin/login.html:9
+msgid "Username"
+msgstr "Nume de utilizator"
+
+#: medllmbot/admin/templates/sqladmin/login.html:11
+#: medllmbot/admin/templates/sqladmin/login.html:15
+msgid "Enter username"
+msgstr "Introduceți numele de utilizator"
+
+#: medllmbot/admin/templates/sqladmin/login.html:20
+#: medllmbot/admin/templates/sqladmin/login.html:24
+#: medllmbot/admin/templates/sqladmin/login.html:28
+msgid "Password"
+msgstr "Parolă"
+
+#: medllmbot/admin/templates/sqladmin/login.html:33
+msgid "Login"
+msgstr "Autentificare"
+
+#: medllmbot/admin/templates/sqladmin/filters/operation_filter.html:14
+#, python-format
+msgid "Current: %(operation)s %(value)s"
+msgstr "Acum: %(operation)s %(value)s"
+
+#: medllmbot/admin/templates/sqladmin/filters/operation_filter.html:15
+msgid "clear"
+msgstr "resetați"
+
+#: medllmbot/admin/templates/sqladmin/filters/operation_filter.html:27
+msgid "Condition…"
+msgstr "Condiție…"
+
+#: medllmbot/admin/templates/sqladmin/filters/operation_filter.html:36
+msgid "Value"
+msgstr "Valoare"
+
+#: medllmbot/admin/templates/sqladmin/filters/operation_filter.html:41
+msgid "Apply Filter"
+msgstr "Aplică filtrul"
+
+#: medllmbot/db/models.py:88
+msgid "New"
+msgstr "Nouă"
+
+#: medllmbot/db/models.py:89
+msgid "In progress"
+msgstr "În lucru"
+
+#: medllmbot/db/models.py:90
+msgid "Done"
+msgstr "Finalizată"
+
+#: medllmbot/db/models.py:91
+msgid "Rejected"
+msgstr "Respinsă"
+
+#: medllmbot/db/models.py:129
+msgid "Answered"
+msgstr "Răspuns"
+
+#: medllmbot/db/models.py:130
+msgid "Price replaced"
+msgstr "Preț înlocuit"
+
+#: medllmbot/db/models.py:131
+msgid "Prompt leak"
+msgstr "Scurgere de prompt"
+
+#: medllmbot/db/models.py:132
+msgid "Model refusal"
+msgstr "Refuzul modelului"
+
+#: medllmbot/db/models.py:133
+msgid "Answer cut off"
+msgstr "Răspuns trunchiat"
+
+#: medllmbot/db/models.py:134
+msgid "Empty answer"
+msgstr "Răspuns gol"
+
+#: medllmbot/db/models.py:135
+msgid "API error"
+msgstr "Eroare API"
+
+#: medllmbot/db/models.py:136
+msgid "Too long"
+msgstr "Prea lung"
+
+#: medllmbot/db/models.py:137
+msgid "Spend limit"
+msgstr "Limită de cheltuieli"
+
+#: medllmbot/db/models.py:138
+msgid "Greeting"
+msgstr "Salut"
+
+#: medllmbot/db/models.py:139
+msgid "Not text"
+msgstr "Nu este text"
+
+#: medllmbot/db/models.py:140
+msgid "Rate limit"
+msgstr "Limită de mesaje"
+
+#: medllmbot/db/models.py:141
+msgid "Client blocked"
+msgstr "Client blocat"
+
+#: medllmbot/db/models.py:142
+msgid "Asked for operator"
+msgstr "A cerut operatorul"
+
+#: medllmbot/db/models.py:143
+msgid "Sent to operator"
+msgstr "Trimis operatorului"
+
+#: medllmbot/db/models.py:144
+msgid "Operator reply"
+msgstr "Răspunsul operatorului"
+
+#: medllmbot/db/models.py:342
+msgid "Accepted"
+msgstr "Acceptată"
+
+#: medllmbot/db/models.py:343
+msgid "Confirmed"
+msgstr "Confirmată"
+
+#: medllmbot/db/models.py:344
+msgid "Out for delivery"
+msgstr "Predată la livrare"
+
+#: medllmbot/db/models.py:345
+msgid "Ready for pickup"
+msgstr "Așteaptă la punctul de ridicare"
+
+#: medllmbot/db/models.py:346
+msgid "Delivered"
+msgstr "Livrată"
+
+#: medllmbot/db/models.py:347
+msgid "Cancelled"
+msgstr "Anulată"
+
+#: medllmbot/db/models.py:391
+msgid "Dental clinic"
+msgstr "Clinică stomatologică"
+
+#: medllmbot/db/models.py:392
+msgid "Electronics store"
+msgstr "Magazin de electronice"
+
