@@ -1,4 +1,4 @@
-"""Вход в админку по логину и паролю из .env, сессия в подписанной cookie."""
+"""Admin login with the username and password from .env, session in a signed cookie."""
 
 import hashlib
 import hmac
@@ -13,7 +13,7 @@ from starlette.responses import Response
 
 from medllmbot.config import AdminSettings
 
-# Сессия живёт рабочий день, а не 14 дней по умолчанию Starlette
+# The session lasts a working day, not Starlette's default 14 days
 SESSION_MAX_AGE = 8 * 3600
 LOCKED_OUT = "Слишком много неудачных попыток входа. Попробуйте через 15 минут."
 WRONG_CREDENTIALS = "Неверный логин или пароль."
@@ -21,9 +21,9 @@ WRONG_CREDENTIALS = "Неверный логин или пароль."
 
 @final
 class LoginThrottle:
-    """Защита от перебора пароля: не больше max_failures неудачных входов за window секунд с одного адреса.
+    """Password brute-force protection: at most max_failures failed logins per window seconds from one address.
 
-    Счётчики в памяти процесса: перезапуск админки их сбрасывает, для одной админки этого достаточно.
+    Counters live in process memory: restarting the admin resets them, which is enough for a single admin.
     """
 
     max_failures: int
@@ -52,7 +52,7 @@ class LoginThrottle:
         if recent:
             self._failures[key] = recent
         else:
-            self._failures.pop(key, None)  # молчащие адреса не копятся в памяти
+            self._failures.pop(key, None)  # idle addresses do not pile up in memory
         return recent
 
 
@@ -69,7 +69,8 @@ class AdminAuth(AuthenticationBackend):
         self.username = settings.admin_username
         self.password = settings.admin_password.get_secret_value()
         self.throttle = throttle or LoginThrottle()
-        # В cookie кладём не логин, а отпечаток логина и пароля: смена пароля в .env завершает все старые сессии
+        # The cookie holds a fingerprint of username and password, not the username: changing the password in .env
+        # ends all old sessions
         self._session_token = hmac.new(
             secret_key.encode(), f"{self.username}\n{self.password}".encode(), hashlib.sha256
         ).hexdigest()
@@ -83,7 +84,7 @@ class AdminAuth(AuthenticationBackend):
         form = await request.form()
         username = str(form.get("username", ""))
         password = str(form.get("password", ""))
-        # compare_digest — сравнение за постоянное время, без утечки через тайминги
+        # compare_digest compares in constant time, with no timing leak
         ok = secrets.compare_digest(username.encode(), self.username.encode()) & (
             secrets.compare_digest(password.encode(), self.password.encode())
         )
@@ -106,7 +107,7 @@ class AdminAuth(AuthenticationBackend):
         if isinstance(token, str) and secrets.compare_digest(token, self._session_token):
             return True
         if request.headers.get("HX-Request") == "true":
-            # Сессия истекла во время HTMX-запроса: вместо страницы входа внутри фрагмента
-            # просим HTMX перейти на неё целиком
+            # The session expired during an HTMX request: instead of the login page inside a fragment,
+            # ask HTMX to navigate to it as a whole page
             return Response(status_code=401, headers={"HX-Redirect": str(request.url_for("admin:login"))})
         return False

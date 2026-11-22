@@ -6,8 +6,8 @@ x-app: &app
     - bot-storage:/app/storage
 
 services:
-  # Схема БД обновляется до старта бота и админки. Они и сами вызывают upgrade при запуске,
-  # но к этому моменту обновлять уже нечего — два процесса не мигрируют базу одновременно
+  # The DB schema is upgraded before the bot and admin start. They also run upgrade on startup,
+  # but by then there is nothing left to upgrade, so two processes never migrate the DB at once
   migrate:
     <<: *app
     command: ["python", "-m", "medllmbot.db.migrate"]
@@ -24,10 +24,10 @@ services:
     command: ["python", "-m", "medllmbot.admin"]
     environment:
       ADMIN_HOST: 0.0.0.0
-      # Доверять X-Forwarded-For / -Proto от Caddy: иначе все входы придут «с одного адреса»
-      # (защита от перебора пароля заблокирует всех), а ссылки будут на http://
+      # Trust X-Forwarded-For / -Proto from Caddy: otherwise all logins come "from one address"
+      # (brute-force protection would lock everyone out), and links would point to http://
       FORWARDED_ALLOW_IPS: "*"
-    # Админка доступна только с этой машины; наружу — через reverse proxy с HTTPS
+    # The admin is reachable only from this machine; from outside, via a reverse proxy with HTTPS
     ports:
       - "127.0.0.1:8000:8000"
     healthcheck:
@@ -35,7 +35,7 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      # Сразу после старта проверять чаще: деплой ждёт статуса healthy
+      # Check more often right after start: the deploy waits for the healthy status
       start_period: 30s
       start_interval: 2s
     depends_on:
@@ -43,7 +43,7 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
-  # Только на демо-сервере: docker compose --profile https up -d (нужен DOMAIN в .env)
+  # Demo server only: docker compose --profile https up -d (needs DOMAIN in .env)
   caddy:
     image: caddy:2-alpine
     profiles: ["https"]

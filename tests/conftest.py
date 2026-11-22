@@ -23,7 +23,7 @@ type Sessions = async_sessionmaker[AsyncSession]
 
 
 def demo_knowledge() -> Knowledge:
-    """Демо-база знаний без БД — для тестов чистых функций."""
+    """Demo knowledge base without a DB, for pure-function tests."""
     return Knowledge(
         sections=[InfoSection(title=t, content=c) for t, c in DEMO_SECTIONS],
         services=[Service(name=n, price=p, description=d) for n, p, d in DEMO_SERVICES],
@@ -32,7 +32,7 @@ def demo_knowledge() -> Knowledge:
 
 
 DEMO_INFO = render_info(demo_knowledge())
-# Правила промпта и инструмент поиска профиля по умолчанию — стоматологии
+# Prompt rules and search tool of the default profile, the dental clinic
 CLINIC_RULES = rules(BusinessProfile.CLINIC)
 CLINIC_TOOL = search_catalog_tool(BusinessProfile.CLINIC)
 
@@ -47,7 +47,7 @@ def make_response(
     cache_read_tokens: int = 0,
     cache_write_tokens: int = 0,
 ) -> SimpleNamespace:
-    """Минимальный ответ в форме anthropic.types.Message."""
+    """Minimal response shaped like anthropic.types.Message."""
     return SimpleNamespace(
         content=[SimpleNamespace(type="text", text=text)],
         model=model,
@@ -70,7 +70,7 @@ def make_tool_use(
     input_tokens: int = 10,
     output_tokens: int = 5,
 ) -> SimpleNamespace:
-    """Ответ, в котором модель вызывает инструмент (stop_reason tool_use)."""
+    """Response in which the model calls a tool (stop_reason tool_use)."""
     content: list[SimpleNamespace] = [SimpleNamespace(type="text", text=text)] if text else []
     content.append(SimpleNamespace(type="tool_use", id=tool_id, name=name, input=tool_input))
     response = make_response("", "tool_use", input_tokens=input_tokens, output_tokens=output_tokens)
@@ -80,7 +80,7 @@ def make_tool_use(
 
 @dataclass(frozen=True)
 class LLMCall:
-    """Аргументы одного вызова messages.create."""
+    """Arguments of a single messages.create call."""
 
     model: str
     max_tokens: int
@@ -91,10 +91,10 @@ class LLMCall:
 
 
 class FakeMessages:
-    """Подменяет client.messages: запоминает запросы, отдаёт заданный ответ или ошибку.
+    """Fakes client.messages: records requests, returns the given response or error.
 
-    `responses` — очередь ответов для диалога с инструментами (исключение в очереди выбрасывается);
-    когда она пуста, отдаётся `response`.
+    `responses` is a queue of responses for a tool-use dialogue (an exception in the queue is raised);
+    when it is empty, `response` is returned.
     """
 
     calls: list[LLMCall]
@@ -118,7 +118,7 @@ class FakeMessages:
         tools: Sequence[ToolParam] | None = None,
         tool_choice: ToolChoiceParam | None = None,
     ) -> SimpleNamespace:
-        # Копия списка: клиент дописывает в него следующие раунды, а тест проверяет каждый запрос отдельно
+        # Copy of the list: the client appends the next rounds to it, and the test checks each request separately
         self.calls.append(LLMCall(model, max_tokens, system, list(messages), tools, tool_choice))
         if self.error is not None:
             raise self.error
@@ -137,7 +137,7 @@ class FakeClient:
         self.messages = FakeMessages()
 
     def as_anthropic(self) -> AsyncAnthropic:
-        """Фейк повторяет только нужную часть интерфейса, поэтому приводим тип явно."""
+        """The fake mimics only the needed part of the interface, so the type is cast explicitly."""
         return cast(AsyncAnthropic, cast(object, self))
 
 
@@ -167,13 +167,13 @@ def repo(sessions: Sessions) -> Repository:
 
 @pytest.fixture
 async def seeded_repo(repo: Repository, sessions: Sessions) -> Repository:
-    """Репозиторий с демо-базой знаний и зарегистрированным клиентом CHAT_ID."""
+    """Repository with the demo knowledge base and a registered client CHAT_ID."""
     await seed_demo(sessions)
     await repo.touch_client(CHAT_ID, "ivan", "Иван Петров")
     return repo
 
 
 async def load_audit(sessions: Sessions) -> list[AuditEvent]:
-    """Все записи журнала аудита по порядку."""
+    """All audit log records in order."""
     async with sessions() as s:
         return list((await s.scalars(select(AuditEvent).order_by(AuditEvent.id))).all())

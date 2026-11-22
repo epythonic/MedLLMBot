@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# Обновление демо-сервера до свежего main: код → пересборка контейнеров → проверка, что всё поднялось.
+# Updates the demo server to the latest main: code → rebuild containers → check that everything is up.
 #
-# Запускается из GitHub Actions по SSH после слияния PR в main. Ключ CI привязан в authorized_keys
-# к этому скрипту (command="…/deploy/deploy.sh"), поэтому ничего другого этим ключом выполнить нельзя.
-# Можно запустить и вручную: ./deploy/deploy.sh
+# Run from GitHub Actions over SSH after a PR is merged into main. The CI key is bound in authorized_keys
+# to this script (command="…/deploy/deploy.sh"), so nothing else can be run with that key.
+# Can also be run by hand: ./deploy/deploy.sh
 #
-# Если на stdin пришёл текст (CI передаёт .env, собранный из секретов GitHub Environment «demo»),
-# он становится новым .env с правами 600. При ручном запуске из терминала .env не трогается.
+# If text arrives on stdin (CI passes a .env built from the secrets of the GitHub Environment «demo»),
+# it becomes the new .env with mode 600. When run by hand from a terminal, .env is left alone.
 #
-# Тело — в функции: git обновляет и этот файл, а bash читает скрипт по ходу выполнения.
-# Функция целиком разбирается до запуска, поэтому новая версия файла не смешается со старой.
+# The body is in a function: git updates this file too, and bash reads the script as it executes.
+# The whole function is parsed before it runs, so the new version of the file does not mix with the old one.
 
 set -euo pipefail
 
@@ -20,22 +20,22 @@ main() {
         local env_content
         env_content="$(cat)"
         if [[ -n "$env_content" ]]; then
-            echo "→ Обновляю .env из секретов GitHub"
+            echo "→ Updating .env from GitHub secrets"
             (umask 077 && printf '%s\n' "$env_content" > .env.new)
             mv .env.new .env
         fi
     fi
 
-    echo "→ Получаю свежий main"
+    echo "→ Fetching the latest main"
     git fetch --quiet origin main
-    # Только перемотка вперёд: правки, сделанные прямо на сервере, остановят деплой, а не потеряются
+    # Fast-forward only: edits made directly on the server stop the deploy instead of being lost
     git merge --ff-only --quiet origin/main
-    echo "  версия $(git rev-parse --short HEAD): $(git log -1 --format=%s)"
+    echo "  version $(git rev-parse --short HEAD): $(git log -1 --format=%s)"
 
-    echo "→ Пересобираю и перезапускаю контейнеры"
+    echo "→ Rebuilding and restarting containers"
     docker compose --profile https up -d --build --remove-orphans
 
-    echo "→ Жду, пока админка станет здоровой"
+    echo "→ Waiting for the admin to become healthy"
     local health=""
     for _ in $(seq 1 45); do
         health="$(docker compose ps admin --format '{{.Health}}')"
@@ -43,20 +43,20 @@ main() {
         sleep 2
     done
     if [[ "$health" != "healthy" ]]; then
-        echo "✗ Админка не поднялась (статус: ${health:-нет}). Последние строки лога:" >&2
+        echo "✗ The admin did not come up (status: ${health:-none}). Last log lines:" >&2
         docker compose logs --tail 50 admin >&2
         exit 1
     fi
 
     if [[ "$(docker compose ps bot --format '{{.State}}')" != "running" ]]; then
-        echo "✗ Бот не запущен. Последние строки лога:" >&2
+        echo "✗ The bot is not running. Last log lines:" >&2
         docker compose logs --tail 50 bot >&2
         exit 1
     fi
 
-    # Старые образы после пересборки занимают место на маленьком сервере
+    # Old images left after a rebuild take up space on a small server
     docker image prune -f >/dev/null
-    echo "✓ Демо обновлено до $(git rev-parse --short HEAD)"
+    echo "✓ Demo updated to $(git rev-parse --short HEAD)"
 }
 
 main "$@"

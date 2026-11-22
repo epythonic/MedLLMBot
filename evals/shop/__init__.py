@@ -1,1 +1,1 @@
-"""Оценка ответов магазина Demo Electro: вопросы покупателей, проверки кодом и Claude-судья."""
+"""Eval of the Demo Electro shop answers: customer questions, code checks and a Claude judge."""

@@ -1,4 +1,4 @@
-"""Запрос к полнотекстовому индексу каталога: основы слов и экранирование синтаксиса FTS5."""
+"""Catalog full-text index query: word stems and escaping of FTS5 syntax."""
 
 import pytest
 
@@ -11,7 +11,7 @@ from medllmbot.db.fts import FTS_TABLE, MAX_TERMS, include_name, match_query
         ("чистка", '"чист"*'),
         ("чистку зубов", '"чист"* OR "зуб"*'),
         ("удалить", '"удал"*'),
-        # Длинное слово режется до шести букв, чтобы найти и более короткое «Имплант»
+        # A long word is cut to six letters so that the shorter «Имплант» is found too
         ("имплантация", '"имплан"*'),
         ("Рентген", '"рент"*'),
         ("ZOOM", '"zoo"*'),
@@ -30,7 +30,7 @@ def test_query_without_words_lists_catalog(query: str) -> None:
 
 @pytest.mark.parametrize("query", ["NEAR(a b) OR *", 'name: "x" AND -y', "x' OR '1'='1"])
 def test_fts_syntax_is_not_executed(query: str) -> None:
-    # Из запроса остаются только слова в кавычках: операторы FTS5 и кавычки клиента не проходят
+    # Only quoted words remain in the query: FTS5 operators and the client's quotes do not get through
     match = match_query(query)
     assert match is not None
     terms = match.split(" OR ")

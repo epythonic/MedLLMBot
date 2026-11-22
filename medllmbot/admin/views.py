@@ -1,8 +1,8 @@
-"""Разделы админки: заявки, клиенты, переписка, база знаний, настройки бота."""
+"""Admin sections: leads, clients, chat history, knowledge base, bot settings."""
 
-# SQLAdmin объявляет атрибуты ModelView с неполными типами (голые InstrumentedAttribute и list),
-# поэтому их тип в наследниках всегда «partially unknown». Исправить это можно только в самой
-# библиотеке, отключаем одно правило и только в этом файле.
+# SQLAdmin declares ModelView attributes with incomplete types (bare InstrumentedAttribute and list),
+# so their type in subclasses is always «partially unknown». This can only be fixed in the library
+# itself, so one rule is disabled, and only in this file.
 # pyright: reportUnknownVariableType=false
 
 from datetime import UTC, datetime
@@ -52,7 +52,7 @@ def _short(text: str | None, limit: int = 80) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
-# Форматтеры колонок списка: (модель, имя атрибута) -> отображаемый текст
+# List column formatters: (model, attribute name) -> displayed text
 def _lead_message(model: Lead, _attr: object) -> str:
     return _short(model.message)
 
@@ -85,7 +85,7 @@ def _daily_cost(model: UsageDaily, _attr: object) -> str:
     return format_usd(model.cost_micro_usd)
 
 
-# SQLAdmin выводит у Enum имя элемента (NEW, ANSWERED) — показываем подпись, как в фильтрах и справке
+# SQLAdmin shows an Enum's member name (NEW, ANSWERED); show the label instead, as in filters and help
 def _lead_status(model: Lead, _attr: object) -> str:
     return model.status.value
 
@@ -98,7 +98,7 @@ def _audit_flags(model: AuditEvent, _attr: object) -> str:
     return ", ".join(FLAG_LABELS.get(code, code) for code in model.flags.split(",") if code)
 
 
-# Жёлтая метка вместо галочки и крестика: красный крестик у обычных сообщений выглядел как тревога
+# A yellow badge instead of a check mark and cross: a red cross on ordinary messages looked like an alarm
 SUSPICIOUS_BADGE = Markup('<span class="badge bg-warning-lt">⚠ Да</span>')
 
 
@@ -107,14 +107,14 @@ def _audit_suspicious(model: AuditEvent, _attr: object) -> Markup | str:
 
 
 def _audit_tool_calls(model: AuditEvent, _attr: object) -> Markup | str:
-    """Каждый вызов инструмента — с новой строки (текст экранируется)."""
+    """Each tool call on a new line (the text is escaped)."""
     if not model.tool_calls:
         return ""
     return Markup("<br>").join(model.tool_calls.splitlines())
 
 
-# ---------- Фильтры с русскими подписями ----------
-# В SQLAdmin варианты «All / Yes / No» зашиты в коде фильтров и не переводятся.
+# ---------- Filters with Russian labels ----------
+# In SQLAdmin the «All / Yes / No» options are hardcoded in the filters and not translated.
 
 ALL_LABEL = "Все"
 
@@ -150,9 +150,9 @@ class OperationFilter(OperationColumnFilter):
         return [(key, OPERATION_LABELS.get(key, label)) for key, label in super().get_operation_options(column_obj)]
 
 
-# ---------- Клиенты ----------
+# ---------- Clients ----------
 
-# В БД хранится имя статуса (NEW), в админке показываем подпись («Новая»)
+# The DB stores the status name (NEW); the admin shows the label («Новая»)
 STATUS_CHOICES = [(status.name, status.value) for status in LeadStatus]
 
 
@@ -161,16 +161,16 @@ def _status_name(value: LeadStatus | str) -> str:
 
 
 class AdminView(ModelView):
-    """Общая основа разделов: формы с ошибками на русском (forms.AdminForm)."""
+    """Common base for sections: forms with errors in Russian (forms.AdminForm)."""
 
     form_base_class: ClassVar[type[Form]] = AdminForm
-    # SQLAdmin показывает текст исключения над формой: без перехвата это был бы сырой SQL на английском
+    # SQLAdmin shows the exception text above the form: without catching it, that would be raw SQL in English
     integrity_error: ClassVar[str] = "Запись не сохранена: такая уже есть или значения нарушают ограничения базы."
 
     @override
     async def insert_model(self, request: Request, data: dict[str, object]) -> object:
         try:
-            # SQLAdmin не типизировал insert_model (dict без параметров, возвращает Any)
+            # SQLAdmin left insert_model untyped (dict without parameters, returns Any)
             obj = cast(object, await super().insert_model(request, data))  # pyright: ignore[reportUnknownMemberType]
         except IntegrityError as exc:
             raise ValueError(self.integrity_error) from exc
@@ -185,8 +185,8 @@ class AdminView(ModelView):
         return obj
 
     def async_sessions(self) -> async_sessionmaker[AsyncSession] | None:
-        """Фабрика сессий для своих проверок в on_model_change; None — движок не async (в админке не бывает)."""
-        # SQLAdmin хранит sessionmaker без параметра типа; админка всегда работает с async-движком
+        """Session factory for custom checks in on_model_change; None if the engine is not async (never in admin)."""
+        # SQLAdmin stores sessionmaker without a type parameter; the admin always uses an async engine
         maker: object = self.session_maker  # pyright: ignore[reportUnknownMemberType]
         if not isinstance(maker, async_sessionmaker):
             return None
@@ -194,7 +194,7 @@ class AdminView(ModelView):
 
 
 def _strip(value: object) -> object:
-    """Фильтр поля формы: пробелы по краям не сохраняем — строка из пробелов становится пустой."""
+    """Form field filter: leading and trailing spaces are not saved, so a whitespace-only string becomes empty."""
     return value.strip() if isinstance(value, str) else value
 
 
@@ -205,8 +205,8 @@ class LeadAdmin(AdminView, model=Lead):
     icon = "fa-solid fa-phone"
     category = CLIENTS
 
-    can_create = False  # заявки создаёт бот
-    # Список сам проверяет новые заявки (HTMX), статус меняется прямо в строке
+    can_create = False  # leads are created by the bot
+    # The list checks for new leads itself (HTMX); the status changes right in the row
     list_template = "live/list.html"
     live_route = NEW_LEADS
     column_list = [
@@ -240,7 +240,7 @@ class LeadAdmin(AdminView, model=Lead):
 
 
 def _operator_until(model: Client, _attr: object) -> str:
-    """Срок оператора, пока он не прошёл; прошедший срок — это уже бот."""
+    """Operator period while it has not expired; an expired period means the bot is back."""
     until = model.operator_until
     if until is None or not with_operator(until, datetime.now(UTC).replace(tzinfo=None)):
         return "—"
@@ -254,8 +254,8 @@ class ClientAdmin(AdminView, model=Client):
     icon = "fa-solid fa-user"
     category = CLIENTS
 
-    can_create = False  # клиенты появляются, когда пишут боту
-    can_delete = False  # удаление стёрло бы историю и заявки
+    can_create = False  # clients appear when they message the bot
+    can_delete = False  # deleting would erase the history and leads
     column_list = [
         Client.chat_id,
         Client.username,
@@ -266,7 +266,7 @@ class ClientAdmin(AdminView, model=Client):
         Client.last_seen_at,
     ]
     column_default_sort = [(Client.last_seen_at, True)]
-    # Chat ID — чтобы найти клиента, которого заметили в журнале
+    # Chat ID, to find a client spotted in the audit log
     column_searchable_list = [Client.chat_id, Client.username, Client.full_name]
     column_filters = [YesNoFilter(Client.is_blocked, title="Заблокирован")]
     column_details_exclude_list = [Client.messages, Client.leads]
@@ -296,15 +296,15 @@ def _order_status(model: Order, _attr: object) -> str:
 
 
 def _order_number(value: object) -> object:
-    """Номер заказа в том виде, в каком его ищет бот: «de 10023» → «DE-10023»."""
+    """Order number in the form the bot searches for: «de 10023» → «DE-10023»."""
     if not isinstance(value, str):
         return value
     return normalize_number(value) or value.strip()
 
 
 def _valid_order_number(_form: Form, field: Field) -> None:
-    # Номер, который бот не найдёт: клиент получал бы «не найден» и тратил попытки
-    value: object = field.data  # pyright: ignore[reportAny]  # WTForms не типизирует data поля
+    # A number the bot cannot find: the client would get «не найден» and waste attempts
+    value: object = field.data  # pyright: ignore[reportAny]  # WTForms does not type field data
     if not isinstance(value, str) or normalize_number(value) != value:
         raise ValidationError("Номер заказа — латинские буквы, цифры и дефис, от 3 до 32 знаков, например DE-10023.")
 
@@ -373,7 +373,7 @@ class OrderAdmin(AdminView, model=Order):
 
     @override
     async def on_model_change(self, data: dict[str, object], model: object, is_created: bool, request: Request) -> None:
-        # «DE10023» и «DE-10023» бот считает одним заказом — второй такой номер сделал бы ответ случайным
+        # The bot treats «DE10023» and «DE-10023» as one order; a second such number would make the answer random
         number = data.get("number")
         own_id = None if is_created or not isinstance(model, Order) else model.id
         if isinstance(number, str) and await self._number_taken(number, own_id):
@@ -402,7 +402,7 @@ class ChatMessageAdmin(AdminView, model=ChatMessage):
     icon = "fa-solid fa-comments"
     category = CLIENTS
 
-    # История — журнал, его только читают
+    # The history is a log; it is read-only
     can_create = False
     can_edit = False
     can_delete = False
@@ -430,17 +430,17 @@ class ChatMessageAdmin(AdminView, model=ChatMessage):
     }
 
 
-# ---------- База знаний ----------
+# ---------- Knowledge base ----------
 
 SORT_HINT = {"description": "Меньше — выше в списке. В списке порядок удобнее менять перетаскиванием"}
-# Порядок меняют перетаскиванием, а оно работает, только когда весь раздел на одной странице
+# The order is changed by dragging, which only works when the whole section is on one page
 SORTABLE_LIST = "live/sortable_list.html"
 SORTABLE_PAGE_SIZE = 100
 
 
 @final
 class ServiceAdmin(AdminView, model=Service):
-    # Названия без предметной области: тот же раздел — услуги клиники или товары магазина
+    # Domain-neutral names: the same section holds clinic services or shop products
     name = "Позиция"
     name_plural = "Каталог и цены"
     icon = "fa-solid fa-list"
@@ -532,7 +532,7 @@ class InfoSectionAdmin(AdminView, model=InfoSection):
     }
 
 
-# ---------- Безопасность ----------
+# ---------- Security ----------
 
 OUTCOME_CHOICES = [(outcome.name, outcome.value) for outcome in AuditOutcome]
 
@@ -544,11 +544,11 @@ class AuditEventAdmin(AdminView, model=AuditEvent):
     icon = "fa-solid fa-shield-halved"
     category = SECURITY
 
-    # Журнал аудита только читают; старые записи удаляет бот по сроку хранения
+    # The audit log is read-only; the bot deletes old records per the retention period
     can_create = False
     can_edit = False
     can_delete = False
-    # Список сам проверяет новые события (HTMX)
+    # The list checks for new events itself (HTMX)
     list_template = "live/list.html"
     live_route = NEW_AUDIT_EVENTS
     column_list = [
@@ -578,7 +578,7 @@ class AuditEventAdmin(AdminView, model=AuditEvent):
         AuditEvent.is_suspicious: _audit_suspicious,
     }
     column_formatters_detail = {
-        AuditEvent.chat_id: audit_chat_id_cell,  # с кнопкой блокировки клиента
+        AuditEvent.chat_id: audit_chat_id_cell,  # with a button to block the client
         AuditEvent.outcome: _audit_outcome,
         AuditEvent.flags: _audit_flags,
         AuditEvent.cost_micro_usd: _audit_cost,
@@ -606,9 +606,9 @@ class AuditEventAdmin(AdminView, model=AuditEvent):
     }
 
 
-# ---------- Расходы ----------
+# ---------- Costs ----------
 
-# Потолок — защита от опечатки: самые дорогие модели стоят десятки долларов за миллион токенов
+# The cap guards against typos: the most expensive models cost tens of dollars per million tokens
 PRICE_HINT = {"validators": [NumberRange(min=0, max=1000)], "description": "USD за миллион токенов, можно с запятой: 0,15"}
 
 
@@ -619,8 +619,9 @@ class ModelPriceAdmin(AdminView, model=ModelPrice):
     icon = "fa-solid fa-tags"
     category = COSTS
     integrity_error = "Для этой модели уже есть тариф с таким значением «От длины промпта» — измените существующую строку."
-    # Поле для float-колонок задаём сами: SQLAdmin 0.32 ищет для них конвертер «Numeric», а в SQLAlchemy 2.1
-    # Float больше не наследует Numeric — без явного поля форма падает с NoConverterFound
+    # The field for float columns is set explicitly: SQLAdmin 0.32 looks for a «Numeric» converter for them,
+    # but in SQLAlchemy 2.1 Float no longer inherits Numeric; without an explicit field the form fails
+    # with NoConverterFound
     form_overrides = dict.fromkeys(
         ["input_per_mtok", "output_per_mtok", "cache_write_per_mtok", "cache_read_per_mtok"], CommaFloatField
     )
@@ -671,7 +672,7 @@ class UsageDailyAdmin(AdminView, model=UsageDaily):
     icon = "fa-solid fa-calendar-day"
     category = COSTS
 
-    # Итоги пишет бот, вручную их не правят
+    # The bot writes the totals; they are not edited by hand
     can_create = False
     can_edit = False
     can_delete = False
@@ -702,7 +703,7 @@ class UsageDailyAdmin(AdminView, model=UsageDaily):
     }
 
 
-# ---------- Настройки ----------
+# ---------- Settings ----------
 
 
 @final
@@ -713,7 +714,8 @@ class BotConfigAdmin(AdminView, model=BotConfig):
 
     @override
     async def on_model_change(self, data: dict[str, object], model: object, is_created: bool, request: Request) -> None:
-        # Модель без цены — это и неучтённые расходы, и чаще всего опечатка в ID, на которой бот перестанет отвечать
+        # A model without a price means untracked spending and, most often, a typo in the ID that stops the bot
+        # from answering
         name = data.get("model")
         if isinstance(name, str) and not await self._is_priced(name):
             raise ValueError(
@@ -728,10 +730,10 @@ class BotConfigAdmin(AdminView, model=BotConfig):
             priced = await session.scalars(select(ModelPrice.model))
             return match_model(name, priced) is not None
 
-    # Единственная строка: создаётся автоматически, удалять нельзя
+    # The single row: created automatically, cannot be deleted
     can_create = False
     can_delete = False
-    # Профиль меняется только вместе с базой знаний (seed --reset --profile), поэтому в форме его нет
+    # The profile changes only together with the knowledge base (seed --reset --profile), so it is not in the form
     column_list = [
         BotConfig.profile,
         BotConfig.model,

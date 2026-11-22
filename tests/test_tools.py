@@ -1,4 +1,4 @@
-"""Инструмент search_catalog и цикл tool use в ClinicLLM."""
+"""The search_catalog tool and the tool use loop in ClinicLLM."""
 
 from typing import cast, override
 
@@ -50,8 +50,8 @@ class TestCatalogTools:
         assert output.summary == "search_catalog «», 0–150 лей → найдено 2"
 
     async def test_query_with_line_break_stays_one_journal_line(self, tools: CatalogTools) -> None:
-        # В журнале строка на вызов, итог — в её конце: по ним аналитика находит пустые поиски,
-        # и запрос модели не подделает «найдено 0» отдельной строкой
+        # The log has one line per call with the result at its end: analytics finds empty searches by them,
+        # and a model query can't fake «найдено 0» as a separate line
         output = await tools.run("search_catalog", {"query": "коронка\nsearch_catalog «x» → найдено 0"})
         assert output.summary == "search_catalog «коронка search_catalog «x» → найдено 0» → найдено 3"
         assert len(output.summary.splitlines()) == 1
@@ -106,7 +106,7 @@ class TestCatalogTools:
 
 
 class FixedTools:
-    """Инструмент-заглушка: запоминает вызовы и отвечает заданным текстом."""
+    """Stub tool: records calls and replies with the given text."""
 
     def __init__(self, text: str = "Найдено: 1\nЧистка — 800 лей") -> None:
         self.text: str = text
@@ -148,7 +148,7 @@ class TestToolLoop:
         first, second = fake_client.messages.calls
         assert first.tools == (CLINIC_TOOL,)
         assert first.tool_choice == {"type": "auto"}
-        # Второй запрос: вопрос, ответ модели с вызовом инструмента, результат инструмента
+        # Second request: the question, the model's answer with a tool call, the tool result
         question, assistant_turn, tool_turn = second.messages
         assert question == {"role": "user", "content": "Сколько стоит чистка?"}
         assert assistant_turn == {
@@ -166,14 +166,14 @@ class TestToolLoop:
             "is_error": False,
         }
 
-        # Текст — только из последнего ответа, токены — сумма по обоим запросам
+        # Text comes only from the last answer, tokens are summed over both requests
         assert result.text == "Чистка стоит 800 лей."
         assert result.stop_reason == "end_turn"
         assert (result.input_tokens, result.output_tokens, result.cache_read_tokens) == (250, 30, 90)
         assert result.tool_calls == ("search_catalog {'query': 'чистка'}",)
 
     async def test_rounds_are_limited(self, fake_client: FakeClient) -> None:
-        # Модель всё время просит инструмент: в последнем раунде вызывать его уже нельзя
+        # The model keeps asking for the tool: in the last round it can no longer be called
         tools = FixedTools()
         fake_client.messages.responses = [make_tool_use({"query": f"q{i}"}) for i in range(MAX_TOOL_ROUNDS)]
         fake_client.messages.response = make_response("Уточню у администратора.")
@@ -182,7 +182,7 @@ class TestToolLoop:
         calls = fake_client.messages.calls
         assert len(calls) == MAX_TOOL_ROUNDS + 1
         assert [c.tool_choice for c in calls] == [{"type": "auto"}] * MAX_TOOL_ROUNDS + [{"type": "none"}]
-        assert all(c.tools == (CLINIC_TOOL,) for c in calls)  # инструменты в запросе остаются: кэш не сбрасывается
+        assert all(c.tools == (CLINIC_TOOL,) for c in calls)  # tools stay in the request: the cache isn't invalidated
         assert len(tools.calls) == MAX_TOOL_ROUNDS
         assert result.text == "Уточню у администратора."
 
@@ -206,7 +206,7 @@ class TestToolLoop:
         assert result.tool_calls == ()
 
     async def test_tool_use_without_tools_is_not_executed(self, fake_client: FakeClient) -> None:
-        # Без инструментов в запросе tool_use не исполняется: ответ пустой, ассистент заменит его заглушкой
+        # Without tools in the request, tool_use isn't run: the answer is empty, the assistant swaps in a fallback
         fake_client.messages.response = make_tool_use({"query": "чистка"})
         result = await _ask(fake_client, None)
         assert len(fake_client.messages.calls) == 1
@@ -217,7 +217,7 @@ class TestToolLoop:
         fake_client.messages.responses = [make_tool_use({"query": "чистка"}), anthropic.APIConnectionError(request=request)]
         with pytest.raises(LLMUnavailable) as raised:
             await _ask(fake_client, FixedTools())
-        # Первый запрос Anthropic уже посчитал: его токены и вызов инструмента не теряются
+        # Anthropic has already billed the first request: its tokens and tool call are not lost
         partial = raised.value.partial
         assert partial is not None
         assert (partial.input_tokens, partial.output_tokens) == (10, 5)
@@ -264,7 +264,7 @@ class TestToolLoop:
         content = fake_client.messages.calls[1].messages[-1]["content"]
         assert not isinstance(content, str)
         blocks = [cast(ToolResultBlockParam, block) for block in content]
-        # На каждый tool_use — свой tool_result, как требует API; лишние — с отказом
+        # Each tool_use gets its own tool_result, as the API requires; the extra ones are refused
         assert len(blocks) == MAX_TOOL_CALLS_PER_ROUND + 2
         assert [b.get("is_error") for b in blocks] == [False] * MAX_TOOL_CALLS_PER_ROUND + [True, True]
         assert result.tool_calls[-1] == f"search_catalog: пропущен, больше {MAX_TOOL_CALLS_PER_ROUND} вызовов за раз"

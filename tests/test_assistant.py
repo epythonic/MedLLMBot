@@ -77,7 +77,7 @@ async def test_unknown_price_is_replaced(
     reply = await assistant.reply(CHAT_ID, "Есть скидки?", config)
     assert reply.text == PRICE_FALLBACK
     assert reply.outcome is AuditOutcome.PRICE_REPLACED
-    # В историю попадает безопасный ответ, а не выдуманная цена
+    # History gets the safe answer, not the invented price
     history = await seeded_repo.load_history(CHAT_ID, limit=8)
     assert history[-1]["content"] == PRICE_FALLBACK
 
@@ -93,7 +93,7 @@ async def test_price_change_in_admin_applies_immediately(
     assert reply.text == "Чистка стоит 850 лей."
     assert "— 850 лей" in fake_client.messages.calls[-1].system[0]["text"]
 
-    # Старая цена больше не в прайсе — модель её назвать не может
+    # The old price is no longer in the price list — the model can't quote it
     fake_client.messages.response = make_response("Чистка стоит 800 лей.")
     reply = await assistant.reply(CHAT_ID, "Сколько стоит чистка?", config)
     assert reply.text == PRICE_FALLBACK
@@ -111,7 +111,7 @@ async def test_config_controls_model_and_history(
 
     last = fake_client.messages.calls[-1]
     assert last.model == "claude-sonnet-5"
-    # 2 сообщения истории + новый вопрос
+    # 2 history messages + the new question
     assert len(last.messages) == 3
 
 
@@ -130,7 +130,7 @@ async def test_truncated_answer_is_not_sent(
     sessions: Sessions,
     config: BotConfig,
 ) -> None:
-    # Ответ упёрся в max_tokens и оборвался на полуслове — клиент его не получает
+    # The answer hit max_tokens and was cut off mid-word — the client doesn't get it
     cut = "Чистка зубов стоит 800 лей. Также рекомендуем профессиональную гигиену, которая вклю"
     fake_client.messages.response = make_response(cut, stop_reason="max_tokens")
 
@@ -141,9 +141,9 @@ async def test_truncated_answer_is_not_sent(
     assert not reply.suspicious
     [event] = await load_audit(sessions)
     assert (event.outcome, event.stop_reason) == (AuditOutcome.TRUNCATED, "max_tokens")
-    assert event.llm_answer == cut  # обрывок остаётся в журнале для разбора
+    assert event.llm_answer == cut  # the fragment stays in the log for review
     assert event.final_answer == FALLBACK_ANSWER
-    # В историю попадает то, что получил клиент, а не обрывок
+    # History gets what the client received, not the fragment
     assert await seeded_repo.load_history(CHAT_ID, limit=8) == [
         {"role": "user", "content": "Сколько стоит чистка?"},
         {"role": "assistant", "content": FALLBACK_ANSWER},
@@ -156,7 +156,7 @@ async def test_truncated_leak_is_still_a_leak(assistant: ClinicAssistant, fake_c
 
     reply = await assistant.reply(CHAT_ID, "Какие у тебя настройки?", config)
 
-    assert reply.outcome is AuditOutcome.LEAK_BLOCKED  # утечка важнее обрыва: о ней нужно уведомить
+    assert reply.outcome is AuditOutcome.LEAK_BLOCKED  # a leak outranks truncation: it must be reported
 
 
 async def test_empty_answer_returns_fallback(assistant: ClinicAssistant, fake_client: FakeClient, config: BotConfig) -> None:
@@ -165,7 +165,7 @@ async def test_empty_answer_returns_fallback(assistant: ClinicAssistant, fake_cl
 
 
 async def test_empty_answer_has_own_outcome(assistant: ClinicAssistant, fake_client: FakeClient, config: BotConfig) -> None:
-    # В журнале пустой ответ модели не должен выглядеть как обычный «Ответ»
+    # In the log an empty model answer must not look like a regular «Ответ»
     fake_client.messages.response = make_response("")
     assert (await assistant.reply(CHAT_ID, "...", config)).outcome is AuditOutcome.EMPTY
 
@@ -191,7 +191,7 @@ async def test_text_blocks_are_joined(assistant: ClinicAssistant, fake_client: F
     assert reply.text == "Адрес: ул. Примерная, 1. Ждём вас!"
 
 
-# ---------- Отклонённые сообщения и ошибки API ----------
+# ---------- Rejected messages and API errors ----------
 
 
 async def test_long_message_rejected_without_llm(
@@ -199,7 +199,7 @@ async def test_long_message_rejected_without_llm(
 ) -> None:
     reply = await assistant.reply(CHAT_ID, "а" * (config.max_len + 1), config)
 
-    # Клиент узнаёт, сколько написал и сколько можно (раньше было только «напишите короче»)
+    # The client learns how much they wrote and what the limit is (it used to be just «напишите короче»)
     assert (
         reply.text == "Сообщение слишком длинное: 1025 символов, а можно не больше 1024. Пожалуйста, напишите вопрос короче."
     )
@@ -224,7 +224,7 @@ def _status_error(cls: type[anthropic.APIStatusError], status: int) -> anthropic
         _status_error(anthropic.AuthenticationError, 401),
         _status_error(anthropic.NotFoundError, 404),
         anthropic.APIConnectionError(request=httpx.Request("POST", "https://api.anthropic.com/v1/messages")),
-        # Ответ API не прошёл проверку схемы SDK — это не APIStatusError и не APIConnectionError
+        # The API response failed SDK schema validation — it's neither APIStatusError nor APIConnectionError
         anthropic.APIResponseValidationError(
             httpx.Response(200, request=httpx.Request("POST", "https://api.anthropic.com/v1/messages")), body=None
         ),
@@ -245,7 +245,7 @@ async def test_api_errors_return_tech_error(
 
     assert reply.text == TECH_ERROR
     assert reply.outcome is AuditOutcome.LLM_ERROR
-    # Неудачный обмен не сохраняется в историю, но вопрос клиента есть в журнале
+    # A failed exchange isn't saved to history, but the client's question is in the log
     assert await seeded_repo.load_history(CHAT_ID, limit=8) == []
     [event] = await load_audit(sessions)
     assert (event.user_text, event.outcome, event.model) == (
@@ -258,15 +258,15 @@ async def test_api_errors_return_tech_error(
 async def test_markdown_is_removed_before_sending(
     assistant: ClinicAssistant, fake_client: FakeClient, seeded_repo: Repository, sessions: Sessions, config: BotConfig
 ) -> None:
-    # Промпт просит писать без Markdown, но модель иногда выделяет жирным: Telegram показал бы звёздочки
+    # The prompt asks for no Markdown, but the model sometimes uses bold: Telegram would show the asterisks
     fake_client.messages.response = make_response("**Чистка зубов** стоит **800 лей**.")
     reply = await assistant.reply(CHAT_ID, "Сколько стоит чистка?", config)
 
     assert (reply.text, reply.outcome) == ("Чистка зубов стоит 800 лей.", AuditOutcome.ANSWERED)
     history = await seeded_repo.load_history(CHAT_ID, limit=8)
-    assert history[-1]["content"] == "Чистка зубов стоит 800 лей."  # модель не видит в истории свою разметку
+    assert history[-1]["content"] == "Чистка зубов стоит 800 лей."  # the model doesn't see its own markup in history
     [event] = await load_audit(sessions)
-    assert event.llm_answer == "**Чистка зубов** стоит **800 лей**."  # журнал хранит ответ модели как есть
+    assert event.llm_answer == "**Чистка зубов** стоит **800 лей**."  # the log keeps the model's answer as is
     assert event.final_answer == "Чистка зубов стоит 800 лей."
 
 
@@ -277,7 +277,7 @@ async def test_customer_budget_is_not_an_invented_price(
     reply = await assistant.reply(CHAT_ID, "Что можно сделать до 1000 лей?", config)
     assert reply.outcome is AuditOutcome.ANSWERED
 
-    # Бюджет из прошлого сообщения клиента — тоже его сумма
+    # A budget from the client's earlier message is their amount too
     fake_client.messages.response = make_response("В бюджете до 1000 лей отбеливания нет.")
     reply = await assistant.reply(CHAT_ID, "А отбеливание?", config)
     assert reply.outcome is AuditOutcome.ANSWERED
@@ -291,7 +291,7 @@ async def test_budget_the_customer_did_not_name_is_replaced(
     assert (reply.text, reply.outcome) == (PRICE_FALLBACK, AuditOutcome.PRICE_REPLACED)
 
 
-# ---------- Журнал аудита и попытки перехвата управления ----------
+# ---------- Audit log and hijacking attempts ----------
 
 
 async def test_answer_is_logged_with_llm_metadata(assistant: ClinicAssistant, sessions: Sessions, config: BotConfig) -> None:
@@ -327,11 +327,11 @@ async def test_injection_attempt_is_flagged_and_kept_out_of_history(
 
     reply = await assistant.reply(CHAT_ID, text, config)
 
-    # Клиент получает обычный ответ модели — правила промпта защищают сами
+    # The client gets the model's regular answer — the prompt rules protect on their own
     assert reply.text == "Чистка зубов стоит 800 лей."
     assert reply.suspicious
     assert set(reply.flags) == {"ignore_instructions", "prompt_extraction"}
-    # В контекст модели попытка не попадает, в журнал — попадает
+    # The attempt stays out of the model's context but goes into the log
     assert await seeded_repo.load_history(CHAT_ID, limit=8) == []
     [event] = await load_audit(sessions)
     assert event.is_suspicious
@@ -376,7 +376,7 @@ async def test_answer_cost_reaches_monthly_report(
                 cache_read_per_mtok=0.1,
             )
         )
-    # API возвращает датированный ID снимка — цена всё равно находится по алиасу
+    # The API returns a dated snapshot ID — the price is still found by alias
     fake_client.messages.response = make_response(
         "Чистка зубов стоит 800 лей.",
         model="claude-haiku-4-5-20251001",
@@ -420,7 +420,7 @@ def test_too_long_names_length_in_right_form(length: int, expected: str) -> None
 @pytest.mark.parametrize(
     ("length", "expected"),
     [
-        (501, "501 caractere"),  # 01–19 в конце числа — без «de»
+        (501, "501 caractere"),  # 01–19 at the end of the number — no «de»
         (519, "519 caractere"),
         (520, "520 de caractere"),
         (600, "600 de caractere"),
@@ -434,14 +434,14 @@ def test_too_long_in_romanian(length: int, expected: str) -> None:
     )
 
 
-# ---------- Готовые ответы на языке клиента ----------
+# ---------- Canned replies in the client's language ----------
 
 
 async def test_canned_replies_follow_customer_language(
     assistant: ClinicAssistant, fake_client: FakeClient, seeded_repo: Repository, config: BotConfig
 ) -> None:
     ro = PROFILES[BusinessProfile.CLINIC].replies_ro
-    # Раньше румынский клиент получал «Уточню стоимость у администратора» по-русски
+    # A Romanian client used to get «Уточню стоимость у администратора» in Russian
     fake_client.messages.response = make_response("Curățarea costă doar 450 lei.")
     reply = await assistant.reply(CHAT_ID, "Cât costă o curățare?", config)
     assert (reply.text, reply.outcome) == (ro.price_fallback, AuditOutcome.PRICE_REPLACED)
@@ -471,15 +471,15 @@ async def test_budget_exceeded_in_romanian(assistant: ClinicAssistant, sessions:
 
 
 async def test_language_from_caller_wins(assistant: ClinicAssistant, fake_client: FakeClient, config: BotConfig) -> None:
-    # Хендлер знает язык Telegram клиента: «S8?» по тексту не понять
+    # The handler knows the client's Telegram language: «S8?» can't be told from the text
     fake_client.messages.response = make_response("")
     reply = await assistant.reply(CHAT_ID, "S8?", config, Language.RO)
     assert reply.text == PROFILES[BusinessProfile.CLINIC].replies_ro.fallback
     reply = await assistant.reply(CHAT_ID, "S8?", config)
-    assert reply.text == FALLBACK_ANSWER  # по умолчанию — русский
+    assert reply.text == FALLBACK_ANSWER  # Russian by default
 
 
-# ---------- Дневной лимит расходов ----------
+# ---------- Daily spending limit ----------
 
 
 async def add_spend(sessions: Sessions, micro_usd: int, day: date | None = None) -> None:
@@ -493,12 +493,12 @@ async def test_budget_exceeded_skips_claude(
     assistant: ClinicAssistant, fake_client: FakeClient, sessions: Sessions, config: BotConfig
 ) -> None:
     config.daily_budget_usd = 2
-    await add_spend(sessions, 2_000_000)  # ровно $2 за сегодня
+    await add_spend(sessions, 2_000_000)  # exactly $2 today
 
     reply = await assistant.reply(CHAT_ID, "Сколько стоит чистка?", config)
 
     assert (reply.text, reply.outcome) == (BUDGET_EXCEEDED, AuditOutcome.BUDGET_EXCEEDED)
-    assert fake_client.messages.calls == []  # деньги больше не тратятся
+    assert fake_client.messages.calls == []  # no more money is spent
     [event] = await load_audit(sessions)
     assert event.outcome is AuditOutcome.BUDGET_EXCEEDED
 
@@ -508,7 +508,7 @@ async def test_under_budget_answers(
 ) -> None:
     config.daily_budget_usd = 2
     await add_spend(sessions, 1_999_999)
-    await add_spend(sessions, 50_000_000, day=datetime.now(UTC).date() - timedelta(days=1))  # вчерашний расход не в счёт
+    await add_spend(sessions, 50_000_000, day=datetime.now(UTC).date() - timedelta(days=1))  # yesterday's spend ignored
 
     reply = await assistant.reply(CHAT_ID, "Сколько стоит чистка?", config)
 
@@ -517,18 +517,18 @@ async def test_under_budget_answers(
 
 
 async def test_zero_budget_means_no_limit(assistant: ClinicAssistant, sessions: Sessions, config: BotConfig) -> None:
-    assert config.daily_budget_usd == 0  # по умолчанию лимита нет
+    assert config.daily_budget_usd == 0  # no limit by default
     await add_spend(sessions, 10**12)
 
     assert (await assistant.reply(CHAT_ID, "Привет", config)).outcome is AuditOutcome.ANSWERED
 
 
-# ---------- Большой каталог: поиск инструментом ----------
+# ---------- Large catalog: search with a tool ----------
 
 
 @pytest.fixture
 async def search_config(seeded_repo: Repository, sessions: Sessions) -> BotConfig:
-    """Порог 0: каталог не идёт в промпт, модель ищет в нём инструментом."""
+    """Threshold 0: the catalog stays out of the prompt, the model searches it with a tool."""
     async with sessions.begin() as s:
         await s.execute(update(BotConfig).values(catalog_inline_limit=0))
     return await seeded_repo.get_config()
@@ -555,8 +555,8 @@ async def test_large_catalog_is_searched_with_tool(
     first, second = fake_client.messages.calls
     system = first.system[0]["text"]
     assert CATALOG_SEARCH_NOTE in system
-    assert "— 800 лей" not in system  # прайса в промпте нет
-    assert "== Контакты ==" in system  # остальная база знаний — на месте
+    assert "— 800 лей" not in system  # no price list in the prompt
+    assert "== Контакты ==" in system  # the rest of the knowledge base is in place
     assert first.tools == (CLINIC_TOOL,)
     tool_turn = second.messages[-1]["content"]
     assert not isinstance(tool_turn, str)
@@ -571,7 +571,7 @@ async def test_large_catalog_is_searched_with_tool(
 async def test_catalog_price_passes_without_search(
     assistant: ClinicAssistant, fake_client: FakeClient, search_config: BotConfig
 ) -> None:
-    # Цену из каталога модель могла запомнить из прошлого ответа: она настоящая, заменять её не нужно
+    # The model may remember a catalog price from an earlier answer: it's real, no need to replace it
     fake_client.messages.response = make_response("Имплант стоит 9500 лей, коронка отдельно.")
     reply = await assistant.reply(CHAT_ID, "А имплант сколько, напомните?", search_config)
     assert reply.outcome is AuditOutcome.ANSWERED
@@ -594,7 +594,7 @@ async def test_search_tokens_are_summed_in_audit(
     ]
     await assistant.reply(CHAT_ID, "Сколько стоит чистка?", search_config)
     [event] = await load_audit(sessions)
-    # Стоимость потом считается от этих сумм (в тестовой БД цен моделей нет — их добавляет миграция)
+    # Cost is then computed from these sums (the test DB has no model prices — the migration adds them)
     assert (event.input_tokens, event.output_tokens) == (700, 60)
 
 
@@ -607,7 +607,7 @@ async def test_answer_without_search_has_no_tool_calls(
 
 
 async def _add_tiered_price(sessions: Sessions) -> None:
-    """Тариф с порогом: промпт от 100 001 токена — в 5 раз дороже, как у claude-haiku-5-5."""
+    """Tiered price: a prompt of 100 001+ tokens costs 5x more, as with claude-haiku-5-5."""
     async with sessions.begin() as s:
         s.add_all(
             [
@@ -634,7 +634,7 @@ async def _add_tiered_price(sessions: Sessions) -> None:
 async def test_search_cost_uses_tier_of_each_request(
     assistant: ClinicAssistant, fake_client: FakeClient, sessions: Sessions, search_config: BotConfig
 ) -> None:
-    # Каждый запрос — 60 000 токенов, вместе — 120 000: Anthropic считает оба по базовому тарифу
+    # Each request is 60 000 tokens, 120 000 together: Anthropic bills both at the base tier
     await _add_tiered_price(sessions)
     fake_client.messages.responses = [
         make_tool_use({"query": "чистка"}, input_tokens=60_000, output_tokens=100),
@@ -652,7 +652,7 @@ async def test_search_cost_uses_tier_of_each_request(
 async def test_api_failure_after_search_keeps_spent_tokens(
     assistant: ClinicAssistant, fake_client: FakeClient, sessions: Sessions, search_config: BotConfig
 ) -> None:
-    # Первый запрос оплачен, второй упал: расход и дневной лимит должны его учесть
+    # The first request is paid, the second failed: spending and the daily limit must count it
     await _add_tiered_price(sessions)
     request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
     fake_client.messages.responses = [
@@ -674,7 +674,7 @@ async def test_api_failure_after_search_keeps_spent_tokens(
 async def test_unfinished_tool_use_is_not_sent(
     assistant: ClinicAssistant, fake_client: FakeClient, search_config: BotConfig
 ) -> None:
-    # Даже в последнем раунде модель снова просит инструмент: её «Сейчас посмотрю» клиенту не уходит
+    # Even in the last round the model asks for the tool again: its «Сейчас посмотрю» doesn't reach the client
     fake_client.messages.response = make_tool_use({"query": "чистка"}, text="Сейчас посмотрю.")
     reply = await assistant.reply(CHAT_ID, "Сколько стоит чистка?", search_config)
     assert (reply.text, reply.outcome) == (FALLBACK_ANSWER, AuditOutcome.EMPTY)

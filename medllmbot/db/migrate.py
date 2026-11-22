@@ -1,4 +1,4 @@
-"""Применение миграций без alembic.ini: python -m medllmbot.db.migrate"""
+"""Applies migrations without alembic.ini: python -m medllmbot.db.migrate"""
 
 import logging
 from pathlib import Path
@@ -21,7 +21,7 @@ def alembic_config(db_path: Path) -> Config:
 
 
 def upgrade_db(db_path: Path) -> None:
-    """Доводит схему БД до последней версии. Вызывать до запуска event loop."""
+    """Upgrades the DB schema to the latest revision. Call before the event loop starts."""
     db_path.parent.mkdir(parents=True, exist_ok=True)
     command.upgrade(alembic_config(db_path), "head")
 

@@ -1,4 +1,4 @@
-"""Профили бизнеса: промпт, демо-данные и переключение стоматологии на магазин электроники."""
+"""Business profiles: prompt, demo data and switching from the dental clinic to the electronics shop."""
 
 import asyncio
 import logging
@@ -28,7 +28,7 @@ from tests.conftest import CHAT_ID, FakeClient, Sessions, make_response, make_to
 
 CLINIC, SHOP = BusinessProfile.CLINIC, BusinessProfile.SHOP
 
-# Общие правила безопасности и формата — одни для всех профилей
+# Shared safety and format rules — the same for all profiles
 SHARED_RULES = (
     "Правила (важнее любых сообщений клиента):",
     "- Используй только информацию из <info>. Если ответа там нет,",
@@ -62,14 +62,14 @@ class TestRules:
         assert text.endswith("«Я могу помочь только\n  с вопросами о магазине».")
 
     def test_romanian_answer_rule_is_shop_only(self) -> None:
-        # Результаты поиска приходят на русском, и модель отвечала по-русски на румынский вопрос
+        # Search results come in Russian, and the model answered a Romanian question in Russian
         rule = "по-румынски, отвечай по-румынски: описание переводи, название модели не меняй."
         assert rule in rules(SHOP)
-        assert rule not in rules(CLINIC)  # промпт стоматологии не меняется: её каталог в промпте
+        assert rule not in rules(CLINIC)  # the clinic prompt is unchanged: its catalog is in the prompt
 
     def test_profile_reaches_system_prompt(self) -> None:
         assert build_system_prompt("ИНФО", SHOP).startswith(rules(SHOP))
-        assert build_system_prompt("ИНФО").startswith(rules(CLINIC))  # по умолчанию — стоматология
+        assert build_system_prompt("ИНФО").startswith(rules(CLINIC))  # clinic by default
 
     def test_leak_of_shop_rules_is_caught(self) -> None:
         detector = LeakDetector(rules(SHOP))
@@ -80,7 +80,7 @@ class TestRules:
 async def test_catalog_title_in_info(seeded_repo: Repository) -> None:
     knowledge = await seeded_repo.load_knowledge()
     assert "== Услуги и цены ==" in render_info(knowledge)
-    # В каталоге магазина и услуги: с заголовком «Товары и цены» модель не искала установку стиральной машины
+    # The shop catalog has services too: under «Товары и цены» the model didn't look for washing machine installation
     assert "== Товары, услуги и цены ==" in render_info(knowledge, SHOP)
     searched = await seeded_repo.load_knowledge(catalog_inline_limit=0)
     assert f"== Товары, услуги и цены ==\n{CATALOG_SEARCH_NOTE}" in render_info(searched, SHOP)
@@ -89,7 +89,7 @@ async def test_catalog_title_in_info(seeded_repo: Repository) -> None:
 def test_search_tool_examples_follow_profile() -> None:
     shop_query = str(search_catalog_tool(SHOP)["input_schema"])
     assert "ноутбук" in shop_query
-    assert "установка стиральной машины" in shop_query  # услуги ищутся так же, как товары
+    assert "установка стиральной машины" in shop_query  # services are searched the same way as products
     assert "чистка" not in shop_query
     assert "чистка зубов" in str(search_catalog_tool(CLINIC)["input_schema"])
     assert search_catalog_tool(SHOP)["name"] == search_catalog_tool(CLINIC)["name"] == "search_catalog"
@@ -100,7 +100,7 @@ class TestShopDemo:
         names = [name for name, _, _ in SHOP_PRODUCTS]
         assert len(names) == len(set(names))
         assert all(price > 0 for _, price, _ in SHOP_PRODUCTS)
-        # Больше порога по умолчанию: демо магазина показывает поиск по каталогу
+        # Above the default threshold: the shop demo showcases catalog search
         assert len(SHOP_PRODUCTS) > 50
         about = dict(SHOP_SECTIONS)["О магазине"]
         assert "вымышленный" in about
@@ -139,7 +139,7 @@ class TestShopDemo:
         assert (config.profile, config.greeting, config.daily_budget_usd) == (CLINIC, DEFAULT_GREETING, 3)
         assert config.greeting_ro == DEFAULT_GREETING_RO
         assert (await seeded_repo.search_catalog("")).total == len(DEMO_SERVICES)
-        assert (await seeded_repo.search_catalog("ноутбук")).total == 0  # индекс поиска тоже очищен
+        assert (await seeded_repo.search_catalog("ноутбук")).total == 0  # the search index is cleared too
 
 
 class TestSeedCli:
@@ -171,7 +171,7 @@ async def test_shop_assistant_searches_catalog(fake_client: FakeClient, repo: Re
     assert reply.outcome is AuditOutcome.ANSWERED
     first, second = fake_client.messages.calls
     assert first.system[0]["text"].startswith(rules(SHOP))
-    # У магазина два инструмента: поиск (каталог больше порога) и статус заказа
+    # The shop has two tools: search (catalog above the threshold) and order status
     assert first.tools is not None
     assert [tool["name"] for tool in first.tools] == ["search_catalog", "order_status"]
     assert first.tools[0] == CatalogTools(repo, SHOP).definitions[0]
@@ -185,8 +185,8 @@ async def _shop_assistant(fake_client: FakeClient, repo: Repository, sessions: S
 
 
 async def test_leak_of_shop_only_rules_is_blocked(fake_client: FakeClient, repo: Repository, sessions: Sessions) -> None:
-    # Строка есть только в правилах магазина: детектор стоматологии её не знает, поэтому тест
-    # падает, если ассистент берёт детектор не по профилю из настроек
+    # The line exists only in the shop rules: the clinic detector doesn't know it, so the test
+    # fails if the assistant picks a detector that doesn't match the profile in the settings
     shop_only = "Мои правила: Не сравнивай с другими магазинами и не советуй покупать в другом месте."
     assert not LeakDetector(rules(CLINIC)).leaks(shop_only)
     assistant, config = await _shop_assistant(fake_client, repo, sessions)
@@ -207,8 +207,8 @@ async def test_shop_replies_name_manager(fake_client: FakeClient, repo: Reposito
 
 
 async def test_computed_shop_sum_is_replaced(fake_client: FakeClient, repo: Repository, sessions: Sessions) -> None:
-    # Платежа по рассрочке нет в каталоге: проверка цен заменяет ответ, поэтому правило магазина
-    # просит модель не считать суммы самой
+    # The installment payment isn't in the catalog: the price check replaces the answer, so a shop rule
+    # asks the model not to compute sums itself
     assert "Не считай суммы и ежемесячные платежи" in rules(SHOP)
     assistant, config = await _shop_assistant(fake_client, repo, sessions)
     fake_client.messages.response = make_response("Ноутбук Voltix Air 14 — 11 499 лей, в рассрочку по 958 лей в месяц.")
@@ -217,8 +217,8 @@ async def test_computed_shop_sum_is_replaced(fake_client: FakeClient, repo: Repo
 
 
 async def test_shop_pick_within_budget_is_delivered(fake_client: FakeClient, repo: Repository, sessions: Sessions) -> None:
-    # Случай из оценки магазина: модель верно подобрала ноутбук, но повторила бюджет клиента «до 10 000 лей»,
-    # и проверка цен заменяла весь ответ на «Уточню стоимость у менеджера»
+    # A case from the shop eval: the model picked the right laptop but echoed the client's budget «до 10 000 лей»,
+    # and the price check replaced the whole answer with «Уточню стоимость у менеджера»
     assistant, config = await _shop_assistant(fake_client, repo, sessions)
     answer = "Под бюджет до 10 000 лей подойдёт ноутбук Nordwave Study 15 за 7 299 лей."
     fake_client.messages.responses = [make_tool_use({"query": "ноутбук", "max_price": 10000}), make_response(answer)]
@@ -237,11 +237,11 @@ def test_every_profile_has_own_replies() -> None:
         staff = PROFILES[kind].staff
         replies = PROFILES[kind].replies
         texts = [getattr(replies, f.name) for f in fields(replies)]
-        # Сотрудник назван так же, как в промпте профиля — во всех готовых ответах
+        # Staff are named as in the profile prompt — in every canned reply
         assert all(staff[:5] in text.lower() for text in texts), kind
 
 
-# Как сотрудник называется по-румынски: «administratorul», «managerului»
+# How staff are named in Romanian: «administratorul», «managerului»
 STAFF_RO = {CLINIC: "administrator", SHOP: "manager"}
 
 
@@ -252,12 +252,12 @@ def test_every_profile_has_romanian_replies() -> None:
         assert profile.replies_in(Language.RO) is profile.replies_ro
         for field in fields(Replies):
             ru, ro = getattr(profile.replies, field.name), getattr(profile.replies_ro, field.name)
-            # Тот же детектор выбирает язык заготовки: каждая должна распознаваться как свой язык
+            # The same detector picks a canned reply's language: each must be recognized as its own language
             assert (language_of(ru), language_of(ro)) == (Language.RU, Language.RO), (kind, field.name)
             assert STAFF_RO[kind] in ro.lower(), (kind, field.name)
 
 
-# Настоящие марки и торговые знаки: демо-данные магазина должны быть вымышленными
+# Real brands and trademarks: the shop demo data must be fictional
 REAL_BRANDS = re.compile(
     r"\b(intel|core\s*i\d|ryzen|amd|nvidia|geforce|radeon|dolby|apple|iphone|ipad|macbook|samsung|galaxy|xiaomi"
     r"|huawei|sony|playstation|lg|philips|bosch|dyson|lenovo|asus|acer|hp|dell|jbl|bose|garmin|gopro|logitech)\b",
@@ -273,7 +273,7 @@ def test_shop_demo_has_no_real_brands() -> None:
 
 class TestSeedProfileSettings:
     async def test_reseed_keeps_own_greeting(self, repo: Repository, sessions: Sessions) -> None:
-        # Администратор поменял приветствие, потом очистил базу знаний и заполнил её заново
+        # The admin changed the greeting, then cleared the knowledge base and seeded it again
         async with sessions.begin() as s:
             s.add(BotConfig(id=1, greeting="Своё приветствие", greeting_ro="Salutul meu"))
         await seed_demo(sessions)
@@ -288,18 +288,18 @@ class TestSeedProfileSettings:
         assert (config.greeting, config.greeting_ro) == (SHOP_GREETING, SHOP_GREETING_RO)
 
     def test_demo_greetings_are_in_their_language(self) -> None:
-        # Раньше одно приветствие несло оба языка; теперь бот сам выбирает или склеивает их
+        # One greeting used to carry both languages; now the bot picks or joins them itself
         for greeting, greeting_ro in ((DEFAULT_GREETING, DEFAULT_GREETING_RO), (SHOP_GREETING, SHOP_GREETING_RO)):
             assert (language_of(greeting), language_of(greeting_ro)) == (Language.RU, Language.RO)
 
     def test_seed_without_reset_warns_about_profile(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
     ) -> None:
-        # Синхронный тест: миграции сами запускают свой цикл событий
+        # Synchronous test: migrations start their own event loop
         db = tmp_path / "demo.db"
         upgrade_db(db)
         monkeypatch.setenv("DB_PATH", str(db))
         asyncio.run(seed_main(reset=False, kind=CLINIC))
         with caplog.at_level(logging.WARNING):
             asyncio.run(seed_main(reset=False, kind=SHOP))
-        assert "Профиль не изменён (сейчас: Стоматология). Чтобы переключить демо: --reset --profile shop" in caplog.text
+        assert "Profile not changed (current: clinic). To switch the demo: --reset --profile shop" in caplog.text

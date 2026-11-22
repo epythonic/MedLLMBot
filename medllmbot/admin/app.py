@@ -1,4 +1,4 @@
-"""Сборка FastAPI-приложения с SQLAdmin."""
+"""Assembles the FastAPI app with SQLAdmin."""
 
 import logging
 from collections.abc import AsyncGenerator
@@ -29,12 +29,12 @@ from medllmbot.db.repository import Repository
 log = logging.getLogger(__name__)
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
-# Свои статические файлы админки (HTMX) — без CDN: в админке персональные данные клиентов
+# The admin's own static files (HTMX), no CDN: the admin holds clients' personal data
 STATIC_DIR = Path(__file__).parent / "static"
 
 
-# Заголовки для каждого ответа: страницу нельзя встроить в чужой сайт (clickjacking), скрипты и стили —
-# только свои. 'unsafe-inline' нужен встроенным скриптам SQLAdmin и шаблонов; eval запрещён
+# Headers for every response: the page cannot be embedded in another site (clickjacking), scripts and styles
+# are same-origin only. 'unsafe-inline' is needed for inline scripts in SQLAdmin and templates; eval is forbidden
 SECURITY_HEADERS: dict[str, str] = {
     "Content-Security-Policy": (
         "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
@@ -45,7 +45,7 @@ SECURITY_HEADERS: dict[str, str] = {
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "same-origin",
 }
-# Статика кэшируется, а страницы с персональными данными — нет
+# Static files are cached, pages with personal data are not
 CACHEABLE_PREFIXES = ("/static/", "/admin/statics/")
 BAD_REQUEST_PAGE = (
     "<!doctype html><html lang='ru'><meta charset='utf-8'><title>Некорректный запрос</title>"
@@ -62,8 +62,8 @@ async def security_headers(request: Request, call_next: RequestResponseEndpoint)
 
 
 async def bad_request(request: Request, exc: Exception) -> Response:
-    """Кривой id в адресе («/lead/edit/abc») или число вне диапазона SQLite — это 400, а не 500."""
-    log.warning("Некорректный запрос %s: %r", request.url.path, exc)
+    """A malformed id in the URL («/lead/edit/abc») or a number out of SQLite range is a 400, not a 500."""
+    log.warning("Bad request %s: %r", request.url.path, exc)
     return HTMLResponse(BAD_REQUEST_PAGE, status_code=400)
 
 
@@ -75,7 +75,7 @@ def create_app(settings: AdminSettings, engine: AsyncEngine | None = None) -> Fa
         yield
         await engine.dispose()
 
-    # Публичное API не нужно — отключаем автодокументацию
+    # No public API needed, so auto-docs are disabled
     app = FastAPI(title="MedLLMBot Admin", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 
     app.middleware("http")(security_headers)
@@ -87,7 +87,7 @@ def create_app(settings: AdminSettings, engine: AsyncEngine | None = None) -> Fa
 
     @app.get("/favicon.ico", include_in_schema=False)
     async def favicon() -> RedirectResponse:
-        # Браузер запрашивает /favicon.ico сам, даже на страницах без <link rel="icon">
+        # The browser requests /favicon.ico on its own, even on pages without <link rel="icon">
         return RedirectResponse("/static/favicon.svg", status_code=301)
 
     admin = Admin(
@@ -97,15 +97,15 @@ def create_app(settings: AdminSettings, engine: AsyncEngine | None = None) -> Fa
         favicon_url="/static/favicon.svg",
         authentication_backend=AdminAuth(settings),
         templates_dir=str(TEMPLATES_DIR),
-        # Интерфейс всегда на русском, как и справка: язык браузера не учитываем
+        # The UI is always in Russian, like the help: the browser language is ignored
         i18n_config=I18nConfig(default_locale=LOCALE, language_cookie_name=None, language_header_name=None),
     )
-    # У SQLAdmin своё вложенное приложение со своим обработчиком 500 — регистрируем обработчик в нём
+    # SQLAdmin has its own nested app with its own 500 handler, so the handler is registered there
     for error in (ValueError, OverflowError):
         admin.admin.add_exception_handler(error, bad_request)
     admin.templates.env.filters["usd"] = format_usd
-    # Справка «?»: шаблон sqladmin/layout.html находит справку раздела через help_topic.
-    # Тип globals Jinja выводит из своего словаря по умолчанию, поэтому расширяем его явно
+    # «?» help: the sqladmin/layout.html template finds a section's help via help_topic.
+    # Jinja infers the globals type from its default dict, so it is widened explicitly
     template_globals = cast(dict[str, object], admin.templates.env.globals)
     template_globals.update(
         help_topic=help_topic,
@@ -117,7 +117,7 @@ def create_app(settings: AdminSettings, engine: AsyncEngine | None = None) -> Fa
     for view in VIEWS:
         admin.add_view(view)
     repo = Repository(create_sessionmaker(engine))
-    admin.add_view(make_analytics_view(repo))  # встаёт в конец категории «Клиенты»
+    admin.add_view(make_analytics_view(repo))  # goes to the end of the «Клиенты» category
     admin.add_view(make_cost_report_view(repo))
     admin.add_view(make_live_view(repo))
     admin.add_view(HelpView)

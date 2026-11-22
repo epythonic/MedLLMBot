@@ -49,19 +49,19 @@ def make_message(
     msg.caption = None
     msg.content_type = content_type
     msg.chat = SimpleNamespace(id=42, type=ChatType.PRIVATE)
-    # language_code — язык интерфейса Telegram клиента; у настоящего User поле есть всегда, бывает None
+    # language_code is the client's Telegram UI language; a real User always has the field, it may be None
     msg.from_user = SimpleNamespace(username=username, full_name="Иван Петров", language_code=language_code)
     return msg
 
 
 def admin_messages(bot: AsyncMock) -> list[str]:
-    """Тексты всех сообщений, отправленных администратору."""
+    """Texts of all messages sent to the admin."""
     return [call.args[1] for call in bot.send_message.await_args_list]
 
 
 @pytest.fixture
 def settings() -> BotSettings:
-    # model_construct не читает окружение и .env — тесту нужен только admin_id
+    # model_construct doesn't read the environment or .env — the test only needs admin_id
     return BotSettings.model_construct(admin_id=ADMIN_ID)
 
 
@@ -123,7 +123,7 @@ async def test_start_uses_greeting_from_config(config: BotConfig, repo: AsyncMoc
     msg = make_message("/start")
     await start(msg, config, repo)
     msg.answer.assert_awaited_once_with("Добро пожаловать!")
-    # /start тоже входящее сообщение — оно есть в журнале
+    # /start is an incoming message too — it's in the log
     event = logged_event(repo)
     assert (event.user_text, event.outcome, event.final_answer) == ("/start", AuditOutcome.GREETING, "Добро пожаловать!")
 
@@ -134,7 +134,7 @@ async def test_start_uses_greeting_from_config(config: BotConfig, repo: AsyncMoc
         ("ru", "Добро пожаловать!"),
         ("ro", "Bine ați venit!"),
         ("ro-MD", "Bine ați venit!"),
-        # Telegram на другом языке: многие пишут по-румынски из Telegram на английском — оба приветствия
+        # Telegram in another language: many write in Romanian from an English Telegram — both greetings
         ("en", "Добро пожаловать!\n\nBine ați venit!"),
         (None, "Добро пожаловать!\n\nBine ați venit!"),
     ],
@@ -153,7 +153,7 @@ async def test_greeting_follows_telegram_language(
 async def test_without_romanian_greeting_everyone_gets_the_same(
     config: BotConfig, repo: AsyncMock, greeting_ro: str | None
 ) -> None:
-    # Так работали настройки до поля: в общем приветствии бывают оба языка
+    # Settings worked this way before the field: the shared greeting may hold both languages
     config.greeting_ro = greeting_ro
     msg = make_message("/start", language_code="ro")
     await start(msg, config, repo)
@@ -167,7 +167,7 @@ async def test_regular_question(
 
     await call(msg)
 
-    # Язык готовых ответов хендлер определяет сам: ему известен и язык Telegram клиента
+    # The handler picks the canned-reply language itself: it also knows the client's Telegram language
     assistant.reply.assert_awaited_once_with(42, "Сколько стоит чистка?", config, Language.RU)
     msg.answer.assert_awaited_once_with("Администратор перезвонит вам.")
     repo.create_lead.assert_not_awaited()
@@ -207,7 +207,7 @@ async def test_lead_is_not_lost_when_llm_is_down(
 async def test_too_long_message_with_phone_still_creates_lead(
     call: HandleText, assistant: AsyncMock, repo: AsyncMock, bot: AsyncMock
 ) -> None:
-    # Раньше такую заявку теряли: подробные клиенты получали только «напишите короче»
+    # Such leads used to be lost: verbose clients only got «напишите короче»
     text = "Запишите меня: 069123456 " + "а" * 600
     assistant.reply.return_value = Reply(too_long(len(text), 500), AuditOutcome.TOO_LONG)
     msg = make_message(text)
@@ -215,14 +215,14 @@ async def test_too_long_message_with_phone_still_creates_lead(
     await call(msg)
 
     msg.answer.assert_awaited_once_with(f"{too_long(len(text), 500)}\n\n{LEAD_SAVED}")
-    repo.create_lead.assert_awaited_once_with(42, "@ivan", "069123456", text)  # в заявке текст целиком
+    repo.create_lead.assert_awaited_once_with(42, "@ivan", "069123456", text)  # the lead keeps the full text
     bot.send_message.assert_awaited_once()
 
 
 async def test_lead_saved_text_follows_profile(
     call: HandleText, assistant: AsyncMock, repo: AsyncMock, config: BotConfig
 ) -> None:
-    # В магазине клиенту перезванивает менеджер — как в промпте и других ответах магазина
+    # In the shop a manager calls the client back — as in the prompt and other shop replies
     config.profile = BusinessProfile.SHOP
     text = "Хочу ноутбук, мой номер 069123456 " + "а" * 600
     assistant.reply.return_value = Reply(too_long(len(text), 500), AuditOutcome.TOO_LONG)
@@ -237,7 +237,7 @@ async def test_lead_saved_text_follows_profile(
 
 
 async def test_lead_saved_text_follows_language(call: HandleText, assistant: AsyncMock, repo: AsyncMock) -> None:
-    # Румынскому клиенту раньше дописывалось «Номер телефона мы сохранили» по-русски
+    # A Romanian client used to get «Номер телефона мы сохранили» appended in Russian
     text = "Vreau o programare, numărul meu 069123456 " + "a" * 600
     assistant.reply.return_value = Reply(too_long(len(text), 500, Language.RO), AuditOutcome.TOO_LONG)
     msg = make_message(text)
@@ -255,9 +255,9 @@ async def test_lead_saved_text_follows_language(call: HandleText, assistant: Asy
     ("text", "language_code", "language"),
     [
         ("Cât costă o curățare?", None, Language.RO),
-        ("cat costa o curatare?", "ru", Language.RO),  # текст важнее языка Telegram
+        ("cat costa o curatare?", "ru", Language.RO),  # text outranks the Telegram language
         ("Сколько стоит чистка?", "ro", Language.RU),
-        ("S8?", "ro", Language.RO),  # по тексту не понять — язык Telegram клиента
+        ("S8?", "ro", Language.RO),  # can't tell from the text — the client's Telegram language
         ("S8?", "en", Language.RU),
         ("S8?", None, Language.RU),
     ],
@@ -282,7 +282,7 @@ async def test_too_long_message_without_phone(call: HandleText, assistant: Async
 
 
 async def test_lead_notification_fits_telegram_limit(call: HandleText, repo: AsyncMock, bot: AsyncMock) -> None:
-    # Telegram не пропускает сообщения длиннее 4096 символов — уведомление не должно потеряться
+    # Telegram rejects messages over 4096 characters — the notification must not be lost
     text = "Телефон 069123456. " + "Подробно описываю проблему. " * 150
 
     await call(make_message(text))
@@ -300,11 +300,11 @@ async def test_admin_unreachable_does_not_crash(call: HandleText, repo: AsyncMoc
 
     await call(make_message("069123456"))
 
-    # Заявка всё равно сохранена в БД
+    # The lead is still saved in the DB
     repo.create_lead.assert_awaited_once()
 
 
-# ---------- Уведомления о подозрительных сообщениях ----------
+# ---------- Suspicious message alerts ----------
 
 
 async def test_suspicious_message_alerts_admin(call: HandleText, assistant: AsyncMock, bot: AsyncMock) -> None:
@@ -313,7 +313,7 @@ async def test_suspicious_message_alerts_admin(call: HandleText, assistant: Asyn
 
     await call(msg)
 
-    msg.answer.assert_awaited_once_with("Ответ")  # клиент получает обычный ответ
+    msg.answer.assert_awaited_once_with("Ответ")  # the client gets a regular answer
     [alert] = admin_messages(bot)
     assert "подозрительное сообщение от @ivan (chat 42)" in alert
     assert "просьба игнорировать инструкции, попытка сменить роль бота" in alert
@@ -334,7 +334,7 @@ async def test_alerts_respect_cooldown(call: HandleText, assistant: AsyncMock, b
     assistant.reply.return_value = Reply("Ответ", AuditOutcome.ANSWERED, ("jailbreak",))
 
     await call(make_message("jailbreak 1"))
-    await call(make_message("jailbreak 2"))  # в пределах паузы — без уведомления
+    await call(make_message("jailbreak 2"))  # within the cooldown — no alert
     clock.now += 901
     await call(make_message("jailbreak 3"))
 
@@ -355,20 +355,20 @@ async def test_non_text_message(repo: AsyncMock) -> None:
 
 
 async def test_non_text_message_in_romanian(repo: AsyncMock) -> None:
-    # У фото без подписи текста нет — язык берётся из Telegram клиента
+    # A photo without a caption has no text — the language comes from the client's Telegram
     msg = make_message(None, content_type="photo", language_code="ro")
     await other(msg, repo)
     msg.answer.assert_awaited_once_with(TEXT_ONLY_RO)
     assert logged_event(repo).final_answer == TEXT_ONLY_RO
 
-    # Подпись по-русски важнее языка Telegram
+    # A Russian caption outranks the Telegram language
     msg = make_message(None, content_type="photo", language_code="ro")
     msg.caption = "Вот фото чека"
     await other(msg, repo)
     msg.answer.assert_awaited_once_with(TEXT_ONLY)
 
 
-# ---------- Дневной лимит расходов ----------
+# ---------- Daily spending limit ----------
 
 
 async def test_budget_exceeded_alerts_admin_once(
@@ -381,17 +381,17 @@ async def test_budget_exceeded_alerts_admin_once(
     await call(make_message("Запишите меня, 069123456"))
 
     budget_alerts = [text for text in admin_messages(bot) if "Дневной лимит расходов" in text]
-    assert len(budget_alerts) == 1  # второй клиент администратора не беспокоит
+    assert len(budget_alerts) == 1  # the second client doesn't disturb the admin
     assert "$5" in budget_alerts[0]
-    repo.create_lead.assert_awaited_once()  # заявки сохраняются и без модели
+    repo.create_lead.assert_awaited_once()  # leads are saved even without the model
 
 
-# ---------- Отправка ответа ----------
+# ---------- Sending the answer ----------
 
 
 async def test_lead_is_saved_even_if_answer_fails(call: HandleText, repo: AsyncMock, bot: AsyncMock) -> None:
     msg = make_message("Запишите меня, 069123456")
-    # Например, клиент заблокировал бота, пока ждал ответа
+    # E.g. the client blocked the bot while waiting for the answer
     msg.answer.side_effect = TelegramForbiddenError(
         method=SendMessage(chat_id=42, text="x"), message="bot was blocked by the user"
     )
@@ -404,7 +404,7 @@ async def test_lead_is_saved_even_if_answer_fails(call: HandleText, repo: AsyncM
 
 async def test_long_answer_is_sent_in_parts(call: HandleText, assistant: AsyncMock) -> None:
     paragraph = "Чистка зубов стоит 800 лей. " * 100
-    long_answer = "\n".join([paragraph] * 3)  # ~8400 символов
+    long_answer = "\n".join([paragraph] * 3)  # ~8400 characters
     assistant.reply.return_value = Reply(long_answer, AuditOutcome.ANSWERED)
     msg = make_message("Расскажите всё про чистку")
 

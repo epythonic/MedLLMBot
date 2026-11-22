@@ -1,7 +1,7 @@
-"""Настройки процессов из переменных окружения и .env.
+"""Process settings from environment variables and .env.
 
-Здесь только секреты и инфраструктура. Модель, лимиты и тексты бота хранятся
-в БД (таблица bot_config) и редактируются в админке.
+Only secrets and infrastructure live here. The bot's model, limits and texts are stored
+in the DB (the bot_config table) and edited in the admin panel.
 """
 
 from pathlib import Path
@@ -12,7 +12,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class AppSettings(BaseSettings):
-    """Общее для бота, админки и миграций."""
+    """Shared by the bot, the admin panel and migrations."""
 
     model_config: ClassVar[SettingsConfigDict] = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
@@ -22,49 +22,49 @@ class AppSettings(BaseSettings):
 
     @classmethod
     def from_env(cls) -> Self:
-        """Читает настройки из окружения и .env.
+        """Reads settings from the environment and .env.
 
-        Обязательные поля заполняет pydantic-settings, поэтому вызов без аргументов
-        корректен, хотя тайпчекер видит в `cls()` пропущенные параметры. Здесь, в базовом
-        классе без обязательных полей, ему не на что жаловаться.
+        Required fields are filled in by pydantic-settings, so calling without arguments
+        is correct, even though the type checker sees missing parameters in `cls()`. Here, in the base
+        class without required fields, it has nothing to complain about.
         """
         return cls()
 
 
 class BotSettings(AppSettings):
-    tg_token: SecretStr  # токен от @BotFather
-    admin_id: int  # chat id администратора, которому уходят заявки
+    tg_token: SecretStr  # token from @BotFather
+    admin_id: int  # chat id of the administrator who receives the leads
     anthropic_api_key: SecretStr
 
 
 class AdminSettings(AppSettings):
     admin_username: str = "admin"
     admin_password: SecretStr = Field(min_length=8)
-    admin_secret_key: SecretStr = Field(min_length=32)  # подпись cookie сессии
+    admin_secret_key: SecretStr = Field(min_length=32)  # signs the session cookie
     admin_host: str = "127.0.0.1"
     admin_port: int = 8000
-    # true, когда админка открыта по HTTPS (за reverse proxy): cookie сессии не уйдёт по голому HTTP
+    # true when the admin panel is behind an HTTPS reverse proxy: the session cookie is not sent over plain HTTP
     admin_https_only: bool = False
 
 
-# Причины ошибок pydantic человеческим языком; остальные выводятся как есть
+# Pydantic error reasons in plain language; the rest are shown as is
 _REASONS: dict[str, str] = {
-    "missing": "не задана",
-    "int_parsing": "нужно целое число",
-    "bool_parsing": "нужно true или false",
-    "string_too_short": "слишком короткое значение",
-    "too_short": "слишком короткое значение (пароль — от 8 символов, секретный ключ — от 32)",
+    "missing": "not set",
+    "int_parsing": "must be an integer",
+    "bool_parsing": "must be true or false",
+    "string_too_short": "value is too short",
+    "too_short": "value is too short (password: at least 8 characters, secret key: at least 32)",
 }
 
 
 def describe_settings_error(error: ValidationError) -> str:
-    """Что не так с .env — списком переменных, без трейсбека pydantic."""
+    """What is wrong with .env, as a list of variables, without the pydantic traceback."""
     lines = [
         f"  {'.'.join(str(part) for part in item['loc']).upper()}: {_REASONS.get(item['type'], item['msg'])}"
         for item in error.errors()
     ]
     return (
-        "Не заданы или заданы неверно переменные окружения:\n"
+        "Environment variables are missing or invalid:\n"
         + "\n".join(lines)
-        + "\nЗаполните .env по образцу .env.example (см. README_ru.md, раздел «Быстрый старт»)."
+        + "\nFill in .env following .env.example (see the Quick start section in README.md)."
     )

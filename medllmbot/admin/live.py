@@ -1,13 +1,13 @@
-"""Быстрые действия админки на HTMX.
+"""Quick admin actions on HTMX.
 
-- Статус заявки меняется прямо в списке «Заявки».
-- Открытые «Заявки» и «Журнал» раз в 15 секунд проверяют новые записи и показывают плашку.
-- Клиента можно заблокировать со страницы записи журнала.
-- Порядок услуг, частых вопросов и разделов «О компании» меняется перетаскиванием строк.
+- A lead's status changes right in the «Заявки» list.
+- Open «Заявки» and «Журнал» check for new records every 15 seconds and show a badge.
+- A client can be blocked from an audit log record page.
+- The order of services, FAQ items and «О компании» sections changes by dragging rows.
 
-Маршруты отдают HTML-фрагменты (fragments.py), вся логика остаётся на сервере.
-Вход проверяет SQLAdmin (expose → login_required). Изменяющие запросы принимаются только
-с заголовком HX-Request: чужой сайт не может отправить его без разрешения CORS.
+Routes return HTML fragments (fragments.py); all logic stays on the server.
+SQLAdmin checks login (expose → login_required). Modifying requests are accepted only
+with the HX-Request header: another site cannot send it without CORS permission.
 """
 
 from collections.abc import Callable
@@ -32,7 +32,7 @@ from medllmbot.admin.fragments import (
 from medllmbot.db.models import AuditEvent, FaqItem, InfoSection, Lead, LeadStatus, Service
 from medllmbot.db.repository import Repository
 
-# identity маршрутов: в шаблонах и форматтерах адрес строится через url_for("admin:view-<identity>")
+# Route identities: templates and formatters build the URL via url_for("admin:view-<identity>")
 LEAD_STATUS = "lead-status"
 NEW_LEADS = "new-leads"
 NEW_AUDIT_EVENTS = "new-audit-events"
@@ -46,7 +46,7 @@ def route_name(identity: str) -> str:
 
 
 def _route[H](path: str, *, identity: str, methods: list[str] | None = None) -> Callable[[H], H]:
-    # expose в SQLAdmin не типизирован (возвращает Any) — сужаем тип один раз здесь
+    # SQLAdmin's expose is untyped (returns Any), so the type is narrowed once here
     decorator: Callable[[H], H] = expose(path, methods=methods, identity=identity)
     return decorator
 
@@ -59,7 +59,7 @@ def _fragment(html: Markup, status_code: int = 200) -> Response:
     return HTMLResponse(str(html), status_code=status_code)
 
 
-# Больше SQLite не хранит: такой id заведомо не существует, а запрос с ним упал бы с OverflowError
+# SQLite stores nothing larger: such an id surely does not exist, and a query with it would fail with OverflowError
 MAX_ID = 2**63 - 1
 
 
@@ -77,30 +77,30 @@ def _poll_url(request: Request, after_id: int) -> str:
     return str(request.url.include_query_params(after=after_id))
 
 
-# ---------- Форматтеры колонок SQLAdmin ----------
+# ---------- SQLAdmin column formatters ----------
 
 
 def lead_status_cell(model: Lead, _attr: object, request: Request) -> Markup:
-    """Колонка «Статус» в списке заявок — выпадающий список, который сохраняет сразу."""
+    """«Статус» column in the leads list: a dropdown that saves immediately."""
     return lead_status_select(str(request.url_for(route_name(LEAD_STATUS), lead_id=model.id)), model.status)
 
 
 def sort_handle_cell(model: Service | FaqItem | InfoSection, _attr: object) -> Markup:
-    """Колонка «Порядок» в базе знаний — значок, за который строку перетаскивают."""
+    """«Порядок» column in the knowledge base: the icon used to drag the row."""
     return sort_handle(model.id)
 
 
 def audit_chat_id_cell(model: AuditEvent, _attr: object, request: Request) -> Markup:
-    """Chat ID на странице записи журнала — с кнопкой блокировки клиента."""
+    """Chat ID on an audit log record page, with a button to block the client."""
     url = str(request.url_for(route_name(CLIENT_BLOCK_STATE), chat_id=model.chat_id))
     return Markup("{} {}").format(model.chat_id, client_block_loader(url))
 
 
-# ---------- Маршруты фрагментов ----------
+# ---------- Fragment routes ----------
 
 
 def make_live_view(repo: Repository) -> type[BaseView]:
-    """SQLAdmin создаёт представления без аргументов, поэтому репозиторий передаём через замыкание."""
+    """SQLAdmin creates views without arguments, so the repository is passed through a closure."""
 
     def block_control(request: Request, chat_id: int, blocked: bool | None) -> Response:
         url = str(request.url_for(route_name(CLIENT_BLOCK), chat_id=chat_id))
@@ -113,7 +113,7 @@ def make_live_view(repo: Repository) -> type[BaseView]:
 
         @override
         def is_visible(self, request: Request) -> bool:
-            # Только маршруты для HTMX-фрагментов — в меню не показываем
+            # Only routes for HTMX fragments; not shown in the menu
             return False
 
         @_route("/htmx/lead/{lead_id:int}/status", methods=["POST"], identity=LEAD_STATUS)
@@ -132,7 +132,7 @@ def make_live_view(repo: Repository) -> type[BaseView]:
         async def new_leads(self, request: Request) -> Response:
             after = _query_int(request, "after")
             records = await repo.new_leads(after or 0)
-            if after is None:  # первый запрос со страницы — запоминаем точку отсчёта
+            if after is None:  # first request from the page: remember the baseline
                 return _fragment(new_records_poller(_poll_url(request, records.last_id)))
             text = f"Новых заявок: {records.count}" if records.count else None
             return _fragment(new_records_poller(_poll_url(request, after), text=text))

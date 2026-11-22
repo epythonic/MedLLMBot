@@ -1,4 +1,4 @@
-"""daily budget: дневной лимит расходов на Claude
+"""daily budget: daily spending limit on Claude
 
 Revision ID: 5b9f7d89371e
 Revises: a6cc85d9a7c3
@@ -22,7 +22,7 @@ def upgrade() -> None:
     """Upgrade schema."""
     with op.batch_alter_table("bot_config", schema=None) as batch_op:
         batch_op.add_column(sa.Column("daily_budget_usd", sa.Integer(), server_default="0", nullable=False))
-        # Alembic не находит CHECK-ограничения автоматически — добавлено вручную
+        # Alembic does not detect CHECK constraints automatically; added by hand
         batch_op.create_check_constraint(op.f("ck_bot_config_budget_non_negative"), "daily_budget_usd >= 0")
 
 

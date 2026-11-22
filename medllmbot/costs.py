@@ -1,8 +1,8 @@
-"""Стоимость запросов к Claude: прайс-лист, расчёт по токенам и отчёт по месяцам.
+"""Cost of Claude requests: the price list, per-token calculation and the monthly report.
 
-Деньги хранятся в целых микродолларах (1 µUSD = $0.000001): суммы за месяц складываются
-без ошибок округления. Удобное совпадение: цена «$X за миллион токенов» — это ровно
-X микродолларов за токен.
+Money is stored in whole microdollars (1 µUSD = $0.000001), so monthly totals add up
+without rounding errors. A handy coincidence: a price of "$X per million tokens" is exactly
+X microdollars per token.
 """
 
 import calendar
@@ -14,26 +14,26 @@ from datetime import date
 
 @dataclass(frozen=True)
 class TokenUsage:
-    input_tokens: int  # вход без кэша
-    output_tokens: int  # включая токены размышлений модели
+    input_tokens: int  # input without cache
+    output_tokens: int  # including the model's thinking tokens
     cache_read_tokens: int
     cache_write_tokens: int
 
     @property
     def prompt_tokens(self) -> int:
-        """Длина промпта целиком — по ней выбирается тариф (у Haiku 5.5 он зависит от длины)."""
+        """Full prompt length; it selects the pricing tier (for Haiku 5.5 the tier depends on length)."""
         return self.input_tokens + self.cache_read_tokens + self.cache_write_tokens
 
 
 @dataclass(frozen=True)
 class Price:
-    """Цены за миллион токенов в USD."""
+    """Prices per million tokens in USD."""
 
     model: str
-    from_prompt_tokens: int  # тариф действует для промптов не короче этого значения
+    from_prompt_tokens: int  # the tier applies to prompts at least this long
     input_per_mtok: float
     output_per_mtok: float
-    cache_write_per_mtok: float  # запись в кэш с TTL 5 минут
+    cache_write_per_mtok: float  # cache write with a 5-minute TTL
     cache_read_per_mtok: float
 
     def cost_micro_usd(self, usage: TokenUsage) -> int:
@@ -46,19 +46,19 @@ class Price:
 
 
 def match_model(model: str, priced: Iterable[str]) -> str | None:
-    """ID из прайс-листа, по которому считается модель: точное совпадение или тот же ID без даты снимка."""
+    """Price list ID used to price the model: an exact match or the same ID without the snapshot date."""
     candidates = [m for m in priced if m == model or re.fullmatch(rf"{re.escape(m)}-\d{{8}}", model)]
     return max(candidates, key=len) if candidates else None
 
 
-# Предел INTEGER в SQLite: стоимость больше — заведомо ошибка в прайс-листе
+# SQLite INTEGER limit: a larger cost is certainly an error in the price list
 MAX_MICRO_USD = 2**63 - 1
 
 
 class PriceBook:
-    """Прайс-лист. Ищет цену по точному ID модели, а для датированных снимков
-    (`claude-haiku-4-5-20251001`) — по ID без даты. Другая версия модели (`claude-sonnet-5-6`)
-    цену `claude-sonnet-5` не наследует: такие запросы попадают в «без цены».
+    """Price list. Looks up a price by the exact model ID, and for dated snapshots
+    (`claude-haiku-4-5-20251001`) by the ID without the date. Another model version (`claude-sonnet-5-6`)
+    does not inherit the `claude-sonnet-5` price: such requests end up in «без цены» (unpriced).
     """
 
     _tiers: dict[str, list[Price]]
@@ -78,19 +78,19 @@ class PriceBook:
         return suitable[-1] if suitable else None
 
     def cost_micro_usd(self, model: str, usage: TokenUsage) -> int | None:
-        """Стоимость запроса или None, если цены на модель нет в прайс-листе."""
+        """Request cost, or None if the model has no price in the price list."""
         price = self.find(model, usage.prompt_tokens)
         if price is None:
             return None
         try:
             cost = price.cost_micro_usd(usage)
-        except OverflowError, ValueError:  # бесконечность или NaN в прайс-листе
+        except OverflowError, ValueError:  # infinity or NaN in the price list
             return None
         return cost if cost <= MAX_MICRO_USD else None
 
     def total_micro_usd(self, model: str, requests: Iterable[TokenUsage]) -> int | None:
-        """Стоимость ответа из нескольких запросов (поиск по каталогу): тариф — по длине каждого запроса,
-        как в счёте Anthropic. None, если хотя бы один запрос не посчитать.
+        """Cost of a reply made of several requests (catalog search): the tier follows each request's length,
+        as in the Anthropic bill. None if at least one request cannot be priced.
         """
         total = 0
         for usage in requests:
@@ -107,12 +107,12 @@ def format_usd(micro_usd: int | None) -> str:
     return f"${micro_usd / 1_000_000:,.4f}"
 
 
-# ---------- Отчёт по месяцам ----------
+# ---------- Monthly report ----------
 
 
 @dataclass(frozen=True)
 class UsageRow:
-    month: str  # «2026-11»
+    month: str  # "2026-11"
     model: str
     requests: int
     input_tokens: int
@@ -120,7 +120,7 @@ class UsageRow:
     cache_read_tokens: int
     cache_write_tokens: int
     cost_micro_usd: int
-    unpriced_requests: int  # запросы, для модели которых не нашлось цены
+    unpriced_requests: int  # requests whose model has no price
 
 
 @dataclass(frozen=True)
@@ -128,7 +128,7 @@ class MonthReport:
     month: str
     rows: list[UsageRow]
     total: UsageRow
-    # Для текущего месяца: расход на конец месяца при сохранении текущего темпа
+    # For the current month: projected spending at month end if the current pace holds
     forecast_micro_usd: int | None
 
 
@@ -147,7 +147,7 @@ def _total(month: str, rows: list[UsageRow]) -> UsageRow:
 
 
 def build_report(rows: Iterable[UsageRow], today: date) -> list[MonthReport]:
-    """Группирует строки по месяцам (новые сверху) и считает прогноз для текущего месяца."""
+    """Groups rows by month (newest first) and computes the forecast for the current month."""
     by_month: dict[str, list[UsageRow]] = {}
     for row in rows:
         by_month.setdefault(row.month, []).append(row)

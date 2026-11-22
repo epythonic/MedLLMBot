@@ -1,4 +1,4 @@
-"""Точка входа бота: собирает зависимости и запускает polling."""
+"""Bot entry point: wires up dependencies and starts polling."""
 
 import asyncio
 import logging
@@ -25,19 +25,19 @@ def setup_logging() -> None:
 
 
 def build_dispatcher(repo: Repository, assistant: ClinicAssistant, settings: BotSettings) -> Dispatcher:
-    # Зависимости попадают в хендлеры по имени аргумента
+    # Dependencies reach handlers by argument name
     dp = Dispatcher(
         assistant=assistant,
         repo=repo,
         settings=settings,
         alerts=AlertCooldown(),
-        # Об исчерпанном лимите расходов — не чаще раза в 6 часов
+        # Alert about an exhausted spending limit at most once every 6 hours
         budget_alerts=AlertCooldown(seconds=6 * 3600),
     )
-    # Порядок важен: сначала клиент и настройки, потом rate-limit по этим настройкам
+    # Order matters: client and settings first, then the rate limit based on those settings
     dp.message.outer_middleware(ClientMiddleware(repo))
     dp.message.outer_middleware(ThrottlingMiddleware(repo, RateLimiter()))
-    # Живой оператор — раньше основного роутера: его сообщения не должны попасть к Claude
+    # Live operator goes before the main router: its messages must not reach Claude
     dp.include_router(create_operator_router())
     dp.include_router(create_router())
     return dp
@@ -48,18 +48,18 @@ async def main(settings: BotSettings) -> None:
     repo = Repository(create_sessionmaker(engine))
     config = await repo.get_config()
 
-    # Одна повторная попытка: клиент в Telegram не должен ждать ответа дольше минуты
+    # A single retry: a Telegram client should not wait more than a minute for a reply
     llm = ClinicLLM(AsyncAnthropic(api_key=settings.anthropic_api_key.get_secret_value(), timeout=30.0, max_retries=1))
     assistant = ClinicAssistant(llm, repo)
     bot = Bot(settings.tg_token.get_secret_value())
     dp = build_dispatcher(repo, assistant, settings)
 
-    # Журнал аудита чистится по сроку хранения из настроек бота
+    # The audit log is purged by the retention period from the bot settings
     purge_task = asyncio.create_task(purge_periodically(repo))
     try:
-        logging.info("Бот запущен, модель: %s (меняется в админке)", config.model)
-        # aiogram не типизировал UNSET_TYPE в сигнатуре start_polling — исправить можно
-        # только в библиотеке
+        logging.info("Bot started, model: %s (changed in the admin panel)", config.model)
+        # aiogram does not type UNSET_TYPE in the start_polling signature; this can only
+        # be fixed in the library
         await dp.start_polling(bot)  # pyright: ignore[reportUnknownMemberType]
     finally:
         purge_task.cancel()

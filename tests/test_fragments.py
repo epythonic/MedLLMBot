@@ -1,4 +1,4 @@
-"""HTML-фрагменты для HTMX: состояния, атрибуты hx-* и экранирование."""
+"""HTML fragments for HTMX: states, hx-* attributes and escaping."""
 
 import re
 
@@ -51,7 +51,7 @@ class TestPoller:
         html = str(new_records_poller(URL, text="Новых заявок: 2"))
         assert "alert-info" in html
         assert "Новых заявок: 2" in html
-        assert 'href=""' in html  # «Показать» перезагружает текущий список с его фильтрами
+        assert 'href=""' in html  # «Показать» reloads the current list with its filters
 
     def test_warning_banner(self) -> None:
         assert "alert-warning" in str(new_records_poller(URL, text="…", warning=True))

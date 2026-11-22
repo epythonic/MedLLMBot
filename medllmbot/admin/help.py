@@ -1,12 +1,12 @@
-"""Справка админки для менеджера: значок «?» у раздела и у каждого поля.
+"""Admin help for the manager: a «?» icon on each section and each field.
 
-- Наведение на «?» — короткая подсказка, клик — боковая панель с полной справкой раздела.
-- Полный текст раздела — шаблон `templates/help/topics/<identity>.html`.
-- Пояснения к полям — здесь, в `HelpTopic.fields`: из них строятся и подсказки «?»,
-  и таблица «Поля и колонки» в конце справки раздела.
+- Hovering «?» shows a short tooltip; clicking opens a side panel with the section's full help.
+- The section's full text is the `templates/help/topics/<identity>.html` template.
+- Field explanations live here, in `HelpTopic.fields`: they feed both the «?» tooltips
+  and the «Поля и колонки» table at the end of the section help.
 
-Тесты сверяют справку с кодом: у каждого раздела есть справка, у каждой колонки и поля
-формы — пояснение, у каждого итога обработки и признака атаки — описание.
+Tests check the help against the code: every section has help, every column and form field
+has an explanation, every processing outcome and attack sign has a description.
 """
 
 from collections.abc import Mapping
@@ -24,10 +24,10 @@ from medllmbot.security import FLAG_LABELS, LEAK_CODE
 
 @dataclass(frozen=True)
 class HelpTopic:
-    identity: str  # identity раздела SQLAdmin: по нему справка находит свой раздел
-    title: str  # как раздел называется в меню
-    summary: str  # одна-две фразы: подсказка у «?» раздела и карточка на главной
-    # Имя поля модели (или подпись колонки на своей странице) → пояснение
+    identity: str  # SQLAdmin section identity: the help finds its section by it
+    title: str  # what the section is called in the menu
+    summary: str  # one or two sentences: the section's «?» tooltip and its card on the home page
+    # Model field name (or column label on a custom page) → explanation
     fields: Mapping[str, str] = field(default_factory=dict[str, str])
 
     @property
@@ -35,7 +35,7 @@ class HelpTopic:
         return f"help/topics/{self.identity}.html"
 
     def anchor(self, part: str = "") -> str:
-        """id блока справки. Уникален на общей странице «Справка», где собраны все разделы."""
+        """id of the help block. Unique on the shared «Справка» page that gathers all sections."""
         return f"help-{self.identity}-{part}" if part else f"help-{self.identity}"
 
     def field_anchor(self, name: str) -> str:
@@ -48,7 +48,7 @@ SORT_ORDER = (
 )
 
 TOPICS: tuple[HelpTopic, ...] = (
-    # ---------- Клиенты ----------
+    # ---------- Clients ----------
     HelpTopic(
         identity="lead",
         title="Заявки",
@@ -118,7 +118,7 @@ TOPICS: tuple[HelpTopic, ...] = (
         title="Аналитика",
         summary="О чём спрашивают клиенты, сколько диалогов заканчиваются заявкой и на какие вопросы бот не нашёл "
         "ответа — подсказка, что добавить в базу знаний.",
-        # У страницы нет модели: ключи — подписи колонок таблиц
+        # The page has no model: keys are table column labels
         fields={
             "Тема": "Тема по ключевым словам вопроса. Под названием — последние вопросы этой темы.",
             "Вопросов": "Сколько вопросов за период попало в тему. Один вопрос может попасть в несколько тем.",
@@ -133,7 +133,7 @@ TOPICS: tuple[HelpTopic, ...] = (
             "Последний раз": "Когда вопрос задали последний раз (UTC).",
         },
     ),
-    # ---------- База знаний ----------
+    # ---------- Knowledge base ----------
     HelpTopic(
         identity="service",
         title="Каталог и цены",
@@ -171,7 +171,7 @@ TOPICS: tuple[HelpTopic, ...] = (
             "is_active": "Снимите отметку, чтобы бот временно не видел этот раздел.",
         },
     ),
-    # ---------- Безопасность ----------
+    # ---------- Security ----------
     HelpTopic(
         identity="audit-event",
         title="Журнал",
@@ -200,7 +200,7 @@ TOPICS: tuple[HelpTopic, ...] = (
             "Пусто — каталог был в запросе целиком или искать не понадобилось.",
         },
     ),
-    # ---------- Расходы ----------
+    # ---------- Costs ----------
     HelpTopic(
         identity="model-price",
         title="Цены моделей",
@@ -237,7 +237,7 @@ TOPICS: tuple[HelpTopic, ...] = (
         identity="costs",
         title="Отчёт по месяцам",
         summary="Сколько стоил бот по месяцам и моделям и прогноз расходов на конец текущего месяца.",
-        # У отчёта нет модели: ключи — подписи колонок таблицы
+        # The report has no model: keys are table column labels
         fields={
             "Модель": "Модель Claude. Внизу каждого месяца — строка «Итого».",
             "Запросов": "Сколько ответов дал Claude. Ответ с поиском по каталогу считается одним, токены — все.",
@@ -248,7 +248,7 @@ TOPICS: tuple[HelpTopic, ...] = (
             "Стоимость": "Сумма в USD по ценам из «Цены моделей».",
         },
     ),
-    # ---------- Настройки ----------
+    # ---------- Settings ----------
     HelpTopic(
         identity="bot-config",
         title="Настройки бота",
@@ -293,7 +293,7 @@ def help_topic(identity: str | None) -> HelpTopic | None:
     return HELP.get(identity) if identity else None
 
 
-# Пояснения для справки «Журнала»: итоги обработки и признаки атаки
+# Explanations for the «Журнал» help: processing outcomes and attack signs
 OUTCOME_HELP: dict[AuditOutcome, str] = {
     AuditOutcome.ANSWERED: "Бот ответил.",
     AuditOutcome.PRICE_REPLACED: "Модель назвала цену, которой нет в базе знаний. Клиент получил «Уточню стоимость "
@@ -323,7 +323,7 @@ OUTCOME_HELP: dict[AuditOutcome, str] = {
     "в «Отправлено клиенту» — что дошло; пусто — не дошло (клиент заблокировал бота или ошибка Telegram).",
 }
 
-# Пояснения для справки «Аналитики»: почему вопрос попал в «Вопросы без ответа»
+# Explanations for the «Аналитика» help: why a question landed in «Вопросы без ответа»
 GAP_HELP: dict[GapReason, str] = {
     GapReason.NO_INFO: "Бот ответил, что на вопрос ответит администратор или менеджер в рабочее время или что такой "
     "информации у него нет. Так правила бота велят отвечать, когда ответа нет в базе знаний. Обещание перезвонить "
@@ -364,14 +364,14 @@ FLAG_HELP: tuple[FlagHelp, ...] = tuple(
 
 @final
 class HelpView(BaseView):
-    """Страница «Справка»: справка всех разделов на одной странице, с оглавлением."""
+    """«Справка» page: help for all sections on one page, with a table of contents."""
 
     name = "Справка"
     icon = "fa-solid fa-book"
     identity = "help"
 
-    # В SQLAdmin декоратор expose и TemplateResponse типизированы через Any и голый dict —
-    # исправить это можно только в библиотеке
+    # In SQLAdmin the expose decorator and TemplateResponse are typed with Any and a bare dict;
+    # this can only be fixed in the library
     @expose("/help", methods=["GET"], identity="help")  # pyright: ignore[reportAny]
     async def page(self, request: Request) -> Response:
         return await self.templates.TemplateResponse(  # pyright: ignore[reportUnknownMemberType]

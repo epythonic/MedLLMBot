@@ -1,8 +1,8 @@
-"""Профили бизнеса: роль бота и предметные правила для стоматологии и магазина электроники.
+"""Business profiles: the bot role and domain rules for the dental clinic and the electronics shop.
 
-Тексты профилей — в коде, а не в админке: правила безопасности в них нельзя случайно ослабить
-из веб-формы. Какой профиль работает, хранится в `bot_config.profile`; данные демо для него
-заливает `python -m medllmbot.db.seed --reset --profile shop`.
+Profile texts live in code, not in the admin panel, so their security rules cannot be weakened
+by accident from a web form. The active profile is stored in `bot_config.profile`; its demo data
+is loaded by `python -m medllmbot.db.seed --reset --profile shop`.
 """
 
 from dataclasses import dataclass
@@ -13,38 +13,38 @@ from medllmbot.text import Language
 
 @dataclass(frozen=True)
 class Replies:
-    """Готовые ответы бота без модели: в них сотрудник называется так же, как в промпте профиля.
+    """Canned bot replies without the model: they name the staff member the same way as the profile prompt.
 
-    У профиля два набора — русский и румынский: клиент получает заготовку на языке своего сообщения.
+    A profile has two sets, Russian and Romanian: the client gets the canned reply in the language of their message.
     """
 
-    tech_error: str  # API недоступен или непредвиденная ошибка
-    fallback: str  # отказ модели, обрезанный или пустой ответ, утечка промпта
-    price_fallback: str  # модель назвала цену, которой нет в каталоге
-    budget_exceeded: str  # дневной лимит расходов исчерпан
-    lead_saved: str  # к ответу, когда телефон сохранён как заявка
-    operator_started: str  # клиент попросил человека — диалог передан администратору
-    operator_ended: str  # администратор вернул клиента боту
+    tech_error: str  # API unavailable or an unexpected error
+    fallback: str  # model refusal, truncated or empty reply, prompt leak
+    price_fallback: str  # the model named a price that is not in the catalog
+    budget_exceeded: str  # daily spending limit exhausted
+    lead_saved: str  # appended to the reply when the phone is saved as a lead
+    operator_started: str  # the client asked for a human; the dialog is handed to the administrator
+    operator_ended: str  # the administrator handed the client back to the bot
 
 
 @dataclass(frozen=True)
 class Profile:
-    # Строки правил — с отступом продолжения «  », как в итоговом промпте
-    role: str  # первая строка промпта: кто такой бот
-    scope: str  # правило «отвечай только о …»
-    staff: str  # кто отвечает клиенту вместо бота
-    price_note: str  # что добавлять, называя цену
-    domain_rules: tuple[str, ...]  # правила предметной области
-    lead_rule: str  # когда просить телефон
-    off_topic: str  # ответ на посторонние темы, с переносом строки
-    catalog_title: str  # заголовок каталога в базе знаний
-    search_examples: str  # примеры запросов для search_catalog
-    replies: Replies  # по-русски
-    replies_ro: Replies  # те же ответы по-румынски
-    orders: bool = False  # есть ли заказы, статус которых бот узнаёт инструментом order_status
+    # Rule lines use the "  " continuation indent, as in the final prompt
+    role: str  # first prompt line: who the bot is
+    scope: str  # the "answer only about …" rule
+    staff: str  # who answers the client instead of the bot
+    price_note: str  # what to add when naming a price
+    domain_rules: tuple[str, ...]  # domain rules
+    lead_rule: str  # when to ask for a phone number
+    off_topic: str  # reply to off-topic questions, with a line break
+    catalog_title: str  # catalog heading in the knowledge base
+    search_examples: str  # example queries for search_catalog
+    replies: Replies  # in Russian
+    replies_ro: Replies  # the same replies in Romanian
+    orders: bool = False  # whether there are orders whose status the bot looks up with the order_status tool
 
     def replies_in(self, language: Language) -> Replies:
-        """Готовые ответы на языке клиента."""
+        """Canned replies in the client's language."""
         return self.replies_ro if language is Language.RO else self.replies
 
 
@@ -93,10 +93,10 @@ PROFILES: dict[BusinessProfile, Profile] = {
             "- Называй только характеристики из <info> и результатов search_catalog.\n"
             "  Не обещай наличие и сроки доставки, которых там нет.",
             "- Не сравнивай с другими магазинами и не советуй покупать в другом месте.",
-            # Результаты поиска на русском, и без этого правила модель отвечала по-русски на румынский вопрос
+            # Search results are in Russian, and without this rule the model answered a Romanian question in Russian
             "- Каталог и результаты search_catalog — на русском. Клиенту, который пишет\n"
             "  по-румынски, отвечай по-румынски: описание переводи, название модели не меняй.",
-            # Сумму, которой нет в каталоге, проверка цен заменит на «Уточню стоимость…»
+            # The price check replaces an amount that is not in the catalog with «Уточню стоимость…»
             "- Не считай суммы и ежемесячные платежи: назови цены позиций,\n  итог и рассрочку посчитает менеджер.",
             "- Статус заказа узнавай инструментом order_status: попроси номер заказа\n"
             "  и последние 4 цифры телефона из заказа. Полный номер телефона не проси.\n"
@@ -105,7 +105,8 @@ PROFILES: dict[BusinessProfile, Profile] = {
         ),
         lead_rule="- Если клиент хочет купить, оформить заказ или поговорить с менеджером,\n  попроси имя и номер телефона.",
         off_topic="«Я могу помочь только\n  с вопросами о магазине»",
-        # В каталоге и услуги: без них в заголовке модель не искала установку и отвечала «информации нет»
+        # The catalog includes services too: without them in the heading the model did not search for installation
+        # and answered «информации нет»
         catalog_title="Товары, услуги и цены",
         search_examples="«ноутбук 16 ГБ», «беспроводные наушники», «робот-пылесос», «установка стиральной машины»",
         replies=Replies(

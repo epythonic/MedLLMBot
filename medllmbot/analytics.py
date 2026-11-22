@@ -1,13 +1,13 @@
-"""Аналитика вопросов клиентов: частые темы, доля диалогов с заявкой и вопросы, на которые бот не ответил.
+"""Client question analytics: frequent topics, the share of dialogs with a lead and questions the bot did not answer.
 
-Считается на лету по журналу (`audit_log`) и заявкам за выбранный период:
-- поправленные словари тем сразу действуют и на прошлые вопросы;
-- объём ограничен сроком хранения журнала (`bot_config.audit_retention_days`);
-- Claude не вызывается: аналитика ничего не стоит, а переписка клиентов больше никуда не отправляется.
+Computed on the fly from the audit log (`audit_log`) and leads for the selected period:
+- edited topic dictionaries apply to past questions right away;
+- the volume is bounded by the audit log retention period (`bot_config.audit_retention_days`);
+- Claude is not called: analytics costs nothing, and client conversations are not sent anywhere else.
 
-Темы — начала слов на русском и румынском (и немного английского) для каждого профиля бизнеса.
-Вопрос может попасть в несколько тем. Сообщение без совпадений с телефоном — «Оставили телефон»
-(обычно это ответ на просьбу бота оставить контакты), остальные — «Другое».
+Topics are word beginnings in Russian and Romanian (and a little English) for each business profile.
+A question may fall into several topics. A message with no matches but with a phone number goes to
+«Оставили телефон» (usually a reply to the bot asking for contacts), the rest go to «Другое».
 """
 
 import enum
@@ -24,17 +24,17 @@ from medllmbot.guards import extract_phone
 from medllmbot.text import normalize
 from medllmbot.tools import FOUND, ORDER_STATUS_NAME, SEARCH_CATALOG_NAME
 
-PERIODS: tuple[int, ...] = (7, 30, 90)  # периоды страницы аналитики, дней
+PERIODS: tuple[int, ...] = (7, 30, 90)  # analytics page periods, in days
 DEFAULT_PERIOD = 30
-# Клиент не писал дольше суток — следующее сообщение начинает новый диалог
+# The client has not written for over a day, so the next message starts a new dialog
 DIALOG_GAP = timedelta(hours=24)
-MAX_GAPS = 50  # групп вопросов без ответа на странице: самые частые
-MAX_EXAMPLES = 3  # последних вопросов под названием темы
+MAX_GAPS = 50  # unanswered question groups on the page: the most frequent ones
+MAX_EXAMPLES = 3  # latest questions under the topic name
 OTHER = "Другое"
 CONTACTS = "Оставили телефон"
 
-# Не вопросы к боту: приветствие, не текст, сообщения, которые бот пропустил без ответа, и разговор
-# с живым оператором — его ведёт человек. Сама просьба позвать оператора — вопрос, она считается отдельно
+# Not questions to the bot: greeting, non-text, messages the bot skipped without a reply, and the conversation
+# with the live operator, which a human handles. The request for an operator itself is a question, counted separately
 NOT_QUESTIONS: frozenset[AuditOutcome] = frozenset(
     {
         AuditOutcome.GREETING,
@@ -46,10 +46,10 @@ NOT_QUESTIONS: frozenset[AuditOutcome] = frozenset(
     }
 )
 QUESTION_OUTCOMES: tuple[AuditOutcome, ...] = tuple(o for o in AuditOutcome if o not in NOT_QUESTIONS)
-# Клиент получил заготовку «Уточню у администратора…» вместо ответа модели
+# The client got the canned «Уточню у администратора…» instead of a model reply
 _NO_ANSWER: frozenset[AuditOutcome] = frozenset({AuditOutcome.REFUSAL, AuditOutcome.EMPTY, AuditOutcome.TRUNCATED})
 
-# ---------- Темы ----------
+# ---------- Topics ----------
 
 
 @dataclass(frozen=True)
@@ -59,10 +59,10 @@ class Topic:
 
     @classmethod
     def of(cls, name: str, *stems: str) -> Self:
-        """Тема по началам слов: «цен» находит «цена», «цены», «ценник».
+        """A topic by word beginnings: «цен» finds «цена», «цены», «ценник».
 
-        Стемы — регулярные выражения для текста после `normalize`; `\\b` в конце — слово целиком.
-        Стем начинается с начала слова: перед ним не буква и не цифра.
+        Stems are regular expressions for text after `normalize`; a trailing `\\b` means a whole word.
+        A stem starts at a word start: no letter or digit before it.
         """
         return cls(name, re.compile(r"(?<!\w)(?:" + "|".join(stems) + ")"))
 
@@ -70,8 +70,8 @@ class Topic:
         return self.pattern.search(normalized) is not None
 
 
-# Темы обоих профилей.
-# Не цены: «почему», «центр», «стоит ли», «дорогу», румынское «pretenție»
+# Topics shared by both profiles.
+# Not prices: «почему», «центр», «стоит ли», «дорогу», Romanian «pretenție»
 PRICES = Topic.of(
     "Цены",
     r"цен(?!тр)", r"стои(?!т ли\b)", r"прайс", r"тариф", r"почем\b", r"дорого\b", r"дороже",
@@ -84,9 +84,9 @@ PAYMENT = Topic.of(
     r"кредит", r"частями", r"страхов", r"перевод", r"счет\b",
     r"plat", r"card(?:ul)?\b", r"numerar", r"rate\b", r"credit", r"asigur", r"transfer", r"pay", r"installment",
 )  # fmt: skip
-# «Работаете ли с компаниями?», «работаете по страховке?» — не о часах работы, поэтому «работаете» — только
-# со словом о времени. «Время работы» и «режим работы» не подходят: так спрашивают об аккумуляторе и пылесосе.
-# Румынское «afla» — и «находиться», и «узнать» («cum pot afla statusul»): о месте — только после «unde»
+# «Работаете ли с компаниями?», «работаете по страховке?» are not about opening hours, so «работаете» counts only
+# with a time word. «Время работы» and «режим работы» do not fit: people ask that about batteries and vacuums.
+# Romanian «afla» means both "to be located" and "to find out" («cum pot afla statusul»): location only after «unde»
 LOCATION = Topic.of(
     "Адрес и часы работы",
     r"адрес", r"наход", r"добрат", r"доехат", r"проехат", r"парков", r"шоурум", r"часы работы", r"график работы",
@@ -105,7 +105,7 @@ CLINIC_TOPICS: tuple[Topic, ...] = (
         r"programa", r"programez", r"inscri", r"appointment", r"book",
     ),
     LOCATION,
-    # «Скол» — только словом целиком: иначе в тему попал бы каждый вопрос «сколько стоит»
+    # «Скол» only as a whole word: otherwise every «сколько стоит» question would land in this topic
     Topic.of(
         "Боль и срочная помощь",
         r"болит", r"болят", r"боль\b", r"болью", r"боли\b", r"больно", r"ноет", r"ноют", r"отек", r"опух", r"флюс",
@@ -150,15 +150,16 @@ SHOP_TOPICS: tuple[Topic, ...] = (
         r"recomand", r"sfat", r"alege", r"diferent", r"compar", r"recommend", r"better", r"best", r"which one",
     ),
     PRICES,
-    # «Наличными» — это оплата, а не наличие: после «налич» нужна гласная. «Гарантия закончилась» — не наличие
+    # «Наличными» is payment, not availability: «налич» needs a vowel after it.
+    # «Гарантия закончилась» is not availability
     Topic.of(
         "Наличие",
         r"налич[иея]", r"в продаже", r"остал", r"закончились", r"поступ",
         r"stoc", r"disponibil", r"in stock", r"available",
     ),
-    # Номер заказа (DE-10023, DE10023, ДЕ–10023 с кириллицей) — после слова «заказ» или в начале сообщения:
-    # так клиент отвечает на просьбу бота. Код модели в середине вопроса («Есть WH-1000XM5?») — не заказ,
-    # «заказать» — покупка. «Трекер» — это фитнес-браслет, поэтому только «трек-номер»
+    # An order number (DE-10023, DE10023, ДЕ–10023 in Cyrillic) after the word «заказ» or at the message start:
+    # that is how the client answers the bot's request. A model code mid-question («Есть WH-1000XM5?») is not an
+    # order, «заказать» is a purchase. «Трекер» is a fitness band, so only «трек-номер»
     Topic.of(
         "Статус заказа",
         r"статус", r"(?:мой|моего|моим|наш|нашего) заказ", r"где заказ", r"номер заказа", r"посылк",
@@ -197,7 +198,7 @@ TOPICS: dict[BusinessProfile, tuple[Topic, ...]] = {
 
 
 def topics_of(text: str, topics: Sequence[Topic]) -> tuple[str, ...]:
-    """Темы вопроса в порядке словаря. Без совпадений: с телефоном — «Оставили телефон», иначе «Другое»."""
+    """Question topics in dictionary order. No matches: «Оставили телефон» with a phone, otherwise «Другое»."""
     normalized = normalize(text)
     found = tuple(topic.name for topic in topics if topic.matches(normalized))
     if found:
@@ -205,11 +206,11 @@ def topics_of(text: str, topics: Sequence[Topic]) -> tuple[str, ...]:
     return (CONTACTS,) if extract_phone(text) else (OTHER,)
 
 
-# ---------- Вопросы без ответа ----------
+# ---------- Unanswered questions ----------
 
 
 class GapReason(enum.Enum):
-    """Почему клиент не получил ответа по существу."""
+    """Why the client did not get a substantive answer."""
 
     NO_INFO = "Нет в базе знаний"
     NOT_FOUND = "Нет в каталоге"
@@ -221,13 +222,15 @@ class GapReason(enum.Enum):
         return self.value
 
 
-_WORD = r"[^\s.!?;:]+"  # слово со знаками препинания, но без конца предложения
+_WORD = r"[^\s.!?;:]+"  # a word with punctuation, but without a sentence end
 _IN_HOURS = r"в (?:рабочее время|часы работы|рабочие часы)"
 _WILL_ANSWER = r"ответ(?:ит|ят|им)\b"
-# Так правило промпта велит отвечать, если ответа нет в базе знаний: «администратор ответит в рабочее время».
-# «Ответит» — будущее время: «администратор отвечает в Telegram в рабочее время» — это сведения о клинике.
-# «Подтвердит», «уточнит» не подходят: так бот говорит о цене и наличии в обычных ответах. Между «ответит»
-# и временем — слова одного предложения без союза «и»: «перезвонит в рабочее время и ответит» — это не то
+# This is how the prompt rule says to reply when the knowledge base has no answer:
+# «администратор ответит в рабочее время». «Ответит» is future tense:
+# «администратор отвечает в Telegram в рабочее время» is information about the clinic.
+# «Подтвердит», «уточнит» do not fit: the bot says them about price and availability in normal replies.
+# Between «ответит» and the time, only words of one sentence without the conjunction «и»:
+# «перезвонит в рабочее время и ответит» is not it
 _DEFERS = re.compile(
     "|".join(
         (
@@ -241,10 +244,10 @@ _DEFERS = re.compile(
         )
     )
 )
-# Обещание позвонить — это запись или контакты, а не пробел в базе знаний:
+# A promise to call back is about booking or contacts, not a knowledge base gap:
 # «Оставьте номер — администратор перезвонит в рабочее время», «администратор ответит на звонок в часы работы»
 _CALLBACK = re.compile(r"(?<!\w)(?:перезвон|позвон|звон|свяж|va suna|vor suna|call)")
-# Прямое признание: «у меня нет такой информации». «Для данных процедур … нет» — не о сведениях
+# A direct admission: «у меня нет такой информации». «Для данных процедур … нет» is not about information
 _NO_DATA = re.compile(
     "|".join(
         (
@@ -259,9 +262,9 @@ _SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
 
 
 def defers_to_staff(answer: str) -> bool:
-    """Бот ответил, что такой информации нет или что на вопрос ответит сотрудник. По фразе — приблизительно.
+    """The bot replied that it has no such information or that staff will answer. Approximate, by phrase.
 
-    Проверяется каждое предложение: в одном бот может отказать, в другом — пообещать звонок.
+    Each sentence is checked: the bot may decline in one and promise a call in another.
     """
     return any(
         _NO_DATA.search(sentence) or (_DEFERS.search(sentence) and not _CALLBACK.search(sentence))
@@ -270,7 +273,7 @@ def defers_to_staff(answer: str) -> bool:
 
 
 def _searched_nothing(tool_calls: str | None) -> bool:
-    """Бот искал в каталоге, и ни один поиск ничего не нашёл."""
+    """The bot searched the catalog, and no search found anything."""
     searches = [
         line for line in (tool_calls or "").splitlines() if line.startswith(f"{SEARCH_CATALOG_NAME} ") and FOUND in line
     ]
@@ -278,20 +281,20 @@ def _searched_nothing(tool_calls: str | None) -> bool:
 
 
 def _checked_order(tool_calls: str | None) -> bool:
-    """Бот проверял заказ: «не нашёл заказ» — ошибка в номере, а не пробел в базе знаний."""
+    """The bot checked an order: "order not found" is a wrong number, not a knowledge base gap."""
     return any(line.startswith(ORDER_STATUS_NAME) for line in (tool_calls or "").splitlines())
 
 
 def gap_reason(question: QuestionRow) -> GapReason | None:
-    """Почему бот не ответил на вопрос; None — ответил.
+    """Why the bot did not answer the question; None if it did.
 
-    Технические сбои (ошибка API, лимит расходов, слишком длинное сообщение) — не пробел в базе знаний:
-    их видно в «Журнале».
+    Technical failures (API error, spending limit, message too long) are not knowledge base gaps:
+    they are visible in «Журнал» (the audit log).
     """
     if question.outcome is AuditOutcome.PRICE_REPLACED:
         return GapReason.UNKNOWN_PRICE
     answered = question.outcome is AuditOutcome.ANSWERED
-    # Пустой поиск важнее отказа: он подсказывает, чего не хватает в каталоге
+    # An empty search outranks a refusal: it hints at what the catalog is missing
     if (answered or question.outcome in _NO_ANSWER) and _searched_nothing(question.tool_calls):
         return GapReason.NOT_FOUND
     if question.outcome in _NO_ANSWER:
@@ -302,19 +305,19 @@ def gap_reason(question: QuestionRow) -> GapReason | None:
 
 
 def _gap_key(text: str) -> str:
-    """Одинаковые вопросы без учёта регистра, пробелов и знаков препинания: «Есть брекеты?» = «есть брекеты».
+    """Same questions ignoring case, spaces and punctuation: «Есть брекеты?» = «есть брекеты».
 
-    Сообщение из одних эмодзи или знаков сравнивается целиком: «👍» и «😡» — разные строки.
+    A message of only emoji or punctuation is compared whole: «👍» and «😡» are different strings.
     """
     normalized = normalize(text)
     return " ".join(re.findall(r"\w+", normalized)) or normalized
 
 
-# ---------- Сводка ----------
+# ---------- Summary ----------
 
 
 def percent(part: int, whole: int) -> int | None:
-    """Целый процент с округлением половины вверх (1 из 8 — 13%); None, если считать не из чего."""
+    """Whole percent with round-half-up (1 of 8 is 13%); None if there is nothing to count."""
     return (200 * part + whole) // (2 * whole) if whole else None
 
 
@@ -322,10 +325,10 @@ def percent(part: int, whole: int) -> int | None:
 class TopicStat:
     name: str
     questions: int
-    share: int  # процент от всех вопросов; вопрос бывает в нескольких темах, поэтому в сумме больше 100
-    dialogs: int  # диалогов, где была тема
+    share: int  # percent of all questions; a question may be in several topics, so the total exceeds 100
+    dialogs: int  # dialogs where the topic came up
     dialogs_with_lead: int
-    examples: tuple[str, ...]  # последние вопросы темы
+    examples: tuple[str, ...]  # latest questions of the topic
 
     @property
     def lead_percent(self) -> int | None:
@@ -333,20 +336,20 @@ class TopicStat:
 
     @property
     def share_text(self) -> str:
-        """Доля для страницы: редкая тема — «<1%», а не «0%»."""
+        """Share for the page: a rare topic shows «<1%», not «0%»."""
         return "<1%" if self.questions and not self.share else f"{self.share}%"
 
 
 @dataclass(frozen=True)
 class Gap:
-    """Вопрос без ответа; одинаковые вопросы собраны в одну строку."""
+    """An unanswered question; identical questions are grouped into one row."""
 
-    text: str  # последняя формулировка
+    text: str  # latest wording
     count: int
-    reason: GapReason  # причина в последний раз
-    answer: str | None  # что получил клиент в последний раз
+    reason: GapReason  # reason the last time
+    answer: str | None  # what the client got the last time
     last_at: datetime
-    event_id: int  # последняя запись журнала
+    event_id: int  # latest audit log entry
 
 
 @dataclass(frozen=True)
@@ -355,11 +358,11 @@ class Analytics:
     clients: int
     dialogs: int
     dialogs_with_lead: int
-    unanswered: int  # вопросов без ответа, с повторами
-    topics: tuple[TopicStat, ...]  # самые частые сверху, «Оставили телефон» и «Другое» — последними
-    gaps: tuple[Gap, ...]  # не больше MAX_GAPS самых частых
-    gap_groups: int  # всего разных вопросов без ответа, кроме тех, на которые бот потом ответил
-    handoffs: int = 0  # сколько раз клиенты просили живого человека
+    unanswered: int  # unanswered questions, including repeats
+    topics: tuple[TopicStat, ...]  # most frequent first, «Оставили телефон» and «Другое» last
+    gaps: tuple[Gap, ...]  # at most MAX_GAPS most frequent
+    gap_groups: int  # total distinct unanswered questions, except those the bot answered later
+    handoffs: int = 0  # how many times clients asked for a live human
 
     @property
     def lead_percent(self) -> int | None:
@@ -378,10 +381,10 @@ class _Dialog:
 
 
 def _dialogs(questions: Sequence[QuestionRow], leads: Sequence[LeadRow], topics: dict[int, tuple[str, ...]]) -> list[_Dialog]:
-    """Диалоги: сообщения одного клиента с паузами не дольше `DIALOG_GAP`.
+    """Dialogs: messages from one client with pauses no longer than `DIALOG_GAP`.
 
-    Заявка относится к диалогу, в котором клиент оставил телефон. Диалоги без вопросов не считаются:
-    например, телефон в сообщении с признаками атаки.
+    A lead belongs to the dialog in which the client left the phone number. Dialogs without questions do not count:
+    for example, a phone number in a message with signs of an attack.
     """
     timeline: dict[int, list[tuple[datetime, QuestionRow | None]]] = {}
     for question in questions:
@@ -391,7 +394,7 @@ def _dialogs(questions: Sequence[QuestionRow], leads: Sequence[LeadRow], topics:
 
     dialogs: list[_Dialog] = []
     for points in timeline.values():
-        points.sort(key=lambda point: (point[0], point[1] is None))  # в одну секунду вопрос раньше заявки
+        points.sort(key=lambda point: (point[0], point[1] is None))  # same second: the question goes first
         current: _Dialog | None = None
         last_at: datetime | None = None
         for at, question in points:
@@ -414,16 +417,16 @@ def _topic_stats(
     in_dialogs = Counter(name for dialog in dialogs for name in dialog.topics)
     with_lead = Counter(name for dialog in dialogs if dialog.has_lead for name in dialog.topics)
     examples: dict[str, list[str]] = {name: [] for name in counts}
-    for question in reversed(questions):  # последние вопросы — первыми
+    for question in reversed(questions):  # latest questions first
         if extract_phone(question.text):
-            continue  # примеры видны всем, кто открыл страницу, — без телефонов клиентов
+            continue  # examples are visible to anyone who opens the page, so no client phone numbers
         text = " ".join(question.text.split())
         for name in topics[question.event_id]:
             if len(examples[name]) < MAX_EXAMPLES and text not in examples[name]:
                 examples[name].append(text)
 
     position = {name: i for i, name in enumerate(order)}
-    last = {CONTACTS: 1, OTHER: 2}  # служебные группы — после тем
+    last = {CONTACTS: 1, OTHER: 2}  # service groups go after the topics
     names = sorted(counts, key=lambda name: (last.get(name, 0), -counts[name], position.get(name, len(position))))
     total = len(questions)
     return tuple(
@@ -440,14 +443,14 @@ def _topic_stats(
 
 
 def _gaps(questions: Sequence[QuestionRow]) -> tuple[list[Gap], int]:
-    """Вопросы без ответа, сгруппированные по тексту, и сколько всего вопросов без ответа."""
+    """Unanswered questions grouped by text, and the total number of unanswered questions."""
     groups: dict[str, Gap] = {}
     unanswered = 0
-    for question in questions:  # старые первыми: последняя запись группы перезаписывает формулировку
+    for question in questions:  # oldest first: the latest entry of a group overwrites the wording
         reason = gap_reason(question)
         key = _gap_key(question.text)
         if reason is None:
-            # Позже бот ответил на такой же вопрос — базу знаний уже дополнили, строка больше не нужна
+            # The bot later answered the same question: the knowledge base was updated, the row is not needed
             groups.pop(key, None)
             continue
         unanswered += 1
@@ -465,7 +468,7 @@ def _gaps(questions: Sequence[QuestionRow]) -> tuple[list[Gap], int]:
 
 
 def build_analytics(questions: Sequence[QuestionRow], leads: Sequence[LeadRow], kind: BusinessProfile) -> Analytics:
-    """Сводка по вопросам и заявкам. `questions` — старые первыми, как их отдаёт репозиторий."""
+    """Summary of questions and leads. `questions` are oldest first, as the repository returns them."""
     dictionary = TOPICS[kind]
     topics = {question.event_id: topics_of(question.text, dictionary) for question in questions}
     dialogs = _dialogs(questions, leads, topics)
@@ -484,12 +487,12 @@ def build_analytics(questions: Sequence[QuestionRow], leads: Sequence[LeadRow], 
 
 
 async def collect(repo: Repository, kind: BusinessProfile, days: int, now: datetime) -> Analytics:
-    """Аналитика за `days` дней до `now` — UTC без часового пояса, как время в БД."""
+    """Analytics for `days` days up to `now`, which is UTC without a time zone, like times in the DB."""
     since = now - timedelta(days=days)
     questions = await repo.questions_since(since, QUESTION_OUTCOMES)
     return build_analytics(questions, await repo.leads_since(since), kind)
 
 
 def parse_period(value: str | None) -> int:
-    """Период из адреса страницы: 7, 30 или 90 дней; что-то другое — 30."""
+    """Period from the page URL: 7, 30 or 90 days; anything else gives 30."""
     return next((days for days in PERIODS if value == str(days)), DEFAULT_PERIOD)

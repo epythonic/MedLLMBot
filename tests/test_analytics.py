@@ -1,4 +1,4 @@
-"""Аналитика вопросов: темы, вопросы без ответа, диалоги с заявкой — и данные из журнала для неё."""
+"""Question analytics: topics, unanswered questions, dialogs with a lead, and the journal data behind them."""
 
 from datetime import UTC, datetime, timedelta
 
@@ -57,12 +57,12 @@ def lead(chat_id: int = 1, minutes: float = 0) -> LeadRow:
     return LeadRow(chat_id, START + timedelta(minutes=minutes))
 
 
-# ---------- Темы ----------
+# ---------- Topics ----------
 
 
 def test_normalize_folds_case_yo_and_romanian_diacritics() -> None:
     assert normalize("  Запись на  ПРИЁМ ") == "запись на прием"
-    # Румынские «ș» и «ț» бывают с запятой и с седилью — обе пишутся без диакритики
+    # Romanian «ș» and «ț» come with a comma or a cedilla; both are written without diacritics
     assert normalize("Cât costă o plombă? Preț, preţ, Țară, Şcoală") == "cat costa o plomba? pret, pret, tara, scoala"
 
 
@@ -81,14 +81,14 @@ def test_normalize_folds_case_yo_and_romanian_diacritics() -> None:
         ("Можно оплатить картой или в рассрочку?", {"Оплата и рассрочка"}),
         ("Где вы находитесь и есть ли парковка?", {"Адрес и часы работы"}),
         ("До скольки работаете?", {"Адрес и часы работы"}),
-        # Румынский
+        # Romanian
         ("Cât costă un implant?", {"Цены", "Имплантация и протезирование"}),
         ("Mă doare măseaua", {"Боль и срочная помощь"}),
         ("Vreau să mă programez", {"Запись на приём"}),
         ("Cât costă albirea?", {"Цены", "Гигиена и отбеливание"}),
         ("Tratați copiii?", {"Лечение зубов", "Детская стоматология"}),
         ("Care este adresa și orarul?", {"Адрес и часы работы"}),
-        # Раньше попадало в «Другое»: в теме не было румынского «где вы находитесь»
+        # Used to land in «Другое»: the topic lacked the Romanian for "where are you located"
         ("Unde vă aflați?", {"Адрес и часы работы"}),
         ("Unde se află clinica?", {"Адрес и часы работы"}),
         ("Unde sunteți?", {"Адрес и часы работы"}),
@@ -98,9 +98,9 @@ def test_normalize_folds_case_yo_and_romanian_diacritics() -> None:
         ("Это дорого, есть дешевле?", {"Цены"}),
         ("Добрый день", {OTHER}),
         ("Спасибо!", {OTHER}),
-        # Только имя и телефон — ответ на просьбу бота оставить контакты
+        # Only a name and a phone: a reply to the bot's request for contact details
         ("Иван, 069123456", {CONTACTS}),
-        # Тема есть — телефон тему не меняет
+        # There is a topic: the phone does not change it
         ("Запишите меня, 069123456", {"Запись на приём"}),
     ],
 )
@@ -113,9 +113,9 @@ def test_clinic_topics(text: str, expected: set[str]) -> None:
     [
         ("Где мой заказ DE-10023?", {"Статус заказа"}),
         ("de10023, последние цифры 0103", {"Статус заказа"}),
-        ("DE-10023, 0103", {"Статус заказа"}),  # ответ на просьбу бота назвать номер
-        ("DE–10023, 0103", {"Статус заказа"}),  # тире от автозамены
-        ("ДЕ-10023, 0103", {"Статус заказа"}),  # номер кириллицей
+        ("DE-10023, 0103", {"Статус заказа"}),  # reply to the bot's request for the order number
+        ("DE–10023, 0103", {"Статус заказа"}),  # dash from autocorrect
+        ("ДЕ-10023, 0103", {"Статус заказа"}),  # number in Cyrillic
         ("№ DE-10023", {"Статус заказа"}),
         ("Где моя посылка?", {"Статус заказа"}),
         ("Какой статус у заказа 10021?", {"Статус заказа"}),
@@ -142,42 +142,42 @@ def test_shop_topics(text: str, expected: set[str]) -> None:
 @pytest.mark.parametrize(
     ("kind", "text", "expected"),
     [
-        # «Скол» — это скол зуба, а не «сколько»
+        # «Скол» is a chipped tooth, not «сколько»
         (BusinessProfile.CLINIC, "Сколько длится чистка?", {"Гигиена и отбеливание"}),
-        # Открытый прикус — не часы работы
+        # An open bite («открытый прикус») is not "open" hours
         (BusinessProfile.CLINIC, "У меня открытый прикус", {"Брекеты и прикус"}),
-        # «Больше» — не боль
+        # «Больше» (more) is not «боль» (pain)
         (BusinessProfile.CLINIC, "Хочу зубы белее, больше ничего", {OTHER}),
-        # «Наличными» — оплата, а не наличие
+        # «Наличными» (in cash) is payment, not «наличие» (availability)
         (BusinessProfile.SHOP, "Можно оплатить наличными?", {"Оплата и рассрочка"}),
-        # Время работы аккумулятора — не часы работы магазина
+        # Battery run time is not the shop's opening hours
         (BusinessProfile.SHOP, "Сколько часов работает аккумулятор наушников?", {OTHER}),
         (BusinessProfile.SHOP, "Какое время работы у пылесоса?", {OTHER}),
-        # Работа с компаниями — не график
+        # Working with companies is not the schedule
         (BusinessProfile.SHOP, "Работаете ли с компаниями?", {OTHER}),
-        # Фитнес-трекер — товар, а не трек-номер
+        # A fitness tracker is a product, not a tracking number
         (BusinessProfile.SHOP, "Нужен фитнес-трекер", {OTHER}),
-        # Цена в сообщении — не номер заказа
+        # A price in the message is not an order number
         (BusinessProfile.SHOP, "Смартфон Kivora X5 за 4299 лей", {OTHER}),
-        # «Почему» — не «почём», «центр» — не «цена», «стоит ли» — не цена, «дорогу» — не «дорого»
+        # «Почему» is not «почём», «центр» is not «цена», «стоит ли» is not a price, «дорогу» is not «дорого»
         (BusinessProfile.CLINIC, "Почему болит зуб после пломбы?", {"Боль и срочная помощь", "Лечение зубов"}),
         (BusinessProfile.CLINIC, "Вы находитесь в центре?", {"Адрес и часы работы"}),
         (BusinessProfile.CLINIC, "Стоит ли ставить имплант?", {"Имплантация и протезирование"}),
         (BusinessProfile.CLINIC, "Как найти дорогу к вам?", {OTHER}),
         (BusinessProfile.SHOP, "Почему не заряжается?", {"Гарантия и ремонт"}),
         (BusinessProfile.SHOP, "Где ваш сервисный центр?", {"Гарантия и ремонт"}),
-        # Оплата, а не часы работы
+        # Payment, not opening hours
         (BusinessProfile.CLINIC, "Работаете по страховке?", {"Оплата и рассрочка"}),
-        # Код модели в вопросе — не номер заказа; «заказать» — покупка
+        # A model code in the question is not an order number; «заказать» (to order) is a purchase
         (BusinessProfile.SHOP, "Есть WH-1000XM5?", {OTHER}),
         (BusinessProfile.SHOP, "Есть видеокарта RTX-4060?", {OTHER}),
         (BusinessProfile.SHOP, "Хочу заказать 100 штук", {"Покупка и оформление"}),
-        # Закончилась гарантия, а не товар; «ridicat» — «высокий», а не самовывоз; «pretenție» — претензия
+        # The warranty ran out, not a product; «ridicat» means "high", not pickup; «pretenție» is a complaint
         (BusinessProfile.SHOP, "Гарантия закончилась", {"Гарантия и ремонт"}),
         (BusinessProfile.SHOP, "Preț ridicat", {"Цены"}),
         (BusinessProfile.SHOP, "Am o pretenție", {OTHER}),
         (BusinessProfile.CLINIC, "Можно удаленно проконсультироваться?", {OTHER}),
-        # «Afla» — ещё и «узнать»: о месте, только если перед ним «unde»
+        # «Afla» also means "find out": it is about a place only after «unde»
         (BusinessProfile.CLINIC, "Unde pot afla prețul?", {"Цены"}),
         (BusinessProfile.SHOP, "Cum pot afla statusul comenzii?", {"Статус заказа"}),
         (BusinessProfile.CLINIC, "Vreau să aflu mai multe despre implant", {"Имплантация и протезирование"}),
@@ -199,7 +199,7 @@ def test_every_profile_has_topics() -> None:
         assert OTHER not in names
 
 
-# ---------- Вопросы без ответа ----------
+# ---------- Unanswered questions ----------
 
 
 @pytest.mark.parametrize(
@@ -213,9 +213,9 @@ def test_every_profile_has_topics() -> None:
         "Nu am informații despre asta.",
         "The administrator will answer during business hours.",
         "Sorry, I don't have information about that.",
-        "Sorry, I don’t have information about that.",  # типографский апостроф
+        "Sorry, I don’t have information about that.",  # typographic apostrophe
         "Administratorul vă va răspunde în timpul orelor de lucru.",
-        # Отказ и обещание звонка в одном предложении — всё равно отказ
+        # A refusal and a promise to call in one sentence is still a refusal
         "У меня нет этой информации, администратор свяжется с вами.",
     ],
 )
@@ -226,22 +226,22 @@ def test_defers_to_staff(answer: str) -> None:
 @pytest.mark.parametrize(
     "answer",
     [
-        # Обычные ответы: оговорка о цене и наличии, запись, сведения о часах работы
+        # Regular answers: a caveat about price and availability, booking, info about opening hours
         "Чистка стоит 800 лей. Точную стоимость подтвердит администратор.",
         "Ноутбук стоит 12 999 лей. Наличие и итоговую цену подтвердит менеджер.",
         "Оставьте имя и телефон — администратор перезвонит и подберёт время.",
         "Администратор отвечает в Telegram в рабочее время.",
         "Дата доставки пока не известна — её уточнит менеджер.",
         "Administratorul vă va suna pentru programare.",
-        # Запись: звонок в рабочее время, «и ответит» — не отказ
+        # Booking: a call during business hours; «и ответит» is not a refusal
         "Оставьте телефон — администратор перезвонит в рабочее время и ответит на все вопросы.",
         "Оставьте номер, администратор перезвонит и ответит на все ваши вопросы в рабочее время.",
         "Позвоните нам: администратор ответит в часы работы, пн–пт 9:00–18:00.",
         "Менеджер ответит на звонок в рабочее время.",
-        # «Данных» — прилагательное; румынское «date» — даты
+        # «Данных» is an adjective here; Romanian «date» means dates
         "Для данных процедур противопоказаний нет.",
         "Pentru sâmbătă nu avem date libere.",
-        # Конец предложения прерывает фразу
+        # The end of a sentence breaks the phrase
         "Администратор ответит. В рабочее время клиника открыта до 19:00.",
     ],
 )
@@ -251,7 +251,7 @@ def test_regular_answers_are_not_gaps(answer: str) -> None:
 
 @pytest.mark.parametrize("kind", list(BusinessProfile))
 def test_no_info_phrase_follows_prompt_rule(kind: BusinessProfile) -> None:
-    """«Нет в базе знаний» распознаётся по фразе из правила промпта: меняется правило — меняется и _NO_INFO."""
+    """«Нет в базе знаний» is recognised by the phrase of the prompt rule: if the rule changes, so does _NO_INFO."""
     staff = PROFILES[kind].staff
     assert f"скажи, что {staff} ответит в рабочее время" in rules(kind)
     assert defers_to_staff(f"{staff.capitalize()} ответит вам в рабочее время.")
@@ -270,19 +270,19 @@ SOMETHING = "search_catalog «чистка» → найдено 2"
         (AuditOutcome.REFUSAL, "Уточню у администратора и вернусь к вам.", None, GapReason.NO_ANSWER),
         (AuditOutcome.EMPTY, "Уточню у администратора и вернусь к вам.", None, GapReason.NO_ANSWER),
         (AuditOutcome.TRUNCATED, "Уточню у администратора и вернусь к вам.", None, GapReason.NO_ANSWER),
-        # Поиск ничего не нашёл — это подсказка для каталога, даже если модель потом ответила или сдалась
+        # The search found nothing: a hint for the catalog, even if the model then answered or gave up
         (AuditOutcome.ANSWERED, "Брекетов в каталоге нет.", NOTHING, GapReason.NOT_FOUND),
         (AuditOutcome.EMPTY, "Уточню у администратора и вернусь к вам.", f"{NOTHING}\n{NOTHING}", GapReason.NOT_FOUND),
         (AuditOutcome.REFUSAL, "Уточню у администратора и вернусь к вам.", NOTHING, GapReason.NOT_FOUND),
         (AuditOutcome.TRUNCATED, "Уточню у администратора и вернусь к вам.", NOTHING, GapReason.NOT_FOUND),
-        # Второй поиск нашёл — бот ответил
+        # The second search found something: the bot answered
         (AuditOutcome.ANSWERED, "Чистка стоит 800 лей.", f"{NOTHING}\n{SOMETHING}", None),
-        # Ошибка поиска и проверка заказа — не пустой поиск
+        # A search error and an order check are not an empty search
         (AuditOutcome.ANSWERED, "Чистка стоит 800 лей.", "search_catalog «чистка»: ошибка БД", None),
         (AuditOutcome.ANSWERED, "Заказ в пути.", "order_status DE-10023 → Передан в доставку", None),
-        # Заказ не нашёлся — ошибка в номере, а не пробел в базе знаний
+        # Order not found: a mistake in the number, not a gap in the knowledge base
         (AuditOutcome.ANSWERED, "Нет данных о заказе с таким номером.", "order_status DE-10099 → не найден", None),
-        # Технические сбои — не пробел в базе знаний
+        # Technical failures are not a gap in the knowledge base
         (AuditOutcome.LLM_ERROR, "Извините, произошла техническая ошибка.", None, None),
         (AuditOutcome.BUDGET_EXCEEDED, "Администратор ответит вам в рабочее время.", None, None),
         (AuditOutcome.TOO_LONG, "Сообщение слишком длинное.", None, None),
@@ -293,7 +293,7 @@ def test_gap_reason(outcome: AuditOutcome, answer: str, tool_calls: str | None, 
 
 
 async def test_empty_search_is_recognised_in_real_tool_summary(seeded_repo: Repository) -> None:
-    """Формат итога поиска задаёт tools.py — аналитика должна понимать именно его."""
+    """tools.py defines the search summary format, and analytics must understand exactly that format."""
     empty = await CatalogTools(seeded_repo).run("search_catalog", {"query": "брекеты"})
     found = await CatalogTools(seeded_repo).run("search_catalog", {"query": "чистка"})
 
@@ -304,13 +304,13 @@ async def test_empty_search_is_recognised_in_real_tool_summary(seeded_repo: Repo
 def test_question_outcomes_exclude_non_questions() -> None:
     assert set(QUESTION_OUTCOMES) | NOT_QUESTIONS == set(AuditOutcome)
     assert not set(QUESTION_OUTCOMES) & NOT_QUESTIONS
-    assert AuditOutcome.TOO_LONG in QUESTION_OUTCOMES  # длинный вопрос — тоже вопрос
-    # Разговор с живым оператором ведёт человек — это не вопросы к боту; сама просьба позвать его — вопрос
+    assert AuditOutcome.TOO_LONG in QUESTION_OUTCOMES  # a long question is still a question
+    # A human runs the live operator conversation, so those are not questions to the bot; asking for one is
     assert {AuditOutcome.TO_OPERATOR, AuditOutcome.FROM_OPERATOR} <= NOT_QUESTIONS
     assert AuditOutcome.HANDOFF in QUESTION_OUTCOMES
 
 
-# ---------- Сводка ----------
+# ---------- Summary ----------
 
 
 def test_empty_period() -> None:
@@ -325,7 +325,7 @@ def test_empty_period() -> None:
 def test_percent() -> None:
     assert percent(1, 3) == 33
     assert percent(2, 3) == 67
-    # Половина — вверх, а не к чётному, как у round
+    # Halves round up, not to even as round() does
     assert percent(1, 8) == 13
     assert percent(3, 8) == 38
     assert percent(0, 5) == 0
@@ -347,7 +347,7 @@ class TestDialogs:
     def test_pause_longer_than_a_day_starts_new_dialog(self) -> None:
         gap = DIALOG_GAP.total_seconds() / 60
         questions = [question(event_id=1), question(event_id=2, minutes=gap), question(event_id=3, minutes=2 * gap + 1)]
-        # Ровно сутки — ещё тот же диалог, дольше — новый
+        # Exactly one day is still the same dialog; longer starts a new one
         assert build_analytics(questions, [], BusinessProfile.CLINIC).dialogs == 2
 
     def test_clients_have_separate_dialogs(self) -> None:
@@ -359,19 +359,19 @@ class TestDialogs:
         questions = [
             question(event_id=1, chat_id=1),
             question("Запишите меня, 069123456", event_id=2, chat_id=1, minutes=5),
-            question(event_id=3, chat_id=1, minutes=60 * 24 * 3),  # вернулся через три дня — без заявки
+            question(event_id=3, chat_id=1, minutes=60 * 24 * 3),  # came back three days later, without a lead
             question(event_id=4, chat_id=2),
         ]
         report = build_analytics(questions, [lead(chat_id=1, minutes=5)], BusinessProfile.CLINIC)
         assert (report.dialogs, report.dialogs_with_lead, report.lead_percent) == (3, 1, 33)
 
     def test_lead_after_a_long_pause_is_not_in_previous_dialog(self) -> None:
-        # Телефон оставлен через двое суток в сообщении с признаками атаки: прошлый диалог — без заявки
+        # Phone left two days later in a message flagged as an attack: the previous dialog has no lead
         report = build_analytics([question(chat_id=1)], [lead(chat_id=1, minutes=60 * 48)], BusinessProfile.CLINIC)
         assert (report.dialogs, report.dialogs_with_lead) == (1, 0)
 
     def test_lead_without_questions_is_not_a_dialog(self) -> None:
-        # Телефон в сообщении с признаками атаки: заявка есть, а вопроса в аналитике нет
+        # Phone in a message flagged as an attack: there is a lead, but no question in analytics
         report = build_analytics([question(chat_id=1)], [lead(chat_id=2)], BusinessProfile.CLINIC)
         assert (report.dialogs, report.dialogs_with_lead) == (1, 0)
 
@@ -390,7 +390,7 @@ class TestTopicStats:
         assert rows["Цены"].questions == 2
         assert rows["Цены"].share == 50
         assert (rows["Цены"].dialogs, rows["Цены"].dialogs_with_lead, rows["Цены"].lead_percent) == (2, 1, 50)
-        # Самые частые сверху, при равенстве — в порядке словаря, «Другое» — последней
+        # Most frequent first, ties in dictionary order, «Другое» last
         assert [topic.name for topic in report.topics] == [
             "Цены",
             "Адрес и часы работы",
@@ -421,7 +421,7 @@ class TestTopicStats:
         assert [topic.name for topic in report.topics] == ["Цены", "Гигиена и отбеливание", CONTACTS, OTHER]
         rows = {topic.name: topic for topic in report.topics}
         assert rows[CONTACTS].questions == 3
-        # Примеры видны на странице — сообщения с телефоном туда не попадают
+        # Examples are visible on the page, so messages with a phone are left out
         assert rows[CONTACTS].examples == ()
         assert rows["Цены"].examples == ()
         assert rows[OTHER].examples == ("Спасибо",)
@@ -443,7 +443,7 @@ class TestGaps:
 
         assert (report.unanswered, report.unanswered_percent, report.gap_groups) == (2, 67, 1)
         [gap] = report.gaps
-        # Строка показывает последний раз: формулировку, ответ, время и запись журнала
+        # The row shows the latest occurrence: wording, answer, time and journal entry
         assert (gap.text, gap.count, gap.reason, gap.event_id) == ("есть БРЕКЕТЫ", 2, GapReason.NO_INFO, 2)
         assert gap.last_at == START + timedelta(minutes=10)
         assert gap.answer == no_info
@@ -464,14 +464,14 @@ class TestGaps:
         questions = [
             question("Есть брекеты?", event_id=1, answer=no_info),
             question("Есть страховка?", event_id=2, answer=no_info),
-            # В базу знаний добавили брекеты — на тот же вопрос бот ответил
+            # Braces were added to the knowledge base, and the bot answered the same question
             question("есть брекеты", event_id=3, answer="Да, металлические брекеты — 15 000 лей."),
         ]
         report = build_analytics(questions, [], BusinessProfile.CLINIC)
 
         assert [gap.text for gap in report.gaps] == ["Есть страховка?"]
         assert report.gap_groups == 1
-        assert report.unanswered == 2  # карточка считает все вопросы без ответа за период
+        assert report.unanswered == 2  # the card counts all unanswered questions in the period
 
     def test_emoji_messages_are_not_merged(self) -> None:
         refusal = AuditOutcome.REFUSAL
@@ -495,7 +495,7 @@ def test_parse_period(value: str | None, days: int) -> None:
     assert parse_period(value) == days
 
 
-# ---------- Данные из журнала ----------
+# ---------- Journal data ----------
 
 
 class TestRepository:
@@ -518,7 +518,7 @@ class TestRepository:
         since = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=1)
         rows = await seeded_repo.questions_since(since, QUESTION_OUTCOMES)
 
-        # Старое, приветствие, фото и подозрительное — не вопросы за период
+        # Old, greeting, photo and suspicious entries are not questions for the period
         assert [(row.text, row.outcome) for row in rows] == [
             ("Сколько стоит чистка?", AuditOutcome.ANSWERED),
             ("очень длинный вопрос", AuditOutcome.TOO_LONG),
@@ -553,9 +553,9 @@ class TestRepository:
 
 
 async def test_collect_from_bot_conversation(fake_client: FakeClient, seeded_repo: Repository, sessions: Sessions) -> None:
-    """Сквозная проверка: ответы бота попадают в аналитику с темами, заявкой и причинами."""
+    """End-to-end check: bot answers reach analytics with topics, the lead and gap reasons."""
     async with sessions.begin() as s:
-        await s.execute(update(BotConfig).values(catalog_inline_limit=0))  # каталог только через поиск
+        await s.execute(update(BotConfig).values(catalog_inline_limit=0))  # catalog via search only
     config = await seeded_repo.get_config()
     assistant = ClinicAssistant(ClinicLLM(fake_client.as_anthropic()), seeded_repo)
     messages = fake_client.messages

@@ -1,7 +1,7 @@
-"""Оценка магазина без сети: проверки кодом, разбор ответа судьи и прогон с фейковым Claude.
+"""Shop eval without network: code checks, parsing the judge reply and a run with a fake Claude.
 
-Перед первым платным прогоном набор должен пропускать эталонный ответ и ронять пустой, а сбои API —
-попадать в errors.jsonl, а не в оценки.
+Before the first paid run the set must pass the oracle answer and fail an empty one, and API failures must
+go to errors.jsonl, not to the grades.
 """
 
 import asyncio
@@ -39,15 +39,15 @@ VERDICT_OK = json.dumps(
 )
 
 
-# ---------- Набор вопросов ----------
+# ---------- Question set ----------
 
 
 def test_cases_match_the_approved_set() -> None:
     assert len(CASES) == 38
-    assert len(CASE_BY_ID) == len(CASES)  # id не повторяются
+    assert len(CASE_BY_ID) == len(CASES)  # ids are unique
     groups = Counter(case.group for case in CASES)
     assert list(groups.values()) == [7, 6, 4, 6, 6, 5, 4]
-    assert {case.lang for case in CASES if case.group == "По-румынски"} == {"ro"}
+    assert {case.lang for case in CASES if case.group == "In Romanian"} == {"ro"}
 
 
 @pytest.mark.parametrize("case", CASES, ids=lambda case: case.id)
@@ -73,7 +73,7 @@ def test_price_alternatives_and_small_numbers() -> None:
     assert not re.search(price(150), "1500 лей")
 
 
-# ---------- Проверки кодом: эталон и пустышка ----------
+# ---------- Code checks: oracle and null answers ----------
 
 GOOD = "Робот-пылесос Brisko Clean S8 стоит 4 999 лей. Наличие и итоговую цену подтвердит менеджер."
 
@@ -97,10 +97,10 @@ def test_fallback_is_not_delivered() -> None:
 
 
 def test_order_leak_and_tool_rules() -> None:
-    case = CASE_BY_ID["order-02"]  # номер без цифр телефона
+    case = CASE_BY_ID["order-02"]  # order number without the phone digits
     asked = code_checks(case, "Назовите, пожалуйста, последние 4 цифры телефона из заказа.", AuditOutcome.ANSWERED, [])
     assert (asked["facts"], asked["no_leak"], asked["tools"]) == (1, 1, 1)
-    # «Для подтверждения» — не статус «Подтверждён»
+    # «Для подтверждения» is not the «Подтверждён» status
     polite = code_checks(case, "Для подтверждения назовите последние 4 цифры телефона.", AuditOutcome.ANSWERED, [])
     assert polite["no_leak"] == 1
     leaked = code_checks(case, "Заказ подтверждён: стиральная машина, 7 899 лей.", AuditOutcome.ANSWERED, [ORDER])
@@ -121,7 +121,7 @@ def test_monthly_payment_is_forbidden() -> None:
         ("Ноутбук Voltix Air 14 стоит 11 499 лей.", "ru"),
         ("Robotul aspirator Brisko Clean S8 costă 4 999 lei.", "ro"),
         ("Livrarea în Moldova costă 150 lei, 2–4 zile lucrătoare.", "ro"),
-        ("Laptopul Робот-пылесос costă 4 999 lei și este disponibil.", "ro"),  # русское название из каталога
+        ("Laptopul Робот-пылесос costă 4 999 lei și este disponibil.", "ro"),  # Russian name from the catalog
         ("The vacuum costs 4999 lei.", None),
         ("", None),
     ],
@@ -140,7 +140,7 @@ def test_dash_list_is_plain_text() -> None:
     assert code_checks(CASE_BY_ID["choice-01"], answer, AuditOutcome.ANSWERED, [SEARCH])["format"] == 1
 
 
-# ---------- Судья ----------
+# ---------- Judge ----------
 
 
 def test_parse_verdict() -> None:
@@ -176,7 +176,7 @@ def message(text: str, *, model: str, stop_reason: str = "end_turn") -> SimpleNa
 
 
 class FakeClaude:
-    """Отвечает за бота и за судью по полю model; запоминает запросы судьи."""
+    """Answers as the bot or as the judge depending on the model field; remembers the judge requests."""
 
     bot_answers: list[SimpleNamespace | Exception]
     bot_answer: SimpleNamespace
@@ -214,7 +214,7 @@ async def test_judge_asks_for_structured_output() -> None:
     verdict = await judge(fake.as_anthropic(), JUDGE, CASE_BY_ID["price-01"], "ПРАВИЛА", [], GOOD)
     assert verdict.scores == {"grounded": 1, "rules": 1, "helpful": 1}
     [call] = fake.judge_calls
-    # Ответ строго по схеме, критерии — в системном промпте, ответ клиента — внутри тегов данных
+    # Reply strictly by the schema, criteria in the system prompt, the customer's answer inside data tags
     assert call["output_config"] == {"format": {"type": "json_schema", "schema": JUDGE_SCHEMA}}
     assert call["system"] == JUDGE_SYSTEM
     [request] = cast(list[dict[str, str]], call["messages"])
@@ -224,9 +224,9 @@ async def test_judge_asks_for_structured_output() -> None:
 @pytest.mark.parametrize(
     "reply",
     [
-        message(VERDICT_OK, model="claude-opus-5-5"),  # подменили модель
-        message(VERDICT_OK, model=JUDGE, stop_reason="max_tokens"),  # обрезан
-        message("не JSON", model=JUDGE),  # не по схеме
+        message(VERDICT_OK, model="claude-opus-5-5"),  # model swapped
+        message(VERDICT_OK, model=JUDGE, stop_reason="max_tokens"),  # truncated
+        message("не JSON", model=JUDGE),  # off-schema
     ],
 )
 async def test_judge_failures_are_errors_not_grades(reply: SimpleNamespace) -> None:
@@ -234,10 +234,10 @@ async def test_judge_failures_are_errors_not_grades(reply: SimpleNamespace) -> N
     fake.judge_answer = reply
     with pytest.raises(JudgeError) as caught:
         await judge(fake.as_anthropic(), JUDGE, CASE_BY_ID["price-01"], "ПРАВИЛА", [], GOOD)
-    assert caught.value.usage is not None  # токены сбоя оплачены — их учитывают в расходах
+    assert caught.value.usage is not None  # tokens of a failure are paid for and count toward costs
 
 
-# ---------- Прогон целиком ----------
+# ---------- Full run ----------
 
 
 def run(tmp_path: Path, fake: FakeClaude, ids: str, reps: int = 1) -> tuple[Summary, Path]:
@@ -265,11 +265,11 @@ def test_run_writes_rows_traces_and_judge_files(tmp_path: Path) -> None:
         ("price-01", 1),
     ]
     first = next(row for row in rows if row["prompt_id"] == "price-01")
-    assert first["model"] == BOT and first["status"] == "ok" and first["tags"] == ["Цены через поиск", "ru"]
+    assert first["model"] == BOT and first["status"] == "ok" and first["tags"] == ["Prices via search", "ru"]
     grade = cast(dict[str, int], first["grade"])
-    # Фейк отвечает без поиска: факт есть, а инструмент не вызван — итог 0
+    # The fake answers without searching: the fact is there but the tool was not called, so overall is 0
     assert (grade["facts"], grade["tools"], grade["pass"]) == (1, 0, 0)
-    assert first["cost_usd"] and first["judge_cost_usd"]  # не ноль: стоимость посчитана по прайс-листу
+    assert first["cost_usd"] and first["judge_cost_usd"]  # not zero: the cost is computed from the price list
     assert first["usage"] == {
         "input_tokens": 1000,
         "output_tokens": 100,
@@ -279,7 +279,7 @@ def test_run_writes_rows_traces_and_judge_files(tmp_path: Path) -> None:
 
     turns = json.loads((out / "traces" / "price-01_rep0.json").read_text(encoding="utf-8"))
     assert [turn["role"] for turn in turns] == ["system", "user", "assistant"]
-    assert "магазина электроники" in turns[0]["content"]  # промпт магазина, а не стоматологии
+    assert "магазина электроники" in turns[0]["content"]  # the shop prompt, not the dental one
     assert (out / "judge" / "price-01_rep0.json").exists()
     assert (summary.rows, summary.cases, summary.errors) == (4, 2, 0)
 
@@ -300,7 +300,7 @@ def test_api_failure_goes_to_errors_and_is_retried(tmp_path: Path, monkeypatch: 
     [error] = read_rows(out / "errors.jsonl")
     assert (error["prompt_id"], error["failure_class"], error["attempt"]) == ("price-01", "serving_error", 1)
     [row] = read_rows(out / "results.jsonl")
-    assert row["attempts"] == 2  # вторая попытка дала ответ — сбой не стал нулём в оценке
+    assert row["attempts"] == 2  # the second attempt answered: the failure did not become a zero grade
     assert summary.errors == 0
 
 
@@ -325,7 +325,7 @@ def test_resume_skips_finished_answers(tmp_path: Path) -> None:
     judged = len(fake.judge_calls)
     summary, out = run(tmp_path, fake, "price-01,policy-03")
 
-    assert len(fake.judge_calls) == judged + 1  # price-01 уже оценён — заново не спрашиваем
+    assert len(fake.judge_calls) == judged + 1  # price-01 is already graded, so it is not asked again
     assert len(read_rows(out / "results.jsonl")) == 2
     assert summary.rows == 1
 
@@ -340,12 +340,12 @@ def test_regrade_recomputes_code_checks_and_keeps_judge(tmp_path: Path) -> None:
     _, out = run(tmp_path, fake, "price-01")
     path = out / "results.jsonl"
     [row] = read_rows(path)
-    # Будто старый шаблон фактов не узнал правильный ответ, а судья поставил «правила» в ноль
+    # As if an old facts pattern missed a correct answer and the judge gave "rules" a zero
     stale = cast(dict[str, int], row["grade"]) | {"facts": 0, "rules": 0, "pass": 0}
     path.write_text(json.dumps(row | {"grade": stale}, ensure_ascii=False) + "\n", encoding="utf-8")
 
-    assert regrade(out) == 0  # итог остаётся 0: оценку судьи переоценка не трогает
+    assert regrade(out) == 0  # overall stays 0: regrading does not touch the judge's grades
     [updated] = read_rows(path)
     grade = cast(dict[str, int], updated["grade"])
     assert (grade["facts"], grade["rules"], grade["pass"]) == (1, 0, 0)
-    assert updated["answer"] == row["answer"]  # остальные поля строки — как были
+    assert updated["answer"] == row["answer"]  # the other fields of the row are unchanged

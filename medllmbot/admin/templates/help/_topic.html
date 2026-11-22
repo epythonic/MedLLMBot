@@ -1,6 +1,6 @@
 {#
-  Справка одного раздела: краткое описание, текст из topics/<identity>.html и таблица полей.
-  Ожидает в контексте topic и help_view (view раздела или none — тогда подписи полей равны ключам).
+  Help for one section: a short summary, the text from topics/<identity>.html and the fields table.
+  Expects topic and help_view in the context (the section's view, or none, in which case field labels equal the keys).
 #}
 <section id="{{ topic.anchor() }}" class="help-topic">
   <p class="text-secondary">{{ topic.summary }}</p>

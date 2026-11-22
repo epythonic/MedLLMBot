@@ -1,13 +1,13 @@
-"""Живой оператор: клиент просит человека — бот передаёт диалог администратору в Telegram и молчит.
+"""Live operator: a client asks for a human, the bot hands the dialog to the administrator in Telegram and goes quiet.
 
-- Клиент пишет «позовите менеджера», «хочу поговорить с человеком» или команду /operator.
-- Администратор получает уведомление с последними сообщениями диалога и кнопкой «Вернуть бота».
-- Пока диалог у оператора, сообщения клиента уходят администратору, Claude не вызывается.
-  Ответ администратора на сообщение бота (reply) бот пересылает клиенту.
-- Бот снова отвечает сам после кнопки «Вернуть бота» или через `bot_config.operator_hours` часов
-  после просьбы клиента или последнего ответа оператора.
+- The client writes «позовите менеджера», «хочу поговорить с человеком» or the /operator command.
+- The administrator gets a notification with the latest dialog messages and a «Вернуть бота» button.
+- While the operator has the dialog, client messages go to the administrator and Claude is not called.
+  When the administrator replies to a bot message, the bot forwards the reply to the client.
+- The bot answers on its own again after the «Вернуть бота» button or `bot_config.operator_hours` hours
+  after the client's request or the operator's last reply.
 
-Здесь — распознавание просьбы и тексты; хендлеры Telegram — в `operator_handlers.py`.
+This module holds request detection and texts; the Telegram handlers are in `operator_handlers.py`.
 """
 
 import re
@@ -20,20 +20,20 @@ from medllmbot.text import normalize
 
 OPERATOR_COMMAND = "operator"
 END_BUTTON = "Вернуть бота"
-_END_PREFIX = "operator:end:"  # данные кнопки «Вернуть бота»: + chat_id клиента
-HISTORY_IN_NOTICE = 6  # последних сообщений диалога в уведомлении администратору
-LINE_PREVIEW = 300  # символов одного сообщения истории в уведомлении
+_END_PREFIX = "operator:end:"  # «Вернуть бота» button data: + the client's chat_id
+HISTORY_IN_NOTICE = 6  # latest dialog messages in the notification to the administrator
+LINE_PREVIEW = 300  # characters of one history message in the notification
 
-# Кого клиент зовёт: «оператора», «менеджера», «админа», «живого человека»
-# «Оператор связи» — это мобильная связь, а не человек
+# Whom the client calls: «оператора», «менеджера», «админа», «живого человека»
+# «Оператор связи» is a mobile carrier, not a person
 _STAFF = r"(?:оператор|менеджер|администратор|админ|человек|сотрудник|консультант)\w*+(?!\s+связи)"
-# Кого хотят: «хочу менеджера», но не «хочу администратору оставить отзыв»
+# Whom they want: «хочу менеджера», but not «хочу администратору оставить отзыв»
 _STAFF_ACC = r"(?:оператора|менеджера|администратора|админа|человека|сотрудника|консультанта)\b"
 _ALIVE = r"(?:(?:живо|настоящ|реальн)\w*\s+)?"
-# Между глаголом и тем, кого зовут: запятая, «пожалуйста»
+# Between the verb and whom they call: a comma, «пожалуйста»
 _GAP = r"(?:[\s,]+(?:пожалуйста|плиз|please|pls))?[\s,]+"
-# Просьба позвать человека. Не просьба: «мобильный оператор», «администратор перезвонит?», «поговорить с врачом»,
-# «как связаться с администратором?» (это вопрос о контактах — на него ответит бот), «я настоящий человек»
+# A request for a human. Not a request: «мобильный оператор», «администратор перезвонит?», «поговорить с врачом»,
+# «как связаться с администратором?» (a question about contacts, the bot answers it), «я настоящий человек»
 _ASKS = re.compile(
     "|".join(
         (
@@ -59,17 +59,17 @@ _ASKS = re.compile(
 
 
 def asks_for_operator(text: str) -> bool:
-    """Клиент просит живого человека вместо бота."""
+    """The client asks for a live human instead of the bot."""
     return _ASKS.search(normalize(text)) is not None
 
 
 def operator_deadline(now: datetime, hours: int) -> datetime:
-    """До какого времени бот молчит: каждый ответ оператора продлевает срок."""
+    """Until when the bot stays silent: every operator reply extends the deadline."""
     return now + timedelta(hours=hours)
 
 
 def with_operator(until: datetime | None, now: datetime) -> bool:
-    """Диалог у оператора: срок задан и ещё не прошёл."""
+    """The operator has the dialog: the deadline is set and has not passed yet."""
     return until is not None and until > now
 
 
@@ -78,7 +78,7 @@ def end_button_data(chat_id: int) -> str:
 
 
 def parse_end_button(data: str | None) -> int | None:
-    """chat_id клиента из кнопки «Вернуть бота»; None — это не она или данные испорчены."""
+    """The client's chat_id from the «Вернуть бота» button; None if it is another button or the data is corrupt."""
     if data is None or not data.startswith(_END_PREFIX):
         return None
     try:
@@ -97,18 +97,18 @@ def _short(text: str, limit: int = LINE_PREVIEW) -> str:
 
 
 def _content(message: MessageParam) -> str:
-    """Текст сообщения истории. Репозиторий хранит историю строками; блоков API здесь не бывает."""
+    """Text of a history message. The repository stores history as strings; there are no API blocks here."""
     content = message["content"]
     return content if isinstance(content, str) else ""
 
 
 def client_label(name: str, chat_id: int) -> str:
-    """Кто пишет — в каждом сообщении администратору: «@ivan (chat 42)»."""
+    """Who is writing, in every message to the administrator: «@ivan (chat 42)»."""
     return f"{name} (chat {chat_id})"
 
 
 def handoff_notice(client: str, request: str, history: Sequence[MessageParam], hours: int) -> str:
-    """Первое уведомление: клиент просит человека. `client` — из `client_label`."""
+    """First notification: the client asks for a human. `client` comes from `client_label`."""
     lines = [f"Клиент {client} просит оператора:", _short(request, 1000)]
     if history:
         lines += ["", "Последние сообщения:"]
@@ -122,11 +122,11 @@ def handoff_notice(client: str, request: str, history: Sequence[MessageParam], h
 
 
 def client_message_notice(client: str, text: str) -> str:
-    """Сообщение клиента, пока диалог у оператора."""
+    """A client message while the operator has the dialog."""
     return f"{client}:\n{text}"
 
 
-# Ответы администратору
+# Replies to the administrator
 DELIVERY_FORBIDDEN = "Не удалось отправить клиенту: он заблокировал бота или удалил чат."
 DELIVERY_FAILED = "Не удалось отправить клиенту: Telegram вернул ошибку. Попробуйте ещё раз или другим сообщением."
 ENDED = "Бот снова отвечает клиенту."

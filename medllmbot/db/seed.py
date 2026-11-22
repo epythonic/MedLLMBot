@@ -1,11 +1,11 @@
-"""Демо-данные: вымышленная стоматология (по умолчанию) или магазин электроники (`--profile shop`).
+"""Demo data: a fictional dental clinic (default) or electronics shop (`--profile shop`).
 
-- `python -m medllmbot.db.seed` заполняет базу знаний, только если она пустая: повторный запуск безопасен.
-- `python -m medllmbot.db.seed --reset` возвращает демо-сервер в исходное состояние после показа: удаляет
-  клиентов, переписку, заявки, заказы и журнал, восстанавливает базу знаний, демо-заказы магазина, прайс-лист
-  моделей и настройки бота.
-  Итоги расходов и дневной лимит остаются — иначе сброс обнулял бы потраченное за сутки.
-- `--reset --profile shop` переключает демо на магазин: другой профиль бота, каталог и приветствие.
+- `python -m medllmbot.db.seed` fills the knowledge base only if it is empty: re-running is safe.
+- `python -m medllmbot.db.seed --reset` returns the demo server to its initial state after a showing: deletes
+  clients, chat history, leads, orders and the audit log, restores the knowledge base, demo shop orders, the model
+  price list and the bot settings.
+  Spending totals and the daily budget stay, otherwise a reset would zero out the day's spending.
+- `--reset --profile shop` switches the demo to the shop: a different bot profile, catalog and greeting.
 """
 
 import argparse
@@ -104,8 +104,8 @@ DEMO_FAQ: list[tuple[str, str]] = [
 ]
 
 
-# Стартовый прайс-лист — тот же, что добавляет миграция a6cc85d9a7c3 (совпадение проверяет тест).
-# (модель, от длины промпта, вход, запись в кэш, чтение из кэша, выход), USD за миллион токенов
+# Initial price list, the same one migration a6cc85d9a7c3 adds (a test checks they match).
+# (model, from prompt length, input, cache write, cache read, output), USD per million tokens
 DEMO_PRICES: list[tuple[str, int, float, float, float, float]] = [
     ("claude-haiku-5-5", 0, 0.10, 0.125, 0.01, 0.50),
     ("claude-haiku-5-5", 100_001, 0.50, 0.625, 0.05, 2.50),
@@ -122,14 +122,14 @@ DEMO_PRICES: list[tuple[str, int, float, float, float, float]] = [
 
 @dataclass(frozen=True)
 class DemoSet:
-    """База знаний и приветствия демо для одного профиля бизнеса."""
+    """Demo knowledge base and greetings for one business profile."""
 
     sections: list[tuple[str, str]]
     catalog: list[tuple[str, int, str | None]]
     faq: list[tuple[str, str]]
     greeting: str
     greeting_ro: str
-    # Заказы магазина: (номер, имя, телефон, статус, состав, сумма, дата доставки — дней от сегодня)
+    # Shop orders: (number, name, phone, status, items, total, delivery date as days from today)
     orders: list[tuple[str, str, str, OrderStatus, str, int, int | None]] = field(
         default_factory=list[tuple[str, str, str, OrderStatus, str, int, int | None]]
     )
@@ -166,7 +166,7 @@ def _add_knowledge(session: AsyncSession, demo: DemoSet) -> None:
 
 
 async def seed_demo(sessions: async_sessionmaker[AsyncSession], kind: BusinessProfile = BusinessProfile.CLINIC) -> bool:
-    """Заполняет пустую базу знаний демо-данными профиля. Возвращает True, если что-то добавлено."""
+    """Fills an empty knowledge base with the profile's demo data. Returns True if anything was added."""
     demo = DEMOS[kind]
     async with sessions.begin() as session:
         knowledge_models = (InfoSection, Service, FaqItem, Order)
@@ -174,8 +174,8 @@ async def seed_demo(sessions: async_sessionmaker[AsyncSession], kind: BusinessPr
         if any(counts):
             return False
         _add_knowledge(session, demo)
-        # Профиль — под залитые данные. Приветствия меняются только вместе с профилем:
-        # свои приветствия администратора при повторном заполнении той же демо-базы остаются
+        # The profile matches the loaded data. Greetings change only together with the profile:
+        # the admin's own greetings survive re-seeding the same demo base
         config = await session.get(BotConfig, 1)
         if config is None:
             session.add(BotConfig(id=1, profile=kind, greeting=demo.greeting, greeting_ro=demo.greeting_ro))
@@ -192,7 +192,7 @@ async def current_profile(sessions: async_sessionmaker[AsyncSession]) -> Busines
 
 
 async def reset_demo(sessions: async_sessionmaker[AsyncSession], kind: BusinessProfile = BusinessProfile.CLINIC) -> None:
-    """Возвращает демо профиля в исходное состояние одной транзакцией. Расход и дневной лимит не трогает."""
+    """Returns the profile demo to its initial state in one transaction. Leaves spending and the daily budget."""
     demo = DEMOS[kind]
     async with sessions.begin() as session:
         config = await session.get(BotConfig, 1)
@@ -216,7 +216,7 @@ async def reset_demo(sessions: async_sessionmaker[AsyncSession], kind: BusinessP
         )
 
 
-# Значение флага --profile → профиль
+# --profile flag value → profile
 PROFILE_OPTIONS: dict[str, BusinessProfile] = {kind.name.lower(): kind for kind in BusinessProfile}
 
 
@@ -226,18 +226,16 @@ async def main(reset: bool, kind: BusinessProfile) -> None:
         sessions = create_sessionmaker(engine)
         if reset:
             await reset_demo(sessions, kind)
-            log.info(
-                "Демо сброшено (%s): база знаний, цены и настройки — как после установки, клиенты и журнал удалены", kind
-            )
+            log.info("Demo reset (%s): knowledge base, prices and settings as after install; clients and log deleted", kind)
         elif await seed_demo(sessions, kind):
-            log.info("Демо-данные добавлены (%s)", kind)
+            log.info("Demo data added (%s)", kind)
         else:
-            log.info("База знаний не пустая — демо-данные не добавлялись")
+            log.info("Knowledge base is not empty, demo data not added")
             current = await current_profile(sessions)
             if current is not None and current != kind:
                 log.warning(
-                    "Профиль не изменён (сейчас: %s). Чтобы переключить демо: --reset --profile %s",
-                    current,
+                    "Profile not changed (current: %s). To switch the demo: --reset --profile %s",
+                    current.name.lower(),  # the --profile option value, not the Russian display name
                     kind.name.lower(),
                 )
     finally:
@@ -245,21 +243,21 @@ async def main(reset: bool, kind: BusinessProfile) -> None:
 
 
 def parse_args(argv: list[str] | None = None) -> tuple[bool, BusinessProfile]:
-    parser = argparse.ArgumentParser(description="Демо-данные: вымышленная стоматология или магазин электроники")
+    parser = argparse.ArgumentParser(description="Demo data: a fictional dental clinic or electronics shop")
     parser.add_argument(
         "--reset",
         action="store_true",
-        help="удалить клиентов, переписку, заявки, заказы и журнал и вернуть базу знаний, цены и настройки к демо",
+        help="delete clients, chat history, leads, orders and the log; reset knowledge base, prices, settings to demo",
     )
     parser.add_argument(
         "--profile",
         choices=sorted(PROFILE_OPTIONS),
         default=BusinessProfile.CLINIC.name.lower(),
-        help="какой бизнес показывать: clinic — стоматология, shop — магазин электроники",
+        help="which business to show: clinic is the dental clinic, shop is the electronics shop",
     )
     args = parser.parse_args(argv)
-    reset: bool = args.reset  # pyright: ignore[reportAny]  # argparse.Namespace не типизирован
-    profile: str = args.profile  # pyright: ignore[reportAny]  # argparse.Namespace не типизирован
+    reset: bool = args.reset  # pyright: ignore[reportAny]  # argparse.Namespace is untyped
+    profile: str = args.profile  # pyright: ignore[reportAny]  # argparse.Namespace is untyped
     return reset, PROFILE_OPTIONS[profile]
 
 

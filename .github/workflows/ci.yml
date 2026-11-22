@@ -1,7 +1,7 @@
 name: CI
 
-# В main изменения попадают только через PR (защита ветки на GitHub). Проверки идут на каждом PR,
-# а после слияния в main те же проверки и затем деплой на демо-сервер.
+# Changes reach main only through a PR (branch protection on GitHub). Checks run on every PR,
+# and after a merge into main the same checks run, followed by a deploy to the demo server.
 on:
   push:
     branches: [main]
@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      # Версия Python — из .python-version (3.14, как в Docker-образе)
+      # Python version comes from .python-version (3.14, as in the Docker image)
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
@@ -40,12 +40,12 @@ jobs:
       - name: Build image
         run: docker build -t medllmbot .
 
-  # Ключи демо-сервера из GitHub Environment «demo» (Settings → Environments → demo):
-  # секреты TG_TOKEN, ADMIN_ID, ANTHROPIC_API_KEY, ADMIN_PASSWORD, ADMIN_SECRET_KEY и переменная ADMIN_USERNAME.
-  # Job проверяет, что все ключи заданы и проходят валидацию настроек; значения в лог не попадают.
-  # Тестам ключи не нужны — Anthropic и Telegram в них подменены фейками.
-  # Запускается только перед деплоем (после слияния в main): PR не блокируются, пока секреты не заведены.
-  # Деплой включается переменной репозитория DEPLOY_ENABLED=true, когда сервер и секреты готовы.
+  # Demo server keys from the GitHub Environment «demo» (Settings → Environments → demo):
+  # secrets TG_TOKEN, ADMIN_ID, ANTHROPIC_API_KEY, ADMIN_PASSWORD, ADMIN_SECRET_KEY and variable ADMIN_USERNAME.
+  # The job checks that all keys are set and pass settings validation; values do not reach the log.
+  # Tests do not need the keys: Anthropic and Telegram are replaced with fakes there.
+  # Runs only before a deploy (after a merge into main): PRs are not blocked until the secrets are set up.
+  # Deploy is enabled by the repository variable DEPLOY_ENABLED=true once the server and secrets are ready.
   config:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
@@ -73,28 +73,28 @@ jobs:
       - name: Check keys
         run: uv run python -m medllmbot.check_config
 
-  # Деплой на демо-сервер: только после слияния PR в main и только если все проверки зелёные.
-  # Секреты окружения «demo»: DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY (закрытый ключ CI),
-  # DEPLOY_KNOWN_HOSTS (вывод ssh-keyscan сервера — без него подключение не пройдёт). Настройка — в README_ru.md.
+  # Deploy to the demo server: only after a PR is merged into main and only if all checks are green.
+  # Secrets of the «demo» environment: DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY (CI private key),
+  # DEPLOY_KNOWN_HOSTS (ssh-keyscan output of the server; the connection fails without it). Setup: README_ru.md.
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
     needs: config
     runs-on: ubuntu-latest
     environment: demo
-    # Два слияния подряд разворачиваются по очереди, а не одновременно
+    # Two merges in a row are deployed one after another, not at the same time
     concurrency:
       group: deploy-demo
       cancel-in-progress: false
     steps:
       - name: Build .env from secrets
         env: *app_keys
-        # Значения в одинарных кавычках: и docker compose, и pydantic читают их как есть, без подстановки «$…»
+        # Values in single quotes: both docker compose and pydantic read them as is, without «$…» substitution
         run: |
           umask 077
           for name in TG_TOKEN ADMIN_ID ANTHROPIC_API_KEY ADMIN_USERNAME ADMIN_PASSWORD ADMIN_SECRET_KEY ADMIN_HTTPS_ONLY DOMAIN; do
             value="${!name}"
             if [[ "$value" == *"'"* || "$value" == *$'\n'* ]]; then
-              echo "::error::$name содержит одинарную кавычку или перевод строки" >&2
+              echo "::error::$name contains a single quote or a newline" >&2
               exit 1
             fi
             printf "%s='%s'\n" "$name" "$value"
@@ -111,6 +111,6 @@ jobs:
           printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          # Команду не передаём: на сервере ключ привязан к deploy/deploy.sh; .env уходит через stdin
+          # No command is passed: on the server the key is bound to deploy/deploy.sh; .env goes via stdin
           ssh -T -i ~/.ssh/deploy_key -o BatchMode=yes -o StrictHostKeyChecking=yes \
             "$DEPLOY_USER@$DEPLOY_HOST" < "$RUNNER_TEMP/demo.env"

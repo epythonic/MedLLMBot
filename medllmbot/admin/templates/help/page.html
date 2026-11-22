@@ -1,12 +1,12 @@
-{# Страница «Справка»: справка всех разделов подряд, с оглавлением. Удобно читать целиком или распечатать. #}
+{# «Справка» page: help for all sections in a row, with a table of contents. Easy to read in full or print. #}
 {% extends "sqladmin/layout.html" %}
 {% from "help/_macros.html" import section_url with context %}
 {% block content %}
 {% include "help/_assets.html" %}
 {#
-  SQLAdmin кладёт страницу в .row-deck, а Tabler делает каждую его колонку flex-рядом и растягивает карточки.
-  Поэтому оглавлению — align-items-start (не тянуть на всю высоту), колонке разделов — d-block
-  (иначе все карточки встают в одну строку узкими столбиками).
+  SQLAdmin puts the page in .row-deck, and Tabler makes each of its columns a flex row and stretches the cards.
+  So the table of contents gets align-items-start (do not stretch to full height) and the sections column gets d-block
+  (otherwise all cards line up in one row as narrow columns).
 #}
 <div class="col-12 col-xl-3 align-items-start">
   <div class="card help-toc">

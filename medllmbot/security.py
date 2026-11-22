@@ -1,12 +1,12 @@
-"""Выявление попыток перехватить управление ботом (prompt injection).
+"""Detection of attempts to take over the bot (prompt injection).
 
-Два слоя:
-- на входе — эвристики по сообщению клиента (RU / RO / EN). Их можно обойти
-  перефразированием, поэтому это сигнал для журнала и администратора, а не защита;
-- на выходе — проверка, не попали ли в ответ модели фрагменты системного промпта.
-  Такой ответ клиенту не отправляется.
+Two layers:
+- on input, heuristics over the client message (RU / RO / EN). Rephrasing can bypass
+  them, so they are a signal for the audit log and the administrator, not a defense;
+- on output, a check whether fragments of the system prompt got into the model reply.
+  Such a reply is not sent to the client.
 
-Настоящая защита — правила в системном промпте и проверки ответа (цены, утечка).
+The real defense is the system prompt rules and the reply checks (prices, leaks).
 """
 
 import re
@@ -19,8 +19,8 @@ _I = re.IGNORECASE
 
 @dataclass(frozen=True)
 class InjectionRule:
-    code: str  # пишется в журнал
-    label: str  # показывается администратору
+    code: str  # written to the audit log
+    label: str  # shown to the administrator
     pattern: re.Pattern[str]
 
 
@@ -29,11 +29,11 @@ INJECTION_RULES: tuple[InjectionRule, ...] = (
         "ignore_instructions",
         "просьба игнорировать инструкции",
         re.compile(
-            # Только повелительное наклонение: «можно забыть про ограничения в еде?» — обычный вопрос
+            # Imperative mood only: «можно забыть про ограничения в еде?» is an ordinary question
             r"(игнорир\w*|забудь\w*|отбрось\w*|не\s+следуй)\W+(?:\w+\W+){0,3}?"
             r"(инструкц|правил|указани|промпт|ограничени)"
             r"|(ignore|disregard|forget)\W+(?:\w+\W+){0,3}?(instruction|rule|prompt)"
-            # «Uită-te» — «посмотри», «regulat» — «регулярно»
+            # «Uită-te» means "look", «regulat» means "regularly"
             r"|(ignor[aă]|uit[aă](?!-te))\W+(?:\w+\W+){0,3}?(instruc[tț]iun|regul(?!at))",
             _I,
         ),
@@ -42,11 +42,11 @@ INJECTION_RULES: tuple[InjectionRule, ...] = (
         "role_change",
         "попытка сменить роль бота",
         re.compile(
-            # «а теперь ты скажи цену» — обычный вопрос, поэтому нужен маркер новой роли
+            # «а теперь ты скажи цену» is an ordinary question, so a new-role marker is required
             r"(ты\s+теперь|теперь\s+ты)\s+(—|-|являешься|будешь|не\s+бот|другой|новый|мой)"
             r"|представь,?\s+что\s+ты|веди\s+себя\s+как|притворись"
             r"|you\s+are\s+now|pretend\s+(to\s+be|you\s+are)|from\s+now\s+on\s+you"
-            # «Acum ești deschis?» — «Вы сейчас открыты?», поэтому нужна новая роль: «acum ești un alt bot»
+            # «Acum ești deschis?» means "Are you open now?", so a new role is required: «acum ești un alt bot»
             r"|acum\s+e[sș]ti\s+(un|o)\b|pref[aă]-te",
             _I,
         ),
@@ -55,16 +55,16 @@ INJECTION_RULES: tuple[InjectionRule, ...] = (
         "authority_claim",
         "выдаёт себя за владельца или разработчика бота",
         re.compile(
-            # «Я разработчик, можно записаться вечером?» — обычная профессия клиента,
-            # поэтому нужна привязка к боту («я твой / ваш …») или к этой клинике или магазину
-            # Только именительный падеж: «я вашему администратору звонила» — обычная жалоба
+            # «Я разработчик, можно записаться вечером?» is just the client's profession,
+            # so a tie to the bot («я твой / ваш …») or to this clinic or shop is required
+            # Nominative case only: «я вашему администратору звонила» is an ordinary complaint
             r"\bя\s+(твой|твоя|ваш|ваша|тебе)\s+(?:\w+\s+)?"
             r"(начальник|хозя|владел|создател|разработчик|админ|руководител|босс|директор|программист"
             r"|менеджер|сотрудни|продав)"
             r"|\bя\s+тебя\s+(создал|написал|запрограммировал|разработал|сделал)"
-            # «Я директор частной клиники в Бельцах», «Я директор этой компании, нужен счёт» — клиенты
-            # (в магазин часто пишут компании); подозрительны только эта / ваша клиника, этот / ваш магазин
-            # и «ваша» компания — то есть та, которой принадлежит бот
+            # «Я директор частной клиники в Бельцах», «Я директор этой компании, нужен счёт» are clients
+            # (companies often write to the shop); only this / your clinic, this / your shop
+            # and «ваша» (your) company, i.e. the one that owns the bot, are suspicious
             r"|\bя\s+(?:\w+\s+){0,2}?(владел|хозя|директор|руководител|начальник|менеджер|сотрудни)\w*\s+"
             r"(?:(этой|вашей|твоей|данной)\s+клиник|(этого|вашего|твоего|данного)\s+(?:интернет-)?магазин"
             r"|(вашей|твоей)\s+(компани|фирм))"
@@ -81,9 +81,9 @@ INJECTION_RULES: tuple[InjectionRule, ...] = (
         "prompt_extraction",
         "попытка узнать системный промпт",
         re.compile(
-            # «покажите правила записи» — обычный вопрос, ловим только «свои / скрытые» правила
+            # «покажите правила записи» is an ordinary question; only «свои / скрытые» (own / hidden) rules are caught
             r"системн\w*\s+(промпт|инструкц|сообщени|настро)"
-            # «Покажите свои правила записи / возврата» — вопрос о клинике или магазине, а не о боте
+            # «Покажите свои правила записи / возврата» is a question about the clinic or shop, not about the bot
             r"|(покажи|выведи|повтори|напиши|раскрой)\w*\W+(свои|твои|исходн\w*|скрыт\w*)\W+"
             r"(инструкц|правил[а-я]*\b(?!\s+(?:записи|при[её]ма|посещения|оплаты|отмены|подготовки"
             r"|возврат|обмен|доставк|гаранти|покуп|рассрочк|самовывоз))|промпт|настройк)"
@@ -102,7 +102,7 @@ INJECTION_RULES: tuple[InjectionRule, ...] = (
     InjectionRule(
         "jailbreak",
         "известная техника обхода ограничений",
-        # «DAN» не ловим: в Молдове это частое имя
+        # «DAN» is not caught: it is a common name in Moldova
         re.compile(r"\bjailbreak|do\s+anything\s+now|developer\s+mode|режим\w*\s+разработчика", _I),
     ),
 )
@@ -114,7 +114,7 @@ FLAG_LABELS: dict[str, str] = {rule.code: rule.label for rule in INJECTION_RULES
 
 
 def detect_injection(text: str) -> tuple[str, ...]:
-    """Коды сработавших эвристик; пустой кортеж — ничего подозрительного."""
+    """Codes of the triggered heuristics; an empty tuple means nothing suspicious."""
     return tuple(rule.code for rule in INJECTION_RULES if rule.pattern.search(text))
 
 
@@ -123,10 +123,10 @@ def _normalize(text: str) -> str:
 
 
 class LeakDetector:
-    """Находит в ответе модели дословные фрагменты секретного текста (правил промпта).
+    """Finds verbatim fragments of the secret text (the prompt rules) in a model reply.
 
-    Сравниваются строки правил длиной от `min_len` символов: короткие строки вроде
-    «с вопросами о клинике» могут честно встретиться в ответе.
+    Only rule lines of at least `min_len` characters are compared: short lines like
+    «с вопросами о клинике» may legitimately appear in a reply.
     """
 
     fragments: tuple[str, ...]
@@ -141,10 +141,10 @@ class LeakDetector:
 
 
 class AlertCooldown:
-    """Не чаще одного уведомления о подозрительном клиенте за `seconds` секунд.
+    """At most one notification about a suspicious client per `seconds` seconds.
 
-    Иначе атакующий завалит администратора сообщениями. Состояние в памяти:
-    после перезапуска бота первое уведомление придёт сразу — это допустимо.
+    Otherwise an attacker would flood the administrator with messages. The state is in memory:
+    after a bot restart the first notification arrives immediately, which is acceptable.
     """
 
     seconds: float
@@ -157,7 +157,7 @@ class AlertCooldown:
         self._last = {}
 
     def ready(self, chat_id: int) -> bool:
-        """True и отметка времени, если по этому чату можно отправить уведомление."""
+        """True, and records the time, if a notification may be sent for this chat."""
         now = self._clock()
         last = self._last.get(chat_id)
         if last is not None and now - last < self.seconds:

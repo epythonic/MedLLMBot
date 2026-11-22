@@ -1,4 +1,4 @@
-"""Все запросы бота к БД. Каждый метод открывает свою короткую сессию."""
+"""All bot queries to the DB. Each method opens its own short session."""
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
@@ -43,27 +43,27 @@ from medllmbot.db.models import (
 
 @dataclass(frozen=True)
 class NewRecords:
-    """Сколько записей появилось после `after_id` — для плашки «новые записи» в админке."""
+    """How many records appeared after `after_id`, for the new-records badge in the admin."""
 
-    last_id: int  # id последней записи (0 — записей нет): точка отсчёта для следующих проверок
+    last_id: int  # id of the last record (0 means no records): the baseline for subsequent checks
     count: int
-    suspicious: int = 0  # только для журнала: сколько из новых записей подозрительные
+    suspicious: int = 0  # audit log only: how many of the new records are suspicious
 
 
 @dataclass(frozen=True)
 class Knowledge:
-    """Снимок базы знаний клиники: только активные записи в порядке sort_order."""
+    """Snapshot of the clinic knowledge base: only active records, in sort_order."""
 
     sections: list[InfoSection]
     services: list[Service]
     faq: list[FaqItem]
-    # Каталог больше порога и в `services` не загружен: модель ищет в нём инструментом search_catalog
+    # The catalog exceeds the threshold and is not loaded into `services`: the model searches it with search_catalog
     catalog_search: bool = False
 
 
 @dataclass(frozen=True)
 class CatalogPage:
-    """Результат поиска по каталогу: первые позиции и сколько подошло всего."""
+    """Catalog search result: the top items and the total number of matches."""
 
     services: list[Service]
     total: int
@@ -71,20 +71,20 @@ class CatalogPage:
 
 @dataclass(frozen=True)
 class QuestionRow:
-    """Сообщение клиента из журнала — для аналитики вопросов (`medllmbot/analytics.py`)."""
+    """A client message from the audit log, for question analytics (`medllmbot/analytics.py`)."""
 
     event_id: int
     chat_id: int
     created_at: datetime  # UTC
     text: str
     outcome: AuditOutcome
-    answer: str | None  # что получил клиент
+    answer: str | None  # what the client received
     tool_calls: str | None
 
 
 @dataclass(frozen=True)
 class LeadRow:
-    """Когда клиент оставил телефон — для доли диалогов с заявкой."""
+    """When the client left a phone number, for the share of dialogs with a lead."""
 
     chat_id: int
     created_at: datetime  # UTC
@@ -94,20 +94,20 @@ _FTS = table(fts.FTS_TABLE, column("rowid"))
 
 
 async def _active[M: (InfoSection, Service, FaqItem)](session: AsyncSession, model: type[M]) -> list[M]:
-    """Активные записи раздела базы знаний в порядке вывода."""
+    """Active records of a knowledge base section, in display order."""
     stmt = select(model).where(model.is_active.is_(True)).order_by(model.sort_order, model.id)
     return list((await session.scalars(stmt)).all())
 
 
 def _to_message(role: str, content: str) -> MessageParam:
-    """Строка истории из БД -> сообщение в формате Anthropic API."""
+    """History row from the DB -> message in Anthropic API format."""
     if role == "user":
         return UserMessageParam(role="user", content=content)
     return AssistantMessageParam(role="assistant", content=content)
 
 
 def _token_usage(event: AuditEvent) -> TokenUsage | None:
-    """Токены из события; None, если запроса к модели не было."""
+    """Tokens from the event; None if there was no model request."""
     if event.input_tokens is None or event.output_tokens is None:
         return None
     return TokenUsage(
@@ -130,7 +130,7 @@ def _to_price(row: ModelPrice) -> Price:
 
 
 async def _add_daily_usage(session: AsyncSession, model: str, usage: TokenUsage, cost_micro_usd: int | None) -> None:
-    """Прибавляет запрос к итогам за сегодняшний день (UTC) атомарным upsert."""
+    """Adds the request to today's (UTC) totals with an atomic upsert."""
     stmt = insert(UsageDaily).values(
         day=datetime.now(UTC).date(),
         model=model,
@@ -164,10 +164,10 @@ class Repository:
     def __init__(self, sessions: async_sessionmaker[AsyncSession]) -> None:
         self.sessions = sessions
 
-    # ---------- Клиенты ----------
+    # ---------- Clients ----------
 
     async def touch_client(self, chat_id: int, username: str | None, full_name: str) -> bool:
-        """Создаёт или обновляет клиента. Возвращает True, если клиент заблокирован."""
+        """Creates or updates the client. Returns True if the client is blocked."""
         stmt = (
             insert(Client)
             .values(chat_id=chat_id, username=username, full_name=full_name)
@@ -186,17 +186,17 @@ class Repository:
             return await session.get(Client, chat_id)
 
     async def set_client_blocked(self, chat_id: int, blocked: bool) -> Client | None:
-        """Блокировка из админки. None — такого клиента нет."""
+        """Blocking from the admin. None means there is no such client."""
         async with self.sessions.begin() as session:
             client = await session.get(Client, chat_id)
             if client is not None:
                 client.is_blocked = blocked
         return client
 
-    # ---------- История диалога ----------
+    # ---------- Dialog history ----------
 
     async def load_history(self, chat_id: int, limit: int) -> list[MessageParam]:
-        """Последние сообщения диалога в формате для LLM, старые — первыми."""
+        """Latest dialog messages in LLM format, oldest first."""
         stmt = (
             select(ChatMessage.role, ChatMessage.content)
             .where(ChatMessage.chat_id == chat_id)
@@ -206,14 +206,14 @@ class Repository:
         async with self.sessions() as session:
             rows = (await session.execute(stmt)).all()
         history = [_to_message(role, content) for role, content in reversed(rows)]
-        # Срез может начаться с ответов бота (нечётный лимит, несколько ответов оператора подряд),
-        # а API ждёт первым сообщение клиента
+        # The slice may start with bot replies (odd limit, several operator replies in a row),
+        # but the API expects the client's message first
         while history and history[0]["role"] != "user":
             history = history[1:]
         return history
 
     async def save_pair(self, chat_id: int, question: str, answer: str) -> None:
-        """Сохраняет вопрос и ответ вместе, чтобы история всегда начиналась с клиента."""
+        """Saves the question and answer together so the history always starts with the client."""
         async with self.sessions.begin() as session:
             session.add_all(
                 [
@@ -222,7 +222,7 @@ class Repository:
                 ]
             )
 
-    # ---------- Заявки ----------
+    # ---------- Leads ----------
 
     async def create_lead(self, chat_id: int, client_name: str, phone: str, message: str) -> Lead:
         lead = Lead(chat_id=chat_id, client_name=client_name, phone=phone, message=message)
@@ -231,7 +231,7 @@ class Repository:
         return lead
 
     async def set_lead_status(self, lead_id: int, status: LeadStatus) -> Lead | None:
-        """Смена статуса из админки. None — заявки нет (например, её только что удалили)."""
+        """Status change from the admin. None means there is no lead (e.g. it was just deleted)."""
         async with self.sessions.begin() as session:
             lead = await session.get(Lead, lead_id)
             if lead is not None:
@@ -244,20 +244,20 @@ class Repository:
             last_id, count = (await session.execute(stmt)).one()
         return NewRecords(last_id, count)
 
-    # ---------- Живой оператор ----------
+    # ---------- Live operator ----------
 
     async def operator_until(self, chat_id: int) -> datetime | None:
-        """До какого времени (UTC) клиента ведёт оператор; None — отвечает бот. Срок мог уже пройти."""
+        """Until when (UTC) the operator handles the client; None means the bot replies. It may have expired."""
         async with self.sessions() as session:
             return await session.scalar(select(Client.operator_until).where(Client.chat_id == chat_id))
 
     async def start_operator(self, chat_id: int, until: datetime) -> None:
-        """Передаёт клиента оператору до `until` (UTC): до этого времени бот молчит."""
+        """Hands the client to the operator until `until` (UTC): the bot stays silent until then."""
         async with self.sessions.begin() as session:
             await session.execute(update(Client).where(Client.chat_id == chat_id).values(operator_until=until))
 
     async def end_operator(self, chat_id: int, now: datetime) -> bool:
-        """Возвращает клиента боту. True — клиента вёл оператор и срок ещё не прошёл."""
+        """Returns the client to the bot. True if the operator was handling the client and it had not expired."""
         async with self.sessions.begin() as session:
             client = await session.get(Client, chat_id)
             if client is None or client.operator_until is None:
@@ -267,7 +267,7 @@ class Repository:
         return active
 
     async def add_relay(self, admin_chat_id: int, admin_message_id: int, chat_id: int) -> None:
-        """Запоминает сообщение бота в чате администратора: ответ на него уйдёт клиенту `chat_id`."""
+        """Remembers a bot message in the admin chat: a reply to it goes to client `chat_id`."""
         stmt = (
             insert(OperatorRelay)
             .values(admin_chat_id=admin_chat_id, admin_message_id=admin_message_id, chat_id=chat_id)
@@ -279,7 +279,7 @@ class Repository:
             await session.execute(stmt)
 
     async def relay_chat(self, admin_chat_id: int, admin_message_id: int) -> int | None:
-        """Клиент, к которому относится сообщение бота в чате администратора; None — ни к кому."""
+        """The client a bot message in the admin chat refers to; None if none."""
         stmt = select(OperatorRelay.chat_id).where(
             OperatorRelay.admin_chat_id == admin_chat_id, OperatorRelay.admin_message_id == admin_message_id
         )
@@ -287,31 +287,32 @@ class Repository:
             return await session.scalar(stmt)
 
     async def save_message(self, chat_id: int, role: str, content: str) -> None:
-        """Одно сообщение в историю: клиент пишет оператору, оператор отвечает — без пары вопрос-ответ бота.
+        """A single message into the history: the client writes to the operator, the operator replies,
+        without the bot's question-answer pair.
 
-        Пустое не сохраняется: API Claude отклоняет сообщения без текста.
+        Empty messages are not saved: the Claude API rejects messages without text.
         """
         if not content.strip():
             return
         async with self.sessions.begin() as session:
             session.add(ChatMessage(chat_id=chat_id, role=role, content=content))
 
-    # ---------- Заказы магазина ----------
+    # ---------- Shop orders ----------
 
     async def find_order(self, key: str) -> Order | None:
-        """Заказ по ключу номера — только буквы и цифры: «DE10023» находит «DE-10023» (orders.order_key)."""
+        """Order by number key, letters and digits only: «DE10023» finds «DE-10023» (orders.order_key)."""
         stored_key = func.replace(func.upper(Order.number), "-", "")
         async with self.sessions() as session:
             return await session.scalar(select(Order).where(stored_key == key.upper()).limit(1))
 
-    # ---------- Журнал аудита ----------
+    # ---------- Audit log ----------
 
     async def log_event(self, event: AuditEvent, requests: Sequence[TokenUsage] = ()) -> None:
-        """Пишет событие. Если был запрос к модели — считает его стоимость и добавляет
-        к дневным итогам расхода в той же транзакции.
+        """Writes the event. If there was a model request, computes its cost and adds it
+        to the daily spending totals in the same transaction.
 
-        `requests` — токены каждого запроса, если ответ занял несколько (поиск по каталогу): тариф по длине
-        промпта выбирается для каждого запроса отдельно. Без них стоимость считается по токенам события.
+        `requests` holds the tokens of each request if the answer took several (catalog search): the prompt
+        length tier is chosen for each request separately. Without them the cost is computed from the event tokens.
         """
         async with self.sessions.begin() as session:
             usage = _token_usage(event)
@@ -325,7 +326,7 @@ class Repository:
             session.add(event)
 
     async def spent_today_micro_usd(self) -> int:
-        """Расход на Claude за текущие сутки (UTC) по всем моделям — для дневного лимита."""
+        """Claude spending for the current day (UTC) across all models, for the daily budget."""
         async with self.sessions() as session:
             total = await session.scalar(
                 select(func.coalesce(func.sum(UsageDaily.cost_micro_usd), 0)).where(
@@ -346,20 +347,20 @@ class Repository:
         return NewRecords(last_id, count, suspicious)
 
     async def purge_audit(self, older_than_days: int) -> int:
-        """Удаляет записи журнала старше срока хранения. Возвращает число удалённых."""
-        # CURRENT_TIMESTAMP в SQLite — UTC без часового пояса, сравниваем так же
+        """Deletes audit log records older than the retention period. Returns the number deleted."""
+        # CURRENT_TIMESTAMP in SQLite is UTC without a time zone, so compare the same way
         cutoff = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=older_than_days)
         stmt = delete(AuditEvent).where(AuditEvent.created_at < cutoff).returning(AuditEvent.id)
         async with self.sessions.begin() as session:
             deleted = (await session.scalars(stmt)).all()
         return len(deleted)
 
-    # ---------- Аналитика ----------
+    # ---------- Analytics ----------
 
     async def questions_since(self, since: datetime, outcomes: Iterable[AuditOutcome]) -> list[QuestionRow]:
-        """Сообщения клиентов из журнала начиная с `since` (UTC) с итогами из `outcomes`, старые — первыми.
+        """Client messages from the audit log since `since` (UTC) with outcomes in `outcomes`, oldest first.
 
-        Сообщения с признаками атаки не входят: это не спрос клиентов, их разбирают в «Журнале».
+        Messages with attack signs are excluded: they are not client demand and are reviewed in «Журнал».
         """
         stmt = (
             select(
@@ -386,24 +387,24 @@ class Repository:
         ]
 
     async def leads_since(self, since: datetime) -> list[LeadRow]:
-        """Заявки начиная с `since` (UTC), старые — первыми."""
+        """Leads since `since` (UTC), oldest first."""
         stmt = select(Lead.chat_id, Lead.created_at).where(Lead.created_at >= since).order_by(Lead.id)
         async with self.sessions() as session:
             rows = (await session.execute(stmt)).all()
         return [LeadRow(chat_id, created_at) for chat_id, created_at in rows]
 
     async def purge_relays(self, older_than_days: int) -> int:
-        """Удаляет связи старых пересылок оператору — по сроку хранения журнала. Возвращает число удалённых."""
+        """Deletes old operator relay links per the audit log retention period. Returns the number deleted."""
         cutoff = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=older_than_days)
         stmt = delete(OperatorRelay).where(OperatorRelay.created_at < cutoff).returning(OperatorRelay.admin_message_id)
         async with self.sessions.begin() as session:
             deleted = (await session.scalars(stmt)).all()
         return len(deleted)
 
-    # ---------- Расходы ----------
+    # ---------- Costs ----------
 
     async def usage_by_month(self) -> list[UsageRow]:
-        """Суммы расхода по месяцам (UTC) и моделям."""
+        """Spending totals per month (UTC) and model."""
         month = type_coerce(func.strftime("%Y-%m", UsageDaily.day), String)
         stmt = (
             select(
@@ -427,11 +428,11 @@ class Repository:
             for m, model, req, inp, out, cr, cw, cost, unp in rows
         ]
 
-    # ---------- База знаний и настройки ----------
+    # ---------- Knowledge base and settings ----------
 
     async def load_knowledge(self, catalog_inline_limit: int | None = None) -> Knowledge:
-        """База знаний для промпта. Если активных услуг больше `catalog_inline_limit`, каталог
-        не загружается целиком — модель ищет в нём через `search_catalog`. None — без порога.
+        """Knowledge base for the prompt. If there are more active services than `catalog_inline_limit`,
+        the catalog is not loaded whole and the model searches it via `search_catalog`. None means no threshold.
         """
         async with self.sessions() as session:
             catalog_search = False
@@ -446,7 +447,7 @@ class Repository:
             )
 
     async def catalog_prices(self) -> set[int]:
-        """Все цены активных услуг — для проверки цен в ответе, когда каталога нет в промпте."""
+        """All prices of active services, for checking prices in the answer when the catalog is not in the prompt."""
         async with self.sessions() as session:
             prices = await session.scalars(select(Service.price).where(Service.is_active.is_(True)).distinct())
             return set(prices)
@@ -459,9 +460,9 @@ class Repository:
         max_price: int | None = None,
         limit: int = 10,
     ) -> CatalogPage:
-        """Активные услуги по словам запроса (полнотекстовый индекс) и диапазону цен.
+        """Active services matching the query words (full-text index) and price range.
 
-        Самые подходящие — первыми (bm25). Запрос без слов возвращает каталог по порядку из админки.
+        Best matches first (bm25). A query without words returns the catalog in the admin order.
         """
         conditions: list[ColumnElement[bool]] = [Service.is_active.is_(True)]
         if min_price is not None:
@@ -474,11 +475,11 @@ class Repository:
         if match is None:
             found = found.order_by(Service.sort_order, Service.id)
         else:
-            index: ColumnClause[object] = literal_column(fts.FTS_TABLE)  # сама таблица FTS: MATCH и bm25 берут её имя
+            index: ColumnClause[object] = literal_column(fts.FTS_TABLE)  # the FTS table: MATCH and bm25 take its name
             found = (
                 found.join(_FTS, _FTS.c.rowid == Service.id)
                 .where(index.op("MATCH")(match))
-                # Вес совпадения в названии — 10, в описании — 1: услуга с нужным словом в названии выше
+                # Match weight: 10 in the name, 1 in the description; a service with the word in its name ranks higher
                 .order_by(func.bm25(index, 10.0, 1.0), Service.sort_order, Service.id)
             )
 
@@ -488,10 +489,10 @@ class Repository:
         return CatalogPage(services, total or 0)
 
     async def reorder[M: (InfoSection, Service, FaqItem)](self, model: type[M], ids: Sequence[int]) -> bool:
-        """Порядок после перетаскивания в админке: шаг 10, чтобы вручную было куда вставить запись.
+        """Order after drag-and-drop in the admin: step 10, so there is room to insert a record by hand.
 
-        `ids` — все записи раздела в новом порядке. False — список изменился (запись добавили
-        или удалили, пока его сортировали), порядок не тронут.
+        `ids` are all records of the section in the new order. False means the list changed (a record was added
+        or deleted while it was being sorted); the order is left untouched.
         """
         async with self.sessions.begin() as session:
             rows = {row.id: row for row in await session.scalars(select(model))}
@@ -502,7 +503,7 @@ class Repository:
         return True
 
     async def get_config(self) -> BotConfig:
-        """Настройки бота; при первом обращении создаёт строку со значениями по умолчанию."""
+        """Bot settings; on first access creates the row with default values."""
         async with self.sessions.begin() as session:
             config = await session.get(BotConfig, 1)
             if config is None:

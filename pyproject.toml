@@ -1,7 +1,7 @@
 [project]
 name = "medllmbot"
 version = "0.2.0"
-description = "Telegram-ассистент на aiogram 3 и Claude (Anthropic API) для стоматологии или магазина электроники, с веб-админкой"
+description = "Telegram assistant on aiogram 3 and Claude (Anthropic API) for a dental clinic or an electronics shop, with a web admin"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.14"
@@ -38,16 +38,16 @@ target-version = "py314"
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "ASYNC", "RUF"]
 ignore = [
-    # Русский текст в строках и комментариях — не ошибка
+    # Russian text in strings and comments is not an error
     "RUF001",
     "RUF002",
     "RUF003",
-    # Длину строк выравнивает ruff format; длинные строки-литералы и комментарии не ошибка
+    # ruff format handles line length; long string literals and comments are not an error
     "E501",
 ]
 
 [tool.ruff.lint.per-file-ignores]
-# SQLAdmin настраивается изменяемыми атрибутами класса — это его API
+# SQLAdmin is configured through mutable class attributes; that is its API
 "medllmbot/admin/views.py" = ["RUF012"]
 
 [tool.pytest.ini_options]
@@ -57,19 +57,19 @@ testpaths = ["tests"]
 pythonpath = ["."]
 
 [tool.basedpyright]
-# Окружение uv — чтобы IDE и CLI видели одни и те же установленные пакеты
+# The uv environment, so the IDE and CLI see the same installed packages
 venvPath = "."
 venv = ".venv"
 pythonVersion = "3.14"
 typeCheckingMode = "recommended"
 include = ["medllmbot", "evals", "tests"]
 exclude = ["**/__pycache__", ".venv"]
-# Отключены правила, которые не ловят ошибок, а только требуют шума в коде:
-# `_ = await session.execute(...)` на каждый вызов и запрет склейки длинных строк
+# Disabled rules that catch no bugs and only demand noise in the code:
+# `_ = await session.execute(...)` on every call and the ban on implicit concatenation of long strings
 reportUnusedCallResult = false
 reportImplicitStringConcatenation = false
 executionEnvironments = [
-    # Моки (AsyncMock) по своей природе возвращают Any — в тестах это не ошибка
+    # Mocks (AsyncMock) return Any by nature; in tests that is not an error
     { root = "tests", extraPaths = ["."], reportAny = false },
     { root = "." },
 ]

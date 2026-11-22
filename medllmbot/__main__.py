@@ -13,6 +13,6 @@ if __name__ == "__main__":
         settings = BotSettings.from_env()
     except ValidationError as error:
         sys.exit(describe_settings_error(error))
-    # Миграции — до запуска event loop: Alembic сам вызывает asyncio.run
+    # Migrations run before the event loop starts: Alembic calls asyncio.run itself
     upgrade_db(settings.db_path)
     asyncio.run(main(settings))

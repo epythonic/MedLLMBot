@@ -1,8 +1,8 @@
-"""Статус заказа для инструмента order_status: интерфейс к системе магазина и защита от подбора.
+"""Order status for the order_status tool: the interface to the shop system and brute-force protection.
 
-Бот не знает, где магазин хранит заказы. Он спрашивает `OrderBackend`:
-- в демо это `DatabaseOrders` — таблица `orders`, которую правят в админке;
-- в проекте для магазина здесь будет запрос к его CMS или 1С с тем же методом `find`.
+The bot does not know where the shop stores its orders. It asks an `OrderBackend`:
+- in the demo this is `DatabaseOrders`, the `orders` table edited in the admin panel;
+- in a real shop project this would be a query to its CMS or 1C with the same `find` method.
 """
 
 import re
@@ -15,15 +15,15 @@ from typing import ClassVar, Protocol
 from medllmbot.db.models import OrderStatus
 from medllmbot.db.repository import Repository
 
-LAST_DIGITS = 4  # сколько последних цифр телефона называет клиент
+LAST_DIGITS = 4  # how many last phone digits the client gives
 
-# Номер заказа в каноническом виде: латинские буквы и цифры, части через дефис — DE-10023
+# Order number in canonical form: Latin letters and digits, parts joined by hyphens, e.g. DE-10023
 ORDER_NUMBER = re.compile(r"[A-Z0-9]+(?:-[A-Z0-9]+)*")
 NUMBER_LENGTH = range(3, 33)
-# Кириллица, похожая на латиницу: «DЕ-10023» с русской «Е» → «DE-10023». У «Д» латинской пары нет —
-# такой номер не подходит, и админка его не сохранит
+# Cyrillic letters that look Latin: «DЕ-10023» with a Russian «Е» → «DE-10023». «Д» has no Latin twin,
+# so such a number does not match, and the admin panel will not save it
 _LOOKALIKES = str.maketrans("АВЕКМНОРСТХУ", "ABEKMHOPCTXY")
-# Пробелы и любые тире — разделители: «DE 10023», «DE–10023» (автозамена на телефоне), «DE - 10023»
+# Spaces and any dashes are separators: «DE 10023», «DE–10023» (phone autocorrect), «DE - 10023»
 _SEPARATORS = re.compile(r"[\s\-\u2010-\u2015\u2212]+")
 
 
@@ -32,23 +32,23 @@ class OrderInfo:
     number: str
     status: OrderStatus
     items: str
-    total: int  # в леях
+    total: int  # in lei
     delivery_date: date | None
-    phone: str = field(repr=False)  # для проверки; не показывается клиенту, модели и в логах
+    phone: str = field(repr=False)  # for verification; never shown to the client, the model or in logs
 
 
 class OrderBackend(Protocol):
-    """Источник заказов. Реализация для магазина ходит в его систему учёта.
+    """Order source. A real shop implementation queries the shop's accounting system.
 
-    `number` уже приведён к каноническому виду (`normalize_number`), но клиент мог не написать дефис:
-    сравнивать стоит по `order_key` — только буквы и цифры.
+    `number` is already in canonical form (`normalize_number`), but the client may have omitted the hyphen:
+    compare by `order_key`, letters and digits only.
     """
 
     async def find(self, number: str) -> OrderInfo | None: ...
 
 
 class DatabaseOrders:
-    """Демо-источник: заказы из таблицы `orders` (раздел админки «Заказы»)."""
+    """Demo source: orders from the `orders` table (the «Заказы» admin section)."""
 
     repo: Repository
 
@@ -63,9 +63,9 @@ class DatabaseOrders:
 
 
 def normalize_number(text: str) -> str | None:
-    """Номер заказа как на чеке: «de 10023», «№ DE–10023», «#de-10023» → «DE-10023».
+    """Order number as on the receipt: «de 10023», «№ DE–10023», «#de-10023» → «DE-10023».
 
-    None — на номер заказа не похоже (другие символы, кириллица без латинской пары, длина).
+    None if it does not look like an order number (other characters, Cyrillic without a Latin twin, length).
     """
     cleaned = text.strip().upper().translate(_LOOKALIKES).lstrip("#№").strip()
     number = _SEPARATORS.sub("-", cleaned).strip("-")
@@ -75,7 +75,7 @@ def normalize_number(text: str) -> str | None:
 
 
 def order_key(number: str) -> str:
-    """Ключ для сравнения: только буквы и цифры. «DE10023» и «DE-10023» — один заказ."""
+    """Comparison key: letters and digits only. «DE10023» and «DE-10023» are the same order."""
     return number.replace("-", "")
 
 
@@ -85,15 +85,15 @@ def phone_matches(phone: str, last_digits: str) -> bool:
 
 
 class FailedLookups:
-    """Не больше `max_failures` неудачных проверок заказа за `window` секунд на один ключ.
+    """At most `max_failures` failed order checks per `window` seconds for one key.
 
-    Ключ — чат (перебор из одного аккаунта) или номер заказа (перебор одного заказа с разных аккаунтов).
-    Попытка занимается до запроса к магазину и возвращается при успехе: иначе параллельные сообщения
-    проскочили бы лимит, пока магазин отвечает. Счётчики в памяти, как у rate-limit: после перезапуска
-    бота попытки начинаются заново — это допустимо.
+    The key is a chat (brute force from one account) or an order number (one order brute-forced from many accounts).
+    An attempt is reserved before the shop request and released on success: otherwise parallel messages
+    would slip past the limit while the shop responds. Counters are in memory, like the rate limit: after a bot
+    restart the attempts start over, which is acceptable.
     """
 
-    # Как часто удалять из памяти ключи без свежих неудач
+    # How often to drop keys without recent failures from memory
     CLEANUP_EVERY: ClassVar[int] = 1000
 
     max_failures: int
@@ -117,7 +117,7 @@ class FailedLookups:
         return len(self._recent(key)) >= self.max_failures
 
     def try_begin(self, key: int | str) -> bool:
-        """Занимает попытку. False — лимит исчерпан, проверять нельзя."""
+        """Reserves an attempt. False means the limit is exhausted and checking is not allowed."""
         self._calls += 1
         if self._calls % self.CLEANUP_EVERY == 0:
             self.cleanup()
@@ -128,7 +128,7 @@ class FailedLookups:
         return True
 
     def succeeded(self, key: int | str) -> None:
-        """Проверка прошла — занятая попытка неудачей не считается."""
+        """The check passed, so the reserved attempt does not count as a failure."""
         if times := self._failures.get(key):
             times.pop()
 
@@ -145,10 +145,10 @@ def _order_limit() -> FailedLookups:
 
 @dataclass(frozen=True)
 class LookupLimits:
-    """Два лимита неудачных проверок: из одного чата и по одному номеру заказа со всех чатов.
+    """Two limits on failed checks: from one chat and for one order number across all chats.
 
-    Номера заказов идут подряд, поэтому одного лимита на чат мало: с десятка аккаунтов
-    цифры телефона подбирались бы вдесятеро быстрее.
+    Order numbers are sequential, so a per-chat limit alone is not enough: with a dozen accounts
+    the phone digits would be guessed ten times faster.
     """
 
     by_chat: FailedLookups = field(default_factory=FailedLookups)

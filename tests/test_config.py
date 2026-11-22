@@ -1,4 +1,4 @@
-"""Настройки из окружения: from_env() возвращает нужный класс и требует секреты."""
+"""Settings from the environment: from_env() returns the right class and requires secrets."""
 
 from pathlib import Path
 
@@ -13,7 +13,7 @@ SECRETS = ("TG_TOKEN", "ADMIN_ID", "ANTHROPIC_API_KEY", "ADMIN_PASSWORD", "ADMIN
 
 @pytest.fixture(autouse=True)
 def clean_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """Пустое окружение и каталог без .env — тест не зависит от машины разработчика."""
+    """Empty environment and a directory without .env, so the test does not depend on the developer's machine."""
     monkeypatch.chdir(tmp_path)
     for name in (*SECRETS, "DB_PATH"):
         monkeypatch.delenv(name, raising=False)
@@ -58,7 +58,7 @@ def test_secrets_are_hidden_in_repr(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_startup_error_names_variables(monkeypatch: pytest.MonkeyPatch) -> None:
-    # Без .env бот и админка печатают этот текст вместо трейсбека pydantic
+    # Without .env the bot and the admin print this text instead of a pydantic traceback
     monkeypatch.setenv("ADMIN_ID", "мой chat id")
     monkeypatch.setenv("ADMIN_SECRET_KEY", "short")
     with pytest.raises(ValidationError) as bot_error:
@@ -67,11 +67,11 @@ def test_startup_error_names_variables(monkeypatch: pytest.MonkeyPatch) -> None:
         AdminSettings.from_env()
 
     text = describe_settings_error(bot_error.value)
-    assert "TG_TOKEN: не задана" in text
-    assert "ANTHROPIC_API_KEY: не задана" in text
-    assert "ADMIN_ID: нужно целое число" in text
+    assert "TG_TOKEN: not set" in text
+    assert "ANTHROPIC_API_KEY: not set" in text
+    assert "ADMIN_ID: must be an integer" in text
     assert ".env.example" in text
-    assert "ADMIN_SECRET_KEY: слишком короткое значение" in describe_settings_error(admin_error.value)
+    assert "ADMIN_SECRET_KEY: value is too short" in describe_settings_error(admin_error.value)
 
 
 def test_check_config_lists_problems_without_values(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -80,13 +80,13 @@ def test_check_config_lists_problems_without_values(monkeypatch: pytest.MonkeyPa
 
     problems = find_problems()
 
-    assert len(problems) == 2  # и бот, и админка
+    assert len(problems) == 2  # both the bot and the admin
     text = "\n".join(problems)
-    assert "ADMIN_ID: не задана" in text
-    assert "ADMIN_PASSWORD: слишком короткое значение" in text
-    # Значения секретов в вывод не попадают: команда запускается в CI
+    assert "ADMIN_ID: not set" in text
+    assert "ADMIN_PASSWORD: value is too short" in text
+    # Secret values do not get into the output: the command runs in CI
     assert "secret-token" not in text
-    assert "short" not in text.replace("слишком короткое", "")
+    assert "short" not in text.replace("too short", "")
 
 
 def test_check_config_passes_with_all_keys(monkeypatch: pytest.MonkeyPatch) -> None:

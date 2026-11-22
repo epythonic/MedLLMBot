@@ -1,4 +1,4 @@
-"""Миграции: применяются с нуля, откатываются и совпадают с моделями."""
+"""Migrations: apply from scratch, roll back and match the models."""
 
 from pathlib import Path
 
@@ -15,7 +15,7 @@ from medllmbot.db.models import Base
 def _diff(db_path: Path) -> list[object]:
     engine = sa.create_engine(f"sqlite:///{db_path}")
     with engine.connect() as conn:
-        # Тот же фильтр, что в env.py: служебные таблицы индекса FTS в моделях не описаны
+        # Same filter as in env.py: the FTS index's internal tables are not described in the models
         context = MigrationContext.configure(conn, opts={"include_name": include_name})
         diff: list[object] = compare_metadata(context, Base.metadata)
     engine.dispose()
@@ -32,7 +32,7 @@ def _tables(db_path: Path) -> set[str]:
 def test_upgrade_matches_models(tmp_path: Path) -> None:
     db = tmp_path / "bot.db"
     upgrade_db(db)
-    # Если модели поменяли, а миграцию не создали, здесь будет список отличий
+    # If the models changed but no migration was created, this lists the differences
     assert _diff(db) == []
 
 
@@ -72,7 +72,7 @@ def test_price_list_is_seeded(tmp_path: Path) -> None:
 
 
 def test_catalog_index_is_built_for_existing_services(tmp_path: Path) -> None:
-    # Услуги, заведённые до миграции поиска, попадают в индекс, а новые — через триггеры
+    # Services created before the search migration get into the index, and new ones via triggers
     db = tmp_path / "bot.db"
     config = alembic_config(db)
     command.upgrade(config, "5b9f7d89371e")
@@ -91,8 +91,8 @@ def test_catalog_index_is_built_for_existing_services(tmp_path: Path) -> None:
 
 
 def test_migration_and_models_create_same_catalog_index(tmp_path: Path) -> None:
-    # Тесты работают на create_all, бот — на миграциях: индекс, представление и триггеры должны совпадать
-    # вплоть до SQL. Поменяли fts.py — нужна новая миграция
+    # Tests run on create_all, the bot on migrations: the index, view and triggers must match
+    # down to the SQL. Changed fts.py? A new migration is needed
     def schema(db_path: Path) -> list[tuple[str, str, str]]:
         engine = sa.create_engine(f"sqlite:///{db_path}")
         with engine.connect() as conn:
@@ -120,7 +120,7 @@ def test_migration_and_models_create_same_catalog_index(tmp_path: Path) -> None:
 
 
 def test_existing_settings_get_clinic_profile(tmp_path: Path) -> None:
-    # Бот, установленный до профилей, остаётся стоматологией
+    # A bot installed before profiles stays a dental clinic
     db = tmp_path / "bot.db"
     command.upgrade(alembic_config(db), "f79015512d1f")
     engine = sa.create_engine(f"sqlite:///{db}")
@@ -139,8 +139,8 @@ def test_existing_settings_get_clinic_profile(tmp_path: Path) -> None:
 
 
 def test_operator_handoff_keeps_client_data(tmp_path: Path) -> None:
-    # Колонка в clients добавляется batch-миграцией: пересоздание таблицы клиентов не должно
-    # каскадом удалить их переписку, заявки и журнал
+    # The clients column is added by a batch migration: recreating the clients table must not
+    # cascade-delete their messages, leads and audit log
     db = tmp_path / "bot.db"
     command.upgrade(alembic_config(db), "dd74e56190f6")
     engine = sa.create_engine(f"sqlite:///{db}")
@@ -165,12 +165,12 @@ def test_operator_handoff_keeps_client_data(tmp_path: Path) -> None:
         hours = conn.execute(sa.text("SELECT operator_hours FROM bot_config")).scalar_one()
     engine.dispose()
     assert counts == [1, 1, 1]
-    assert until is None  # существующие клиенты — с ботом
+    assert until is None  # existing clients stay with the bot
     assert hours == 12
 
 
 def test_existing_greeting_stays_for_everyone(tmp_path: Path) -> None:
-    # До поля greeting_ro приветствие было одно, часто сразу на двух языках: его и получают все клиенты
+    # Before greeting_ro there was one greeting, often in both languages at once: all clients get it
     db = tmp_path / "bot.db"
     command.upgrade(alembic_config(db), "15280f8b2e3f")
     engine = sa.create_engine(f"sqlite:///{db}")

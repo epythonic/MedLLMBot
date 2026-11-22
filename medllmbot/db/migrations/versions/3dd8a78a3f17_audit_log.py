@@ -1,4 +1,4 @@
-"""audit log: журнал входящих сообщений и срок его хранения
+"""audit log: log of incoming messages and its retention period
 
 Revision ID: 3dd8a78a3f17
 Revises: eac4c28e41c3
@@ -73,7 +73,7 @@ def upgrade() -> None:
 
     with op.batch_alter_table("bot_config", schema=None) as batch_op:
         batch_op.add_column(sa.Column("audit_retention_days", sa.Integer(), server_default="90", nullable=False))
-        # Alembic не находит CHECK-ограничения автоматически — добавлено вручную
+        # Alembic does not detect CHECK constraints automatically; added by hand
         batch_op.create_check_constraint(op.f("ck_bot_config_retention_positive"), "audit_retention_days > 0")
 
     # ### end Alembic commands ###
