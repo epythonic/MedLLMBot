@@ -1,4 +1,4 @@
-"""Middleware aiogram: учёт клиентов, блокировка, настройки и защита от спама."""
+"""aiogram middlewares: client tracking, blocking, settings and spam protection."""
 
 import logging
 from collections.abc import Awaitable, Callable
@@ -16,19 +16,19 @@ from medllmbot.security import detect_injection
 
 log = logging.getLogger(__name__)
 
-# aiogram объявляет эти типы через Any; object безопаснее и совместим с базовым классом
+# aiogram declares these types via Any; object is safer and compatible with the base class
 Handler = Callable[[TelegramObject, dict[str, object]], Awaitable[object]]
 
 
 def incoming_event(message: Message, outcome: AuditOutcome) -> AuditEvent:
-    """Событие журнала для сообщения, отсечённого до хендлера (фото тоже логируем)."""
-    # content_type — str-перечисление; .value даёт «photo», а не «ContentType.PHOTO»
+    """Audit event for a message cut off before the handler (photos are logged too)."""
+    # content_type is a str enum; .value gives "photo", not "ContentType.PHOTO"
     text = message.text or message.caption or f"[{ContentType(message.content_type).value}]"
     return AuditEvent.incoming(message.chat.id, text, outcome, detect_injection(text))
 
 
 class ClientMiddleware(BaseMiddleware):
-    """Регистрирует клиента, отсекает заблокированных и кладёт настройки бота в `config`."""
+    """Registers the client, cuts off blocked ones and puts the bot settings into `config`."""
 
     repo: Repository
 
@@ -39,7 +39,7 @@ class ClientMiddleware(BaseMiddleware):
     async def __call__(self, handler: Handler, event: TelegramObject, data: dict[str, object]) -> object:
         if not isinstance(event, Message):
             return await handler(event, data)
-        # Бот работает только в личных сообщениях
+        # The bot works only in private chats
         if event.chat.type != ChatType.PRIVATE:
             return None
 
@@ -50,7 +50,7 @@ class ClientMiddleware(BaseMiddleware):
             full_name=user.full_name if user else "",
         )
         if blocked:
-            log.info("Сообщение от заблокированного клиента %s проигнорировано", event.chat.id)
+            log.info("Ignored a message from blocked client %s", event.chat.id)
             await self.repo.log_event(incoming_event(event, AuditOutcome.BLOCKED))
             return None
 
@@ -59,10 +59,10 @@ class ClientMiddleware(BaseMiddleware):
 
 
 class ThrottlingMiddleware(BaseMiddleware):
-    """Молча отбрасывает сообщения, если клиент пишет слишком часто.
+    """Silently drops messages when a client writes too often.
 
-    Должна стоять после ClientMiddleware: лимиты берутся из `config`. Администратора не ограничивает:
-    отвечая клиентам как оператор, он может писать часто.
+    Must come after ClientMiddleware: the limits are taken from `config`. Does not limit the administrator:
+    replying to clients as the operator, they may write often.
     """
 
     repo: Repository

@@ -1,4 +1,4 @@
-"""Поиск по каталогу услуг в репозитории: полнотекстовый индекс, цены, порог каталога в промпте."""
+"""Service catalog search in the repository: full-text index, prices, threshold for the catalog in the prompt."""
 
 import pytest
 from sqlalchemy import delete, text, update
@@ -28,7 +28,7 @@ class TestSearch:
         assert (await _names(seeded_repo, query))[0] == first
 
     async def test_best_match_first(self, seeded_repo: Repository) -> None:
-        # Оба слова совпали только у «Удаление зуба …» — они выше, чем услуги, где есть лишь «зуб»
+        # Only «Удаление зуба …» match both words, so they rank above services with just «зуб»
         names = await _names(seeded_repo, "удаление зуба")
         assert set(names[:2]) == {"Удаление зуба простое", "Удаление зуба мудрости"}
         assert "Отбеливание зубов ZOOM" in names[2:]
@@ -63,7 +63,7 @@ class TestSearch:
         assert (await seeded_repo.search_catalog("")).total == len(DEMO_SERVICES) - 1
 
     async def test_admin_edits_reach_index(self, seeded_repo: Repository, sessions: Sessions) -> None:
-        # Триггеры обновляют индекс при любой правке таблицы — в том числе из админки
+        # Triggers update the index on any table edit, including edits from the admin
         async with sessions.begin() as s:
             s.add(Service(name="Брекеты керамические", price=15000))
             await s.execute(
@@ -77,7 +77,7 @@ class TestSearch:
         assert await _names(seeded_repo, "имплант") == []
 
     async def test_yo_and_ye_are_the_same(self, seeded_repo: Repository, sessions: Sessions) -> None:
-        # Клиенты и модель пишут то «съемный», то «съёмный» — найтись должно в обоих случаях
+        # Clients and the model write either «съемный» or «съёмный»: both must be found
         async with sessions.begin() as s:
             s.add(Service(name="Съёмный протез", price=7000, description="Ещё и ночная капа"))
         for query in ("съемный протез", "съёмный", "СЪЕМНЫЙ", "еще капа", "ещё"):
@@ -91,7 +91,7 @@ class TestSearch:
         assert "Гигиена полости рта" in names
 
     async def test_index_stays_consistent(self, seeded_repo: Repository, sessions: Sessions) -> None:
-        # Описание NULL → текст → NULL, правка только цены, INSERT OR REPLACE: индекс совпадает с таблицей
+        # Description NULL → text → NULL, price-only edit, INSERT OR REPLACE: the index matches the table
         async with sessions.begin() as s:
             service = Service(name="Капа ночная", price=900)
             s.add(service)
@@ -109,7 +109,7 @@ class TestSearch:
         assert await _names(seeded_repo, "бруксизм") == []
         assert await _names(seeded_repo, "капа") == ["Капа спортивная"]
         async with sessions.begin() as s:
-            # Встроенная проверка FTS5: при расхождении индекса с таблицей — ошибка «database disk image is malformed»
+            # Built-in FTS5 check: an index out of sync with the table fails with "database disk image is malformed"
             await s.execute(text("INSERT INTO services_fts(services_fts, rank) VALUES ('integrity-check', 1)"))
 
     async def test_fts_syntax_from_model_is_harmless(self, seeded_repo: Repository) -> None:
@@ -135,7 +135,7 @@ class TestCatalogInlineLimit:
         knowledge = await seeded_repo.load_knowledge(catalog_inline_limit=len(DEMO_SERVICES) - 1)
         assert knowledge.catalog_search
         assert knowledge.services == []
-        assert knowledge.sections and knowledge.faq  # остальная база знаний — по-прежнему в промпте
+        assert knowledge.sections and knowledge.faq  # the rest of the knowledge base is still in the prompt
 
     async def test_zero_means_always_search(self, seeded_repo: Repository) -> None:
         assert (await seeded_repo.load_knowledge(catalog_inline_limit=0)).catalog_search

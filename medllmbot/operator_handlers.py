@@ -1,7 +1,7 @@
-"""Хендлеры живого оператора (medllmbot/operator.py).
+"""Live operator handlers (medllmbot/operator.py).
 
-Роутер (`create_router`) подключается раньше основного: ответ администратора клиенту и сообщения клиента,
-чей диалог ведёт оператор, не должны попасть к Claude.
+The router (`create_router`) is attached before the main one: the administrator's reply to a client and messages
+from a client whose dialog the operator handles must not reach Claude.
 """
 
 import logging
@@ -49,12 +49,12 @@ log = logging.getLogger(__name__)
 
 
 def utcnow() -> datetime:
-    """Текущее время, как в БД: UTC без часового пояса."""
+    """Current time as stored in the DB: UTC without a time zone."""
     return datetime.now(UTC).replace(tzinfo=None)
 
 
 def content_of(msg: Message) -> str:
-    """Текст сообщения для истории и журнала; для фото и файлов — подпись или тип."""
+    """Message text for the history and the audit log; for photos and files, the caption or the type."""
     return msg.text or msg.caption or f"[{ContentType(msg.content_type).value}]"
 
 
@@ -65,9 +65,9 @@ def end_keyboard(chat_id: int) -> InlineKeyboardMarkup:
 
 
 async def relay_to_admin(bot: Bot, repo: Repository, admin_id: int, chat_id: int, text: str) -> bool:
-    """Пишет администратору о клиенте и запоминает сообщения: ответ на любое из них уйдёт клиенту.
+    """Messages the administrator about a client and remembers the messages: a reply to any of them goes to the client.
 
-    Длинный текст уходит частями, кнопка «Вернуть бота» — у последней. False — администратор недоступен.
+    A long text goes in parts, with the «Вернуть бота» button on the last one. False if the admin is unreachable.
     """
     parts = split_message(text)
     for i, part in enumerate(parts):
@@ -80,9 +80,9 @@ async def relay_to_admin(bot: Bot, repo: Repository, admin_id: int, chat_id: int
 
 
 async def dialog_language(repo: Repository, chat_id: int) -> Language:
-    """Язык клиента по его последним сообщениям в истории — для ответа, который бот пишет сам, без его сообщения.
+    """The client's language from their latest messages in the history, for a reply the bot sends unprompted.
 
-    Сообщения, по которым язык не понять («0102», «S8?»), пропускаются; ничего не нашлось — русский.
+    Messages that do not tell the language («0102», «S8?») are skipped; if nothing is found, Russian.
     """
     history = await repo.load_history(chat_id, limit=HISTORY_IN_NOTICE)
     for message in reversed(history):
@@ -93,12 +93,12 @@ async def dialog_language(repo: Repository, chat_id: int) -> Language:
 
 
 def fits_history(text: str, config: BotConfig) -> bool:
-    """Сохранять ли сообщение в историю для Claude: длиннее лимита бот вопросы не берёт и в историю не кладёт."""
+    """Whether to save the message to the Claude history: the bot neither answers nor stores messages over the limit."""
     return len(text) <= config.max_len
 
 
 class OperatorReply(Filter):
-    """Администратор ответил (reply) на сообщение бота о клиенте; хендлер получает `client_chat_id`."""
+    """The administrator replied to a bot message about a client; the handler receives `client_chat_id`."""
 
     @override
     async def __call__(self, message: Message, settings: BotSettings, repo: Repository) -> bool | dict[str, object]:
@@ -110,7 +110,7 @@ class OperatorReply(Filter):
 
 
 class WithOperator(Filter):
-    """Диалог клиента ведёт оператор, и срок ещё не прошёл."""
+    """The operator handles the client's dialog, and the deadline has not passed yet."""
 
     @override
     async def __call__(self, message: Message, repo: Repository) -> bool:
@@ -118,52 +118,52 @@ class WithOperator(Filter):
 
 
 async def operator_reply(msg: Message, bot: Bot, repo: Repository, config: BotConfig, client_chat_id: int) -> None:
-    """Ответ администратора — клиенту, как есть: текст, фото, файл. Срок молчания бота продлевается."""
+    """Sends the administrator's reply to the client as is: text, photo, file. Extends the bot's silence period."""
     content = content_of(msg)
-    # В журнале — как входящее сообщение по клиенту: «Отправлено клиенту» пусто, если не дошло
+    # Logged as an incoming message for the client: «Отправлено клиенту» is empty if it was not delivered
     event = AuditEvent.incoming(client_chat_id, content, AuditOutcome.FROM_OPERATOR)
     try:
         await bot.copy_message(chat_id=client_chat_id, from_chat_id=msg.chat.id, message_id=msg.message_id)
     except TelegramAPIError as error:
-        log.exception("Не удалось переслать ответ оператора клиенту %s", client_chat_id)
+        log.exception("Failed to forward the operator reply to client %s", client_chat_id)
         await repo.log_event(event)
         await send(msg, DELIVERY_FORBIDDEN if isinstance(error, TelegramForbiddenError) else DELIVERY_FAILED)
         return
     event.final_answer = content
     await repo.log_event(event)
-    # Ответ на старое уведомление снова передаёт диалог оператору: он разговаривает с клиентом
+    # A reply to an old notification hands the dialog to the operator again: they are talking to the client
     await repo.start_operator(client_chat_id, operator_deadline(utcnow(), config.operator_hours))
     if fits_history(content, config):
         await repo.save_message(client_chat_id, "assistant", content)
-    # Отметка «доставлено» на сообщении администратора; не вышло — не страшно
+    # A "delivered" mark on the administrator's message; no harm if it fails
     with suppress(TelegramAPIError):
         await bot.set_message_reaction(msg.chat.id, msg.message_id, reaction=[ReactionTypeEmoji(emoji="👍")])
 
 
 async def leave_operator(msg: Message, bot: Bot, repo: Repository, settings: BotSettings, config: BotConfig) -> None:
-    """/start, пока диалог у оператора: клиент передумал — снова отвечает бот, администратор узнаёт об этом."""
+    """/start during an operator dialog: the client changed their mind, the bot answers again, the admin is told."""
     if await repo.end_operator(msg.chat.id, utcnow()):
         await notify_admin(bot, settings.admin_id, f"{client_label(client_name(msg), msg.chat.id)}: {CLIENT_LEFT}")
     await start(msg, config, repo)
 
 
 async def to_operator(msg: Message, bot: Bot, repo: Repository, settings: BotSettings, config: BotConfig) -> None:
-    """Сообщение клиента, чей диалог ведёт оператор: администратору, без Claude и без ответа бота."""
+    """Message from a client whose dialog the operator handles: to the administrator, no Claude, no bot reply."""
     event = incoming_event(msg, AuditOutcome.TO_OPERATOR)
     client = client_label(client_name(msg), msg.chat.id)
-    # Фото, голосовое, файл: подпись придёт вместе с копией, в заголовке — только тип
+    # Photo, voice message, file: the caption comes with the copy, the header has only the type
     shown = msg.text if msg.text is not None else f"[{ContentType(msg.content_type).value}]"
     delivered = await relay_to_admin(bot, repo, settings.admin_id, msg.chat.id, client_message_notice(client, shown))
     if delivered and msg.text is None:
         try:
             copied = await bot.copy_message(chat_id=settings.admin_id, from_chat_id=msg.chat.id, message_id=msg.message_id)
         except TelegramAPIError:
-            log.exception("Не удалось переслать администратору сообщение клиента %s", msg.chat.id)
+            log.exception("Failed to forward a message from client %s to the administrator", msg.chat.id)
         else:
-            # Ответ на саму копию тоже уйдёт клиенту
+            # A reply to the copy itself also goes to the client
             await repo.add_relay(settings.admin_id, copied.message_id, msg.chat.id)
     if not delivered:
-        # Администратор недоступен: клиент не должен ждать молча — дальше снова отвечает бот
+        # The administrator is unreachable: the client must not wait in silence, so the bot answers again
         await repo.end_operator(msg.chat.id, utcnow())
         answer = PROFILES[config.profile].replies_in(message_language(msg)).tech_error
         event.final_answer = answer
@@ -178,9 +178,9 @@ async def to_operator(msg: Message, bot: Bot, repo: Repository, settings: BotSet
 
 
 async def call_operator(msg: Message, bot: Bot, repo: Repository, settings: BotSettings, config: BotConfig) -> None:
-    """Клиент просит человека: уведомление администратору, и бот в этом чате замолкает."""
-    # Администратор сам себе не оператор, а группе ответить reply от администратора нельзя:
-    # в этих случаях отвечает бот, как раньше
+    """The client asks for a human: the administrator is notified, and the bot goes quiet in this chat."""
+    # The administrator is not their own operator, and a group cannot get the administrator's reply:
+    # in these cases the bot answers as before
     if msg.chat.id == settings.admin_id or settings.admin_id < 0:
         raise SkipHandler
     text = msg.text or ""
@@ -188,13 +188,13 @@ async def call_operator(msg: Message, bot: Bot, repo: Repository, settings: BotS
     history = await repo.load_history(msg.chat.id, limit=HISTORY_IN_NOTICE)
     notice = handoff_notice(client_label(client_name(msg), msg.chat.id), text, history, config.operator_hours)
     event = incoming_event(msg, AuditOutcome.HANDOFF)
-    # Сначала режим оператора, потом уведомление: следующее сообщение клиента, пришедшее, пока уведомление
-    # отправляется, уже не уйдёт к Claude
+    # Operator mode first, then the notification: the next client message that arrives while the notification
+    # is being sent no longer goes to Claude
     await repo.start_operator(msg.chat.id, operator_deadline(utcnow(), config.operator_hours))
     if await relay_to_admin(bot, repo, settings.admin_id, msg.chat.id, notice):
         answer = replies.operator_started
     else:
-        # Администратор недоступен — не обещаем ответ, которого не будет
+        # The administrator is unreachable, so do not promise a reply that will not come
         await repo.end_operator(msg.chat.id, utcnow())
         answer = replies.tech_error
     event.final_answer = answer
@@ -208,7 +208,7 @@ async def call_operator(msg: Message, bot: Bot, repo: Repository, settings: BotS
 
 
 async def return_to_bot(callback: CallbackQuery, bot: Bot, repo: Repository, settings: BotSettings) -> None:
-    """Кнопка «Вернуть бота»: клиент снова говорит с ботом. Нажать может только администратор."""
+    """The «Вернуть бота» button: the client talks to the bot again. Only the administrator can press it."""
     if callback.from_user.id != settings.admin_id:
         await callback.answer(NOT_ALLOWED)
         return
@@ -223,24 +223,24 @@ async def return_to_bot(callback: CallbackQuery, bot: Bot, repo: Repository, set
         try:
             await bot.send_message(chat_id, text)
         except TelegramAPIError:
-            log.exception("Не удалось сообщить клиенту %s, что диалог вернулся к боту", chat_id)
+            log.exception("Failed to tell client %s that the dialog is back with the bot", chat_id)
         else:
             await repo.save_message(chat_id, "assistant", text)
     await callback.answer(ENDED if active else ALREADY_ENDED)
 
 
 def create_router() -> Router:
-    """Роутер живого оператора. Подключается раньше основного; порядок хендлеров важен:
-    ответ администратора → /start клиента у оператора → сообщение клиента у оператора → просьба позвать человека.
+    """Live operator router. Attached before the main one; the handler order matters:
+    administrator reply → /start from a client with the operator → client message to the operator → request for a human.
     """
     router = Router(name="operator")
     router.message.filter(F.chat.type == ChatType.PRIVATE)
     router.message.register(operator_reply, OperatorReply())
     router.message.register(leave_operator, CommandStart(), WithOperator())
     router.message.register(to_operator, WithOperator())
-    # Только текст: Command проверяет и подписи к фото, а пустой вопрос нельзя сохранить в историю
+    # Text only: Command also checks photo captions, and an empty question cannot be saved to the history
     router.message.register(call_operator, Command(OPERATOR_COMMAND), F.text)
-    # Сначала F.text: у фото и стикеров текста нет, а фильтры проверяются по порядку
+    # F.text first: photos and stickers have no text, and filters are checked in order
     router.message.register(call_operator, F.text, F.text.func(asks_for_operator))
     router.callback_query.register(return_to_bot, F.data.func(is_end_button))
     return router

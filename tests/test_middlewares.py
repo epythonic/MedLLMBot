@@ -72,7 +72,7 @@ class TestThrottlingMiddleware:
     async def test_uses_limits_from_config(self, repo: Repository, sessions: Sessions, handler: AsyncMock) -> None:
         async with sessions.begin() as s:
             s.add(BotConfig(id=1, rate_limit=2, rate_window=60))
-        # В боте клиента до этого регистрирует ClientMiddleware; журнал ссылается на него
+        # In the bot, ClientMiddleware registers the client before this; the audit log references it
         await repo.touch_client(42, "ivan", "Иван")
         config = await repo.get_config()
         middleware = ThrottlingMiddleware(repo, RateLimiter())
@@ -126,7 +126,7 @@ class TestAudit:
     async def test_passed_messages_are_not_logged_by_middleware(
         self, repo: Repository, sessions: Sessions, handler: AsyncMock
     ) -> None:
-        # Пропущенные сообщения журналирует ассистент — дублей быть не должно
+        # Passed messages are logged by the assistant, so there must be no duplicates
         data: dict[str, object] = {}
         await ClientMiddleware(repo)(handler, tg_message(), data)
         await ThrottlingMiddleware(repo, RateLimiter())(handler, tg_message(), data)

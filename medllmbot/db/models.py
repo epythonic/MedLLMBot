@@ -1,4 +1,4 @@
-"""Модели БД. Всем, кроме истории сообщений, управляют из веб-админки."""
+"""DB models. Everything except the message history is managed from the web admin."""
 
 import enum
 from collections.abc import Sequence
@@ -26,7 +26,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from medllmbot.db import fts
 
-# Явные имена ограничений нужны Alembic для batch-миграций в SQLite
+# Alembic needs explicit constraint names for batch migrations in SQLite
 NAMING_CONVENTION: dict[str, str] = {
     "ix": "ix_%(column_0_label)s",
     "uq": "uq_%(table_name)s_%(column_0_name)s",
@@ -40,7 +40,7 @@ class Base(DeclarativeBase):
     metadata: ClassVar[MetaData] = MetaData(naming_convention=NAMING_CONVENTION)
 
 
-# ---------- Клиенты и переписка ----------
+# ---------- Clients and chat history ----------
 
 
 @final
@@ -51,8 +51,8 @@ class Client(Base):
     username: Mapped[str | None] = mapped_column(String(64))
     full_name: Mapped[str] = mapped_column(String(256), default="", server_default="")
     is_blocked: Mapped[bool] = mapped_column(default=False, server_default=false())
-    # Клиента ведёт живой оператор (администратор в Telegram): до этого времени (UTC) бот молчит
-    # и пересылает сообщения ему. None — отвечает бот (medllmbot/operator.py)
+    # A live operator (the admin in Telegram) handles the client: until this time (UTC) the bot stays silent
+    # and relays messages to them. None means the bot replies (medllmbot/operator.py)
     operator_until: Mapped[datetime | None] = mapped_column()
     first_seen_at: Mapped[datetime] = mapped_column(server_default=func.now())
     last_seen_at: Mapped[datetime] = mapped_column(server_default=func.now())
@@ -72,7 +72,7 @@ class ChatMessage(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     chat_id: Mapped[int] = mapped_column(ForeignKey("clients.chat_id", ondelete="CASCADE"))
-    role: Mapped[str] = mapped_column(String(16))  # 'user' или 'assistant'
+    role: Mapped[str] = mapped_column(String(16))  # 'user' or 'assistant'
     content: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
@@ -82,7 +82,7 @@ class ChatMessage(Base):
 class LeadStatus(enum.Enum):
     NEW = "Новая"
     IN_PROGRESS = "В работе"
-    DONE = "Выполнена"  # записан на приём или заказ оформлен; в БД хранится имя DONE, миграция не нужна
+    DONE = "Выполнена"  # appointment booked or order placed; the DB stores the name DONE, no migration needed
     REJECTED = "Отказ"
 
     @override
@@ -115,28 +115,28 @@ class Lead(Base):
         return f"Заявка #{self.id} — {self.client_name}"
 
 
-# ---------- Журнал аудита ----------
+# ---------- Audit log ----------
 
 
 class AuditOutcome(enum.Enum):
-    """Чем закончилась обработка входящего сообщения."""
+    """How processing of an incoming message ended."""
 
     ANSWERED = "Ответ"
     PRICE_REPLACED = "Цена заменена"
     LEAK_BLOCKED = "Утечка промпта"
     REFUSAL = "Отказ модели"
-    TRUNCATED = "Ответ обрезан"  # упёрся в max_tokens
-    EMPTY = "Пустой ответ"  # модель не вернула текста
+    TRUNCATED = "Ответ обрезан"  # hit max_tokens
+    EMPTY = "Пустой ответ"  # the model returned no text
     LLM_ERROR = "Ошибка API"
     TOO_LONG = "Слишком длинное"
-    BUDGET_EXCEEDED = "Лимит расходов"  # дневной лимит на Claude исчерпан
+    BUDGET_EXCEEDED = "Лимит расходов"  # daily Claude budget exhausted
     GREETING = "Приветствие"  # /start
-    NOT_TEXT = "Не текст"  # фото, голосовое, стикер
+    NOT_TEXT = "Не текст"  # photo, voice message, sticker
     RATE_LIMITED = "Rate-limit"
     BLOCKED = "Клиент заблокирован"
-    HANDOFF = "Позвал оператора"  # клиент попросил человека — бот передал диалог администратору
-    TO_OPERATOR = "Переслано оператору"  # диалог ведёт оператор: сообщение ушло ему, Claude не вызывался
-    FROM_OPERATOR = "Ответ оператора"  # администратор ответил клиенту из Telegram; текст — в user_text
+    HANDOFF = "Позвал оператора"  # the client asked for a human; the bot handed the dialog to the admin
+    TO_OPERATOR = "Переслано оператору"  # the operator handles the dialog: message relayed to them, Claude not called
+    FROM_OPERATOR = "Ответ оператора"  # the admin replied to the client from Telegram; the text is in user_text
 
     @override
     def __str__(self) -> str:
@@ -145,9 +145,9 @@ class AuditOutcome(enum.Enum):
 
 @final
 class AuditEvent(Base):
-    """Каждое входящее сообщение, включая отклонённые, с ответом модели и признаками атаки.
+    """Every incoming message, including rejected ones, with the model's answer and attack signs.
 
-    В отличие от `messages` (контекст для модели) журнал хранит всё и только для чтения.
+    Unlike `messages` (context for the model), the log keeps everything and is read-only.
     """
 
     __tablename__ = "audit_log"
@@ -162,23 +162,23 @@ class AuditEvent(Base):
     user_text: Mapped[str] = mapped_column(Text)
     outcome: Mapped[AuditOutcome] = mapped_column(Enum(AuditOutcome, native_enum=False, length=20))
     is_suspicious: Mapped[bool] = mapped_column(default=False, server_default=false())
-    flags: Mapped[str] = mapped_column(String(200), default="", server_default="")  # через запятую
-    llm_answer: Mapped[str | None] = mapped_column(Text)  # сырой ответ модели
-    final_answer: Mapped[str | None] = mapped_column(Text)  # что увидел клиент
+    flags: Mapped[str] = mapped_column(String(200), default="", server_default="")  # comma-separated
+    llm_answer: Mapped[str | None] = mapped_column(Text)  # raw model answer
+    final_answer: Mapped[str | None] = mapped_column(Text)  # what the client saw
     model: Mapped[str | None] = mapped_column(String(100))
     stop_reason: Mapped[str | None] = mapped_column(String(32))
     input_tokens: Mapped[int | None] = mapped_column()
     output_tokens: Mapped[int | None] = mapped_column()
     cache_read_tokens: Mapped[int | None] = mapped_column()
     cache_write_tokens: Mapped[int | None] = mapped_column()
-    cost_micro_usd: Mapped[int | None] = mapped_column()  # None — нет цены на модель
+    cost_micro_usd: Mapped[int | None] = mapped_column()  # None means no price for the model
     latency_ms: Mapped[int | None] = mapped_column()
-    # Вызовы инструментов модели по строке на вызов: «search_catalog «чистка» → найдено 2»
+    # Model tool calls, one line per call: «search_catalog «чистка» → найдено 2»
     tool_calls: Mapped[str | None] = mapped_column(Text)
 
     @classmethod
     def incoming(cls, chat_id: int, user_text: str, outcome: AuditOutcome, flags: Sequence[str] = ()) -> Self:
-        """Событие о входящем сообщении; подозрительным считается, если есть признаки атаки."""
+        """Event for an incoming message; it is suspicious if there are attack signs."""
         return cls(
             chat_id=chat_id,
             user_text=user_text,
@@ -194,10 +194,10 @@ class AuditEvent(Base):
 
 @final
 class OperatorRelay(Base):
-    """Сообщение бота в чате администратора, относящееся к клиенту: ответ на него уйдёт этому клиенту.
+    """A bot message in the admin chat that refers to a client: a reply to it goes to that client.
 
-    Номера сообщений уникальны только внутри чата, поэтому ключ — чат и номер: если ADMIN_ID сменится,
-    ответ нового администратора не уйдёт клиенту из пересылок старого.
+    Message IDs are unique only within a chat, so the key is chat plus ID: if ADMIN_ID changes,
+    a reply from the new admin will not reach a client from the old admin's relays.
     """
 
     __tablename__ = "operator_relays"
@@ -208,14 +208,14 @@ class OperatorRelay(Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
 
-# ---------- Расходы на API ----------
+# ---------- API costs ----------
 
 
 @final
 class ModelPrice(Base):
-    """Цена модели в USD за миллион токенов. Правится в админке вслед за прайсом Anthropic.
+    """Model price in USD per million tokens. Edited in the admin to follow Anthropic's price list.
 
-    Изменение цены не пересчитывает прошлые запросы: их стоимость зафиксирована, как в счёте.
+    A price change does not recalculate past requests: their cost is fixed, as on an invoice.
     """
 
     __tablename__ = "model_prices"
@@ -230,11 +230,11 @@ class ModelPrice(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     model: Mapped[str] = mapped_column(String(100))
-    # Тариф по длине промпта (у Haiku 5.5 промпты длиннее 100 000 токенов дороже)
+    # Tier by prompt length (Haiku 5.5 prompts longer than 100,000 tokens cost more)
     from_prompt_tokens: Mapped[int] = mapped_column(default=0, server_default="0")
     input_per_mtok: Mapped[float] = mapped_column()
     output_per_mtok: Mapped[float] = mapped_column()
-    cache_write_per_mtok: Mapped[float] = mapped_column()  # запись в кэш с TTL 5 минут
+    cache_write_per_mtok: Mapped[float] = mapped_column()  # cache write with a 5-minute TTL
     cache_read_per_mtok: Mapped[float] = mapped_column()
 
     @override
@@ -244,9 +244,9 @@ class ModelPrice(Base):
 
 @final
 class UsageDaily(Base):
-    """Расход по дням (UTC) и моделям для отчёта по месяцам.
+    """Spending per day (UTC) and model for the monthly report.
 
-    Персональных данных здесь нет, поэтому записи не удаляются вместе со старым журналом.
+    There is no personal data here, so rows are not deleted along with the old audit log.
     """
 
     __tablename__ = "llm_usage_daily"
@@ -268,12 +268,12 @@ class UsageDaily(Base):
         return f"{self.day} — {self.model}"
 
 
-# ---------- База знаний клиники ----------
+# ---------- Clinic knowledge base ----------
 
 
 @final
 class InfoSection(Base):
-    """Произвольный раздел: контакты, часы работы, оплата и т.п."""
+    """Free-form section: contacts, opening hours, payment, etc."""
 
     __tablename__ = "info_sections"
 
@@ -295,7 +295,7 @@ class Service(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(200))
-    price: Mapped[int] = mapped_column()  # в леях
+    price: Mapped[int] = mapped_column()  # in lei
     description: Mapped[str | None] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(default=True, server_default=true())
     sort_order: Mapped[int] = mapped_column(default=0, server_default="0")
@@ -305,7 +305,7 @@ class Service(Base):
         return f"{self.name} — {self.price} лей"
 
 
-# Полнотекстовый индекс каталога для create_all (в тестах); в рабочей БД его создаёт миграция
+# Catalog full-text index for create_all (in tests); in the production DB a migration creates it
 _services = cast(Table, Service.__table__)
 for _statement in fts.CREATE:
     event.listen(_services, "after_create", DDL(_statement))
@@ -328,7 +328,7 @@ class FaqItem(Base):
         return self.question
 
 
-# ---------- Заказы магазина ----------
+# ---------- Shop orders ----------
 
 
 class OrderStatus(enum.Enum):
@@ -346,17 +346,17 @@ class OrderStatus(enum.Enum):
 
 @final
 class Order(Base):
-    """Заказ магазина — демо-замена API магазина (CMS, 1С): бот узнаёт статус через `OrderBackend`.
+    """Shop order, a demo stand-in for the shop API (CMS, 1C): the bot gets the status via `OrderBackend`.
 
-    Телефон нужен для проверки: статус показывается только тому, кто назвал номер заказа
-    и последние цифры телефона из заказа.
+    The phone is used for verification: the status is shown only to someone who gives the order number
+    and the last digits of the phone from the order.
     """
 
     __tablename__ = "orders"
     __table_args__: tuple[CheckConstraint, ...] = (CheckConstraint("total >= 0", name="total_non_negative"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    number: Mapped[str] = mapped_column(String(32), unique=True)  # как на чеке: DE-10023
+    number: Mapped[str] = mapped_column(String(32), unique=True)  # as on the receipt: DE-10023
     customer_name: Mapped[str] = mapped_column(String(256))
     phone: Mapped[str] = mapped_column(String(32))
     status: Mapped[OrderStatus] = mapped_column(
@@ -364,9 +364,9 @@ class Order(Base):
         default=OrderStatus.NEW,
         server_default=OrderStatus.NEW.name,
     )
-    items: Mapped[str] = mapped_column(Text)  # что заказано, для ответа клиенту
-    total: Mapped[int] = mapped_column()  # в леях
-    delivery_date: Mapped[date | None] = mapped_column()  # ожидаемая дата доставки или выдачи
+    items: Mapped[str] = mapped_column(Text)  # what was ordered, for the reply to the client
+    total: Mapped[int] = mapped_column()  # in lei
+    delivery_date: Mapped[date | None] = mapped_column()  # expected delivery or pickup date
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
@@ -375,11 +375,11 @@ class Order(Base):
         return f"Заказ {self.number}"
 
 
-# ---------- Настройки бота ----------
+# ---------- Bot settings ----------
 
 
 class BusinessProfile(enum.Enum):
-    """Чей это бот: от профиля зависят роль и предметные правила в промпте (medllmbot/profiles.py)."""
+    """Whose bot this is: the profile sets the role and domain rules in the prompt (medllmbot/profiles.py)."""
 
     CLINIC = "Стоматология"
     SHOP = "Магазин электроники"
@@ -389,14 +389,14 @@ class BusinessProfile(enum.Enum):
         return self.value
 
 
-# Приветствия по-русски и по-румынски: бот выбирает по языку Telegram клиента, а если язык другой — шлёт оба
+# Russian and Romanian greetings: the bot picks one by the client's Telegram language, otherwise sends both
 DEFAULT_GREETING = "Здравствуйте! Я помощник клиники. Спросите о ценах, услугах или запишитесь на приём."
 DEFAULT_GREETING_RO = "Bună ziua! Sunt asistentul clinicii. Întrebați despre prețuri, servicii sau programați-vă."
 
 
 @final
 class BotConfig(Base):
-    """Единственная строка (id = 1) с настройками, которые меняются без перезапуска."""
+    """The single row (id = 1) with settings that change without a restart."""
 
     __tablename__ = "bot_config"
     __table_args__: tuple[CheckConstraint, ...] = (
@@ -412,7 +412,7 @@ class BotConfig(Base):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, default=1)
-    # Меняется вместе с базой знаний: python -m medllmbot.db.seed --reset --profile shop
+    # Changes together with the knowledge base: python -m medllmbot.db.seed --reset --profile shop
     profile: Mapped[BusinessProfile] = mapped_column(
         Enum(BusinessProfile, native_enum=False, length=16),
         default=BusinessProfile.CLINIC,
@@ -420,26 +420,27 @@ class BotConfig(Base):
     )
     model: Mapped[str] = mapped_column(String(100), default="claude-haiku-5-5")
     max_tokens: Mapped[int] = mapped_column(default=1024)
-    # Максимальная длина сообщения клиента, символов: подробное обращение с симптомами и телефоном
-    # занимает 250–500 символов, а типичные джейлбрейки — тысячи
+    # Maximum client message length, in characters: a detailed request with symptoms and a phone number
+    # takes 250–500 characters, while typical jailbreaks take thousands
     max_len: Mapped[int] = mapped_column(default=1024)
-    history_limit: Mapped[int] = mapped_column(default=8)  # сколько последних сообщений помнить
-    rate_limit: Mapped[int] = mapped_column(default=10)  # не больше 10 сообщений...
-    rate_window: Mapped[int] = mapped_column(default=60)  # ...за 60 секунд от одного клиента
+    history_limit: Mapped[int] = mapped_column(default=8)  # how many recent messages to remember
+    rate_limit: Mapped[int] = mapped_column(default=10)  # no more than 10 messages...
+    rate_window: Mapped[int] = mapped_column(default=60)  # ...per 60 seconds from one client
     greeting: Mapped[str] = mapped_column(Text, default=DEFAULT_GREETING)
-    # Приветствие по-румынски. Пусто — всем клиентам идёт `greeting`: так работали настройки до этого поля,
-    # и в нём могут быть оба языка сразу
+    # Romanian greeting. Empty means all clients get `greeting`: that is how settings worked before this field,
+    # and it may contain both languages at once
     greeting_ro: Mapped[str | None] = mapped_column(Text, default=DEFAULT_GREETING_RO)
-    # Сколько дней хранить журнал аудита (в нём телефоны и медицинские вопросы)
+    # How many days to keep the audit log (it contains phone numbers and medical questions)
     audit_retention_days: Mapped[int] = mapped_column(default=90, server_default="90")
-    # Сколько долларов в сутки (UTC) можно потратить на Claude; 0 — без лимита. Защита публичного демо
-    # от спама из многих чатов: rate-limit ограничивает каждый чат, а этот лимит — все вместе
+    # How many dollars per day (UTC) may be spent on Claude; 0 means no limit. Protects the public demo
+    # from spam across many chats: rate-limit caps each chat, while this limit caps them all together
     daily_budget_usd: Mapped[int] = mapped_column(default=0, server_default="0")
-    # Каталог до стольких позиций идёт в промпт целиком; больше — модель ищет в нём инструментом
-    # search_catalog. Маленький каталог в промпте дешевле и быстрее, большой туда не поместится; 0 — всегда поиск
+    # A catalog of up to this many items goes into the prompt whole; beyond that the model searches it
+    # with the search_catalog tool. A small catalog in the prompt is cheaper and faster, a large one
+    # will not fit; 0 means always search
     catalog_inline_limit: Mapped[int] = mapped_column(default=50, server_default="50")
-    # Сколько часов бот молчит после просьбы клиента позвать человека, если оператор не ответил;
-    # каждый ответ оператора продлевает срок
+    # How many hours the bot stays silent after a client asks for a human, if the operator has not replied;
+    # each operator reply extends the period
     operator_hours: Mapped[int] = mapped_column(default=12, server_default="12")
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 

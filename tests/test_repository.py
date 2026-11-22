@@ -87,7 +87,7 @@ class TestHistory:
         assert [m["content"] for m in history] == ["вопрос от 2", "ответ 2"]
 
     async def test_foreign_keys_enforced(self, repo: Repository) -> None:
-        # PRAGMA foreign_keys включён: сообщение без клиента не сохранится
+        # PRAGMA foreign_keys is on: a message without a client is not saved
         with pytest.raises(IntegrityError):
             await repo.save_pair(999, "вопрос", "ответ")
 
@@ -229,7 +229,7 @@ class TestCosts:
         ]
 
     async def test_usage_survives_audit_purge(self, seeded_repo: Repository, sessions: Sessions) -> None:
-        # Журнал с персональными данными чистится, а расходы для отчёта остаются
+        # The audit log with personal data is purged, but costs for the report remain
         await seeded_repo.log_event(llm_event())
         async with sessions.begin() as s:
             await s.execute(update(AuditEvent).values(created_at=datetime(2020, 1, 1)))
@@ -269,7 +269,7 @@ class TestConfig:
 
         async with sessions() as s:
             assert len((await s.scalars(select(BotConfig))).all()) == 1
-            # Вторую строку не даст создать CHECK (id = 1)
+            # CHECK (id = 1) prevents creating a second row
             s.add(BotConfig(id=2))
             with pytest.raises(IntegrityError):
                 await s.commit()
@@ -290,7 +290,7 @@ async def test_seed_is_idempotent(sessions: Sessions, repo: Repository) -> None:
 
 
 class TestAdminQuickActions:
-    """Методы для быстрых действий админки на HTMX."""
+    """Methods for the admin's HTMX quick actions."""
 
     async def test_set_lead_status(self, seeded_repo: Repository) -> None:
         lead = await seeded_repo.create_lead(CHAT_ID, "@ivan", "060000000", "Запишите")
@@ -306,7 +306,7 @@ class TestAdminQuickActions:
     async def test_block_and_unblock_client(self, seeded_repo: Repository) -> None:
         client = await seeded_repo.set_client_blocked(CHAT_ID, True)
         assert client is not None and client.is_blocked
-        # Бот узнаёт о блокировке при следующем сообщении клиента
+        # The bot learns about the block on the client's next message
         assert await seeded_repo.touch_client(CHAT_ID, "ivan", "Иван") is True
 
         await seeded_repo.set_client_blocked(CHAT_ID, False)
@@ -359,7 +359,7 @@ class TestReorder:
         assert await seeded_repo.reorder(Service, reversed_ids) is True
 
         services = (await seeded_repo.load_knowledge()).services
-        assert [s.id for s in services] == reversed_ids  # бот видит новый порядок
+        assert [s.id for s in services] == reversed_ids  # the bot sees the new order
         assert [s.sort_order for s in services] == [10 * i for i in range(1, len(before) + 1)]
 
     @pytest.mark.parametrize(
@@ -380,7 +380,7 @@ class TestReorder:
         assert [(s.id, s.sort_order) for s in after.services] == [(s.id, s.sort_order) for s in before.services]
 
     async def test_inactive_items_are_ordered_too(self, seeded_repo: Repository, sessions: Sessions) -> None:
-        # В списке админки видны и неактивные записи — порядок сохраняется для всех
+        # The admin list shows inactive records too, so the order is saved for all of them
         async with sessions.begin() as s:
             await s.execute(update(Service).where(Service.id == 1).values(is_active=False))
             all_ids = list((await s.scalars(select(Service.id).order_by(Service.sort_order))).all())

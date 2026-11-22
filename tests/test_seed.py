@@ -1,4 +1,4 @@
-"""Демо-данные: заполнение пустой базы и сброс демо-сервера после показа."""
+"""Demo data: filling an empty database and resetting the demo server after a demo."""
 
 import importlib.util
 from datetime import UTC, datetime
@@ -27,7 +27,7 @@ MIGRATIONS = Path(__file__).parents[1] / "medllmbot" / "db" / "migrations" / "ve
 
 
 def test_demo_prices_match_migration() -> None:
-    # Сброс восстанавливает тот же прайс, что ставит установка
+    # Reset restores the same price list that installation sets
     spec = importlib.util.spec_from_file_location("llm_costs", MIGRATIONS / "a6cc85d9a7c3_llm_costs.py")
     assert spec is not None
     assert spec.loader is not None
@@ -43,7 +43,7 @@ async def count(sessions: Sessions, model: type[Base]) -> int:
 
 
 async def test_reset_returns_demo_to_initial_state(seeded_repo: Repository, sessions: Sessions) -> None:
-    # Что могли наделать за показ: переписка, заявка, журнал, правки базы знаний, цен и настроек
+    # What a demo could leave behind: messages, a lead, audit log, edits to the knowledge base, prices and settings
     await seeded_repo.save_pair(CHAT_ID, "Сколько стоит чистка?", "800 лей")
     await seeded_repo.create_lead(CHAT_ID, "@ivan", "069123456", "Запишите меня")
     await seeded_repo.log_event(AuditEvent.incoming(CHAT_ID, "Привет", AuditOutcome.ANSWERED))
@@ -61,7 +61,7 @@ async def test_reset_returns_demo_to_initial_state(seeded_repo: Repository, sess
     assert await count(sessions, ModelPrice) == len(DEMO_PRICES)
     config = await seeded_repo.get_config()
     assert config.greeting == DEFAULT_GREETING
-    # Расход и лимит остаются: иначе сброс обнулял бы потраченное за сутки
+    # Spending and the limit remain: otherwise a reset would zero out the day's spending
     assert config.daily_budget_usd == 3
     assert await seeded_repo.spent_today_micro_usd() == 500
 

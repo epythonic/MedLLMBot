@@ -1,4 +1,4 @@
-"""Системный промпт: роль бота и правила профиля бизнеса, база знаний из БД."""
+"""System prompt: the bot role and business profile rules, plus the knowledge base from the DB."""
 
 from functools import cache
 
@@ -9,7 +9,7 @@ from medllmbot.profiles import PROFILES
 
 @cache
 def rules(kind: BusinessProfile) -> str:
-    """Правила промпта для профиля. Общие правила безопасности и формата — одинаковые для всех."""
+    """Prompt rules for a profile. The common security and format rules are the same for all profiles."""
     profile = PROFILES[kind]
     return "\n".join(
         [
@@ -35,7 +35,7 @@ def rules(kind: BusinessProfile) -> str:
     )
 
 
-# Вместо каталога, когда он больше порога из настроек бота и в промпт не помещается
+# Used instead of the catalog when it exceeds the threshold from the bot settings and does not fit in the prompt
 CATALOG_SEARCH_NOTE = (
     "Каталог большой и сюда не помещается. Позиции и цены ищи инструментом search_catalog: "
     "не говори, что позиции нет, пока не поискал."
@@ -43,7 +43,7 @@ CATALOG_SEARCH_NOTE = (
 
 
 def service_line(service: Service) -> str:
-    """Строка каталога «название — цена лей (описание)»: одинаково в промпте и в результатах поиска."""
+    """Catalog line «name — price лей (description)»: the same in the prompt and in search results."""
     line = f"{service.name} — {service.price} лей"
     if service.description:
         line += f" ({service.description.strip()})"
@@ -51,7 +51,7 @@ def service_line(service: Service) -> str:
 
 
 def render_info(knowledge: Knowledge, kind: BusinessProfile = BusinessProfile.CLINIC) -> str:
-    """База знаний одним текстом. Порядок детерминирован, чтобы промпт кэшировался."""
+    """The knowledge base as a single text. The order is deterministic so the prompt gets cached."""
     parts: list[str] = [f"== {s.title} ==\n{s.content.strip()}" for s in knowledge.sections]
 
     catalog = PROFILES[kind].catalog_title

@@ -1,4 +1,4 @@
-"""Веб-админка: вход, разделы, правки, которые бот видит без перезапуска."""
+"""Web admin: login, sections, and edits the bot sees without a restart."""
 
 import asyncio
 import re
@@ -40,7 +40,7 @@ PASSWORD = "secret-pass"
 
 
 def run_with_repo[T](db_path: Path, action: Callable[[Repository], Awaitable[T]]) -> T:
-    """Выполняет async-действие с репозиторием поверх той же БД, что и админка."""
+    """Runs an async action with a repository over the same DB as the admin."""
 
     async def _run() -> T:
         engine = create_engine(db_path)
@@ -64,7 +64,7 @@ def settings(tmp_path: Path) -> AdminSettings:
 
 @pytest.fixture
 def db(settings: AdminSettings) -> Path:
-    """Мигрированная БД с демо-данными, клиентом, перепиской и заявкой."""
+    """Migrated DB with demo data, a client, a conversation and a lead."""
     upgrade_db(settings.db_path)
 
     async def prepare(repo: Repository) -> None:
@@ -137,7 +137,7 @@ class TestLoginProtection:
     def test_brute_force_is_locked_out(self, client: TestClient) -> None:
         for _ in range(5):
             assert login(client, "wrong-pass") == 400
-        # После пяти ошибок не пускает даже с верным паролем — перебор бессмыслен
+        # After five failures even the right password is refused, so brute force is pointless
         response = client.post("/admin/login", data={"username": "admin", "password": PASSWORD})
         assert response.status_code == 400
         assert "Слишком много неудачных попыток входа" in response.text
@@ -146,10 +146,10 @@ class TestLoginProtection:
     def test_session_cookie_is_short_lived_and_httponly(self, client: TestClient) -> None:
         response = client.post("/admin/login", data={"username": "admin", "password": PASSWORD}, follow_redirects=False)
         cookie = response.headers["set-cookie"].lower()
-        assert "max-age=28800" in cookie  # 8 часов, а не 14 дней
+        assert "max-age=28800" in cookie  # 8 hours, not 14 days
         assert "httponly" in cookie
         assert "samesite=lax" in cookie
-        assert "secure" not in cookie  # локально админка открыта по HTTP
+        assert "secure" not in cookie  # locally the admin is served over HTTP
 
     def test_https_only_marks_cookie_secure(self, settings: AdminSettings, db: Path) -> None:
         https = settings.model_copy(update={"admin_https_only": True})
@@ -171,7 +171,7 @@ class TestLoginThrottle:
         throttle.failed("1.2.3.4")
         throttle.failed("1.2.3.4")
         assert throttle.blocked("1.2.3.4")
-        assert not throttle.blocked("5.6.7.8")  # другой адрес — свой счётчик
+        assert not throttle.blocked("5.6.7.8")  # another address has its own counter
         now[0] = 61
         assert not throttle.blocked("1.2.3.4")
 
@@ -190,7 +190,7 @@ class TestSecurityHeaders:
         assert response.headers["x-content-type-options"] == "nosniff"
         assert "frame-ancestors 'none'" in response.headers["content-security-policy"]
         assert "unsafe-eval" not in response.headers["content-security-policy"]
-        assert response.headers["cache-control"] == "no-store"  # персональные данные не оседают в кэше
+        assert response.headers["cache-control"] == "no-store"  # personal data does not linger in caches
 
     def test_static_is_cacheable(self, client: TestClient) -> None:
         response = client.get("/static/htmx-2.0.11.min.js")
@@ -230,14 +230,14 @@ def test_list_pages_render(admin: TestClient, view: type[ModelView]) -> None:
 
 @pytest.mark.parametrize("view", VIEWS, ids=_view_id)
 def test_forms_render(admin: TestClient, view: type[ModelView]) -> None:
-    """Формы создания и редактирования открываются: SQLAdmin строит их поля по типам колонок
-    и падает с ошибкой 500 на типе, для которого у него нет конвертера.
+    """Create and edit forms open: SQLAdmin builds their fields from the column types
+    and fails with a 500 on a type it has no converter for.
     """
     if view.can_create:
         assert admin.get(f"/admin/{view.identity}/create").status_code == 200
     if view.can_edit:
         edit_link = re.search(rf"/admin/{view.identity}/edit/[^\"?]+", admin.get(f"/admin/{view.identity}/list").text)
-        assert edit_link is not None, "в тестовой БД нет записи, форму редактирования не проверить"
+        assert edit_link is not None, "no record in the test DB, the edit form cannot be checked"
         assert admin.get(edit_link.group()).status_code == 200
 
 
@@ -279,7 +279,7 @@ def test_client_list_shows_live_operator(admin: TestClient, db: Path, hours: int
     run_with_repo(db, hand_over)
     page = admin.get("/admin/client/list").text
     assert "С оператором до" in page
-    # Срок показывается, пока не прошёл; прошедший срок — это уже бот, в колонке «—»
+    # The deadline is shown until it passes; after that the bot is back, and the column shows «—»
     shown = f"{until:%d.%m.%Y %H:%M} UTC</td>" in page
     assert shown is (hours > 0)
 
@@ -287,7 +287,7 @@ def test_client_list_shows_live_operator(admin: TestClient, db: Path, hours: int
 def test_blocking_client_stops_bot(admin: TestClient, db: Path) -> None:
     admin.post("/admin/client/edit/42", data={"is_blocked": "y"})
 
-    # Бот при следующем сообщении узнаёт о блокировке из той же БД
+    # On the next message the bot learns about the block from the same DB
     blocked = run_with_repo(db, lambda repo: repo.touch_client(42, "ivan", "Иван Петров"))
     assert blocked is True
 
@@ -316,7 +316,7 @@ def test_bot_config_validation(admin: TestClient, db: Path) -> None:
     form = {
         "model": "claude-sonnet-5",
         "max_tokens": "1024",
-        "max_len": "0",  # недопустимо
+        "max_len": "0",  # invalid
         "history_limit": "8",
         "rate_limit": "10",
         "rate_window": "60",
@@ -374,7 +374,7 @@ class TestBotConfigForm:
     @pytest.mark.parametrize("field", ["model", "greeting"])
     @pytest.mark.parametrize("value", ["", "   "])
     def test_text_fields_are_required(self, admin: TestClient, db: Path, field: str, value: str) -> None:
-        # Пустое приветствие Telegram не отправит, пустая модель ломает каждый ответ
+        # Telegram will not send an empty greeting, and an empty model breaks every answer
         response = admin.post("/admin/bot-config/edit/1", data=BOT_CONFIG_FORM | {field: value})
         assert response.status_code == 400
         assert "Обязательное поле." in response.text
@@ -390,7 +390,7 @@ class TestBotConfigForm:
         form = BOT_CONFIG_FORM | {"greeting_ro": "  Bună ziua!\n"}
         assert admin.post("/admin/bot-config/edit/1", data=form, follow_redirects=False).status_code == 302
         assert load_config(db).greeting_ro == "Bună ziua!"
-        # Пустое поле — не ошибка: тогда всем клиентам идёт первое приветствие
+        # An empty field is not an error: then every client gets the first greeting
         form = BOT_CONFIG_FORM | {"greeting_ro": "   "}
         assert admin.post("/admin/bot-config/edit/1", data=form, follow_redirects=False).status_code == 302
         assert not load_config(db).greeting_ro
@@ -408,11 +408,11 @@ class TestBotConfigForm:
         assert load_config(db).daily_budget_usd == 2
 
     def test_profile_is_shown_but_not_editable(self, admin: TestClient) -> None:
-        # Профиль меняется только вместе с базой знаний (seed --reset --profile), не из формы
+        # The profile changes only together with the knowledge base (seed --reset --profile), not from the form
         assert "Стоматология" in admin.get("/admin/bot-config/list").text
         form = admin.get("/admin/bot-config/edit/1").text
         assert re.search(r'<(?:input|select|textarea)[^>]*\bname="profile"', form) is None
-        assert re.search(r'<input[^>]*\bname="model"', form) is not None  # поле формы ищется верно
+        assert re.search(r'<input[^>]*\bname="model"', form) is not None  # the form field lookup itself works
 
     @pytest.mark.parametrize("value", ["-1", "1001", "много"])
     def test_catalog_inline_limit_is_checked(self, admin: TestClient, db: Path, value: str) -> None:
@@ -458,7 +458,7 @@ class TestAuditLog:
 
     def test_suspicious_column_marks_only_suspicious(self, admin: TestClient) -> None:
         page = admin.get("/admin/audit-event/list").text
-        assert page.count("⚠ Да") == 1  # в фикстуре одно подозрительное сообщение из двух
+        assert page.count("⚠ Да") == 1  # the fixture has one suspicious message out of two
 
     def test_chat_id_filter_is_russian(self, admin: TestClient) -> None:
         page = admin.get("/admin/audit-event/list?chat_id=42&chat_id_op=equals").text
@@ -481,7 +481,7 @@ class TestAuditLog:
         assert admin.get("/admin/audit-event/edit/1").status_code == 403
 
 
-PRICE_FORM = {  # первая строка прайс-листа из миграции: claude-haiku-5-5, обычный тариф
+PRICE_FORM = {  # first price-list row from the migration: claude-haiku-5-5, standard tier
     "model": "claude-haiku-5-5",
     "from_prompt_tokens": "0",
     "input_per_mtok": "0.1",
@@ -523,7 +523,7 @@ class TestModelPriceForm:
             await repo.log_event(event)
             return event
 
-        # 1000 токенов × $1.5 + 1000 × $2.25 за миллион = 3750 микродолларов
+        # 1000 tokens × $1.5 + 1000 × $2.25 per million = 3750 micro-dollars
         assert run_with_repo(db, log_answer).cost_micro_usd == 3750
 
     def test_negative_price_rejected(self, admin: TestClient) -> None:
@@ -544,7 +544,7 @@ class TestModelPriceForm:
         ("value", "error"),
         [
             ("abc", "Неверное десятичное число."),
-            ("-1", "Число должно быть от 0 до 1000."),  # у цены есть потолок — защита от опечатки
+            ("-1", "Число должно быть от 0 до 1000."),  # the price has a ceiling, as a guard against typos
             ("", "Обязательное поле."),
         ],
     )
@@ -557,11 +557,11 @@ class TestModelPriceForm:
 
         price = load_price(db, 1)
         assert price is not None
-        assert price.output_per_mtok == 0.5  # неверное значение не сохранилось
+        assert price.output_per_mtok == 0.5  # the invalid value was not saved
 
     @pytest.mark.parametrize("value", ["inf", "nan", "1e30", "5000"])
     def test_absurd_price_rejected(self, admin: TestClient, db: Path, value: str) -> None:
-        # С бесконечной ценой расчёт стоимости падал, и бот переставал писать журнал
+        # With an infinite price the cost calculation crashed, and the bot stopped writing the journal
         response = admin.post("/admin/model-price/edit/1", data=PRICE_FORM | {"input_per_mtok": value})
         assert response.status_code == 400
         price = load_price(db, 1)
@@ -569,7 +569,7 @@ class TestModelPriceForm:
         assert price.input_per_mtok == 0.1
 
     def test_duplicate_tier_has_clear_error(self, admin: TestClient) -> None:
-        response = admin.post("/admin/model-price/create", data=PRICE_FORM)  # такая строка уже есть
+        response = admin.post("/admin/model-price/create", data=PRICE_FORM)  # this row already exists
         assert response.status_code == 400
         assert "Для этой модели уже есть тариф" in response.text
         assert "sqlite3" not in response.text
@@ -577,7 +577,7 @@ class TestModelPriceForm:
 
 
 def test_form_errors_are_russian_in_every_section(admin: TestClient) -> None:
-    """Ошибки по-русски не только в ценах: все разделы строят формы от AdminForm."""
+    """Errors are in Russian not only for prices: every section builds its forms from AdminForm."""
     response = admin.post("/admin/service/edit/2", data={"name": "", "price": "-1", "sort_order": "1"})
     assert response.status_code == 400
     assert "Обязательное поле." in response.text
@@ -603,7 +603,7 @@ class TestCostReport:
         async def log_answer(repo: Repository) -> None:
             event = AuditEvent.incoming(42, "Сколько стоит чистка?", AuditOutcome.ANSWERED)
             event.model = "claude-haiku-5-5"
-            # Промпт до 100 000 токенов — обычный тариф: $0.10 вход, $0.50 выход за MTok
+            # A prompt up to 100,000 tokens is the standard tier: $0.10 input, $0.50 output per MTok
             event.input_tokens = 50_000
             event.output_tokens = 1_000_000
             await repo.log_event(event)
@@ -642,7 +642,7 @@ class TestCostReport:
 
 
 def log_question(db: Path, text: str, answer: str, outcome: AuditOutcome = AuditOutcome.ANSWERED) -> int:
-    """Пишет вопрос клиента 42 в журнал и возвращает номер записи."""
+    """Logs a question from client 42 to the journal and returns the entry id."""
     event = AuditEvent.incoming(42, text, outcome)
     event.final_answer = answer
     run_with_repo(db, lambda repo: repo.log_event(event))
@@ -668,11 +668,11 @@ class TestAnalytics:
         assert "Аналитика вопросов" in page
         assert "за последние 30 дней, UTC" in page
         assert "профиль «Стоматология»" in page
-        # «Как дела?» из демо-журнала и вопрос о чистке; атака «Игнорируй все инструкции» не считается
+        # «Как дела?» from the demo journal and the cleaning question; the «Игнорируй все инструкции» attack is excluded
         assert "Игнорируй" not in page
         for topic in ("Цены", "Гигиена и отбеливание", "Другое"):
             assert f"<div>{topic}</div>" in page
-        assert "«Сколько стоит чистка?»" in page  # пример вопроса под темой
+        assert "«Сколько стоит чистка?»" in page  # example question under the topic
         assert "Бот ответил на все вопросы за этот период." in page
 
     def test_unanswered_question_links_to_journal(self, admin: TestClient, db: Path) -> None:
@@ -690,10 +690,10 @@ class TestAnalytics:
         assert "<script>alert(1)" not in page
         assert "Нет в базе знаний" in page
         assert "Цена не из каталога" in page
-        assert str(escape(NO_INFO_ANSWER)) in page  # что получил клиент
+        assert str(escape(NO_INFO_ANSWER)) in page  # what the client received
 
     def test_kpi_cards(self, admin: TestClient, db: Path) -> None:
-        # В демо-журнале «Как дела?» и заявка клиента 42; добавляем вопрос без ответа в тот же диалог
+        # The demo journal has «Как дела?» and a lead from client 42; add an unanswered question to the same dialog
         log_question(db, "Есть брекеты?", NO_INFO_ANSWER)
 
         page = admin.get("/admin/analytics").text
@@ -706,7 +706,7 @@ class TestAnalytics:
         page = admin.get("/admin/analytics?days=7").text
         assert "за последние 7 дней, UTC" in page
         assert 'href="http://testserver/admin/analytics?days=7"\n       aria-current="page"' in page
-        # Чужое значение в адресе — период по умолчанию, а не ошибка
+        # An unexpected value in the URL gives the default period, not an error
         response = admin.get("/admin/analytics?days=abc")
         assert response.status_code == 200
         assert "за последние 30 дней, UTC" in response.text
@@ -745,7 +745,7 @@ class TestAnalytics:
         assert "<div>Статус заказа</div>" in page
 
 
-# ---------- Справка «?» и русский интерфейс ----------
+# ---------- «?» help and the Russian interface ----------
 
 PAGE_IDS = re.compile(r'\bid="([^"]+)"')
 
@@ -758,7 +758,7 @@ class TestHelp:
 
         assert 'id="help-panel"' in page
         assert str(escape(topic.summary)) in page
-        # Подсказка «?» каждого поля ведёт к своей строке таблицы полей в панели
+        # Each field's «?» hint links to its own row of the fields table in the panel
         for name in topic.fields:
             assert f'data-name="{name}"' in page
             assert f'id="{topic.field_anchor(name)}"' in page
@@ -766,7 +766,7 @@ class TestHelp:
     def test_form_fields_get_hints(self, admin: TestClient) -> None:
         page = admin.get("/admin/bot-config/edit/1").text
         for name in ("model", "max_tokens", "history_limit", "greeting", "audit_retention_days"):
-            assert f'for="{name}"' in page  # к этой подписи скрипт ставит «?»
+            assert f'for="{name}"' in page  # the script adds «?» to this label
             assert f'data-name="{name}"' in page
 
     def test_details_rows_get_hints(self, admin: TestClient) -> None:
@@ -787,18 +787,18 @@ class TestHelp:
 
         assert 'id="help-panel"' in page
         assert str(escape(HELP["costs"].summary)) in page
-        # У отчёта нет модели: подсказки привязаны к подписям колонок таблицы
+        # The report has no model: hints are tied to the table's column labels
         for label in HELP["costs"].fields:
             assert f">{label}</th>" in page
             assert f'data-label="{label}"' in page
 
     def test_analytics_has_help(self, admin: TestClient, db: Path) -> None:
-        log_question(db, "Есть брекеты?", NO_INFO_ANSWER)  # чтобы показались обе таблицы
+        log_question(db, "Есть брекеты?", NO_INFO_ANSWER)  # so that both tables are shown
         page = admin.get("/admin/analytics").text
 
         assert 'id="help-panel"' in page
         assert str(escape(HELP["analytics"].summary)) in page
-        # У страницы нет модели: подсказки привязаны к подписям колонок таблиц
+        # The page has no model: hints are tied to the column labels of the tables
         for label in HELP["analytics"].fields:
             assert f">{label}</th>" in page
             assert f'data-label="{label}"' in page
@@ -807,7 +807,7 @@ class TestHelp:
         page = admin.get("/admin/help").text
         for text in GAP_HELP.values():
             assert str(escape(text)) in page
-        # Справка показывает темы обоих профилей из словарей кода — не расходится с ними
+        # Help lists the topics of both profiles from the code dictionaries, so it does not drift from them
         for kind, topics in ANALYTICS_TOPICS.items():
             names = ", ".join(topic.name for topic in topics)
             assert f"<li><b>{kind.value}:</b> {escape(names)}.</li>" in page
@@ -824,19 +824,19 @@ class TestHelp:
         page = admin.get("/admin/help").text
 
         for topic in TOPICS:
-            assert f'href="#{topic.anchor()}"' in page  # оглавление
+            assert f'href="#{topic.anchor()}"' in page  # table of contents
             assert f'id="{topic.anchor()}"' in page
-        assert "[нет раздела" not in page  # все ссылки между разделами нашли свой раздел
+        assert "[нет раздела" not in page  # every cross-section link found its section
         ids = PAGE_IDS.findall(page)
         duplicates = {i for i in ids if ids.count(i) > 1}
         assert not duplicates
 
     def test_help_page_cards_stack_vertically(self, admin: TestClient) -> None:
-        # SQLAdmin кладёт страницу в .row-deck, а Tabler делает его колонки flex-рядом:
-        # без d-block все карточки разделов вставали в одну строку узкими столбиками
+        # SQLAdmin puts the page in .row-deck, and Tabler lays its columns out as a flex row:
+        # without d-block all section cards stood in one row as narrow columns
         page = admin.get("/admin/help").text
         assert 'class="col-12 col-xl-9 d-block"' in page
-        assert 'class="col-12 col-xl-3 align-items-start"' in page  # оглавление не тянется на всю высоту
+        assert 'class="col-12 col-xl-3 align-items-start"' in page  # the TOC column does not stretch to full height
         assert 'class="card help-toc"' in page
 
     def test_help_page_requires_login(self, client: TestClient) -> None:
@@ -851,7 +851,7 @@ class TestHelp:
         assert 'href="http://testserver/admin/lead/list"' in page
         assert 'href="http://testserver/admin/costs"' in page
         assert "[нет раздела" not in page
-        assert 'id="help-panel"' not in page  # у главной своей справки нет
+        assert 'id="help-panel"' not in page  # the home page has no help of its own
 
     def test_panel_links_to_full_help(self, admin: TestClient) -> None:
         page = admin.get("/admin/lead/list").text
@@ -886,7 +886,7 @@ class TestRussianInterface:
         assert "Иван Петров" not in admin.get("/admin/client/list?search=999").text
 
     def test_enums_are_shown_with_russian_labels(self, admin: TestClient) -> None:
-        # SQLAdmin по умолчанию выводит имя элемента Enum (NEW, ANSWERED), а справка и фильтры — подписи
+        # By default SQLAdmin shows the Enum member name (NEW, ANSWERED), while help and filters show labels
         for url in ("/admin/lead/list", "/admin/lead/details/1"):
             page = admin.get(url).text
             assert re.search(r">\s*Новая\s*<", page), url
@@ -897,7 +897,7 @@ class TestRussianInterface:
             assert not re.search(r">\s*ANSWERED\s*<", page), url
 
 
-# ---------- Быстрые действия на HTMX ----------
+# ---------- HTMX quick actions ----------
 
 HX = {"HX-Request": "true"}
 
@@ -943,7 +943,7 @@ class TestLeadStatusInList:
         assert lead is not None and lead.status is LeadStatus.DONE
 
     def test_requires_htmx_header(self, admin: TestClient, db: Path) -> None:
-        # Защита от CSRF: обычная форма с чужого сайта не может выставить заголовок HX-Request
+        # CSRF protection: a plain form from another site cannot set the HX-Request header
         assert admin.post(self.URL, data={"status": "DONE"}).status_code == 400
         lead = load_lead(db, 1)
         assert lead is not None and lead.status is LeadStatus.NEW
@@ -985,7 +985,7 @@ class TestNewRecordsBanner:
         run_with_repo(db, lambda repo: repo.create_lead(42, "@ivan", "060000001", "Ещё заявка"))
         banner = admin.get("/admin/htmx/new-leads?after=1", headers=HX).text
         assert "Новых заявок: 1" in banner
-        assert "after=1" in banner  # точка отсчёта не сдвигается, пока список не обновят
+        assert "after=1" in banner  # the starting point does not move until the list is refreshed
 
     def test_new_audit_events_highlight_suspicious(self, admin: TestClient, db: Path) -> None:
         baseline = admin.get("/admin/htmx/new-audit-events", headers=HX).text
@@ -1021,7 +1021,7 @@ class TestBlockFromJournal:
         blocked = admin.post("/admin/htmx/client/42/block", data={"blocked": "true"}, headers=HX)
         assert blocked.status_code == 200
         assert "Разблокировать" in blocked.text
-        # Бот видит блокировку при следующем сообщении клиента
+        # The bot sees the block on the client's next message
         assert run_with_repo(db, lambda repo: repo.touch_client(42, "ivan", "Иван Петров")) is True
 
         unblocked = admin.post("/admin/htmx/client/42/block", data={"blocked": "false"}, headers=HX)
@@ -1057,9 +1057,9 @@ class TestDragAndDropOrder:
 
     def test_whole_section_fits_one_page(self, admin: TestClient) -> None:
         page = admin.get("/admin/service/list").text
-        assert page.count('name="order"') == len(DEMO_SERVICES)  # 12 услуг — больше стандартных 10 на странице
+        assert page.count('name="order"') == len(DEMO_SERVICES)  # 12 services, more than the default 10 per page
 
-    # pageSize=5 — 12 услуг на трёх страницах; сохранить можно только раздел целиком
+    # pageSize=5 spreads 12 services over three pages; only a whole section can be saved
     @pytest.mark.parametrize("query", ["search=Чистка", "is_active=true", "pageSize=5"])
     def test_disabled_for_partial_list(self, admin: TestClient, query: str) -> None:
         page = admin.get(f"/admin/service/list?{query}").text
@@ -1126,7 +1126,7 @@ ORDER_FORM = {
 
 
 def load_order(db: Path, key: str) -> Order | None:
-    """Заказ по ключу номера — без дефиса, как ищет бот."""
+    """An order by its number key, without the dash, as the bot looks it up."""
 
     async def load(repo: Repository) -> Order | None:
         return await repo.find_order(key)
@@ -1169,7 +1169,7 @@ class TestOrders:
         assert "латинские буквы, цифры и дефис" in response.text
 
     def test_same_number_without_dash_is_duplicate(self, admin: TestClient) -> None:
-        # «DE1» бот найдёт как «DE-1» — два таких заказа сделали бы ответ случайным
+        # The bot finds «DE1» as «DE-1»: two such orders would make the answer random
         response = admin.post("/admin/order/create", data=ORDER_FORM | {"number": "DE1"})
         assert response.status_code == 400
         assert "Заказ с таким номером уже есть" in response.text

@@ -1,4 +1,4 @@
-"""Формы админки: сообщения об ошибках на русском и дробные числа через запятую."""
+"""Admin forms: error messages in Russian and decimal numbers with a comma."""
 
 from typing import final
 
@@ -31,7 +31,7 @@ class TestCommaFloatField:
         assert form.price.data == 0.15
 
     def test_garbage_gives_one_clear_error(self) -> None:
-        # Без остановки проверок к ошибке разбора добавилось бы «Число должно быть не меньше 0»
+        # Without stopping validation, «Число должно быть не меньше 0» would be added to the parse error
         assert submit(price="1,2,3").price.errors == ["Неверное десятичное число."]
 
     def test_empty_is_required_not_invalid(self) -> None:
@@ -49,7 +49,7 @@ class TestRussianMessages:
         assert submit(name="Профессиональная чистка").name.errors == ["Значение не должно содержать более 10 символов."]
 
     def test_between_is_fixed(self) -> None:
-        # В каталоге WTForms — «Значение должно быть между 1 и 5»; выравниваем со «не меньше / не больше»
+        # The WTForms catalog has «Значение должно быть между 1 и 5»; we align it with «не меньше / не больше»
         assert submit(count="9").count.errors == ["Число должно быть от 1 до 5."]
 
     def test_integer(self) -> None:

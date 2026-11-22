@@ -11,7 +11,7 @@ def test_render_info_contains_all_parts() -> None:
 
 
 def test_render_info_is_deterministic() -> None:
-    # Одинаковые данные — побайтно одинаковый промпт, иначе кэш промпта не сработает
+    # Same data gives a byte-identical prompt, otherwise prompt caching won't work
     assert render_info(demo_knowledge()) == render_info(demo_knowledge())
 
 

@@ -1,4 +1,4 @@
-"""Справка админки сверяется с кодом: новые разделы, колонки и итоги не остаются без пояснений."""
+"""Admin help is checked against the code: new sections, columns and totals do not go unexplained."""
 
 from collections.abc import Iterable
 
@@ -11,13 +11,13 @@ from medllmbot.analytics import GapReason
 from medllmbot.db.models import AuditOutcome
 from medllmbot.security import FLAG_LABELS
 
-# Свои страницы админки без модели — «Расходы → Отчёт по месяцам» и «Клиенты → Аналитика»
+# Custom admin pages without a model: «Расходы → Отчёт по месяцам» and «Клиенты → Аналитика»
 CUSTOM_PAGES = {"costs", "analytics"}
 
 
 def _names(attrs: Iterable[object]) -> set[str]:
-    """Имена полей из column_list / form_columns: там атрибуты модели или строки."""
-    assert not isinstance(attrs, str), "column_list = '__all__' не поддерживается: перечислите колонки явно"
+    """Field names from column_list / form_columns, which hold model attributes or strings."""
+    assert not isinstance(attrs, str), "column_list = '__all__' is not supported: list the columns explicitly"
     names: set[str] = set()
     for attr in attrs:
         key = getattr(attr, "key", attr)
@@ -45,23 +45,23 @@ def test_title_matches_menu(view: type[ModelView]) -> None:
 
 @pytest.mark.parametrize("view", VIEWS, ids=_view_id)
 def test_every_column_and_form_field_has_hint(view: type[ModelView]) -> None:
-    # SQLAdmin объявляет эти атрибуты с InstrumentedAttribute без параметра типа — исправить можно только в библиотеке
+    # SQLAdmin declares these attributes as InstrumentedAttribute without a type parameter; only the library can fix it
     shown = _names(view.column_list) | _names(view.form_columns)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
     missing = shown - set(HELP[view.identity].fields)
-    assert not missing, f"Нет подсказки «?» для полей {sorted(missing)} в разделе {view.identity}"
+    assert not missing, f"No «?» hint for fields {sorted(missing)} in section {view.identity}"
 
 
 @pytest.mark.parametrize("view", VIEWS, ids=_view_id)
 def test_hints_name_real_model_fields(view: type[ModelView]) -> None:
     for name in HELP[view.identity].fields:
-        assert hasattr(view.model, name), f"{view.identity}: у модели нет поля {name}"
+        assert hasattr(view.model, name), f"{view.identity}: the model has no field {name}"
 
 
 def test_hints_are_filled() -> None:
     for topic in TOPICS:
         assert topic.summary.strip()
         for name, text in topic.fields.items():
-            assert text.strip(), f"{topic.identity}.{name}: пустая подсказка"
+            assert text.strip(), f"{topic.identity}.{name}: empty hint"
 
 
 def test_every_outcome_is_explained() -> None:

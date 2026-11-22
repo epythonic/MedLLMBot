@@ -1,10 +1,10 @@
-"""HTML-фрагменты для HTMX. Строятся на сервере; Markup.format экранирует все подставляемые значения."""
+"""HTML fragments for HTMX. Built on the server; Markup.format escapes every interpolated value."""
 
 from markupsafe import Markup
 
 from medllmbot.db.models import LeadStatus
 
-# Как часто открытый список спрашивает сервер о новых записях
+# How often an open list asks the server for new records
 POLL_EVERY = "15s"
 
 LEAD_NOT_FOUND = Markup('<span class="text-danger">Заявка не найдена — обновите страницу</span>')
@@ -12,7 +12,7 @@ BAD_REQUEST = Markup('<span class="text-danger">Некорректный зап�
 
 
 def lead_status_select(url: str, status: LeadStatus, *, saved: bool = False) -> Markup:
-    """Статус заявки в списке: выбор сразу сохраняется (hx-post), ответ сервера заменяет список."""
+    """Lead status in the list: the choice is saved at once (hx-post), the server response replaces the list."""
     options = Markup("").join(
         Markup('<option value="{}"{}>{}</option>').format(
             option.name, Markup(" selected") if option is status else "", option.value
@@ -27,14 +27,14 @@ def lead_status_select(url: str, status: LeadStatus, *, saved: bool = False) -> 
 
 
 def poll_loader(url: str) -> Markup:
-    """Пустой блок, который сразу после загрузки страницы запрашивает точку отсчёта для опроса."""
+    """Empty block that requests the polling baseline right after the page loads."""
     return Markup('<div class="d-none" hx-get="{}" hx-trigger="load" hx-swap="outerHTML"></div>').format(url)
 
 
 def new_records_poller(url: str, *, text: str | None = None, warning: bool = False) -> Markup:
-    """Блок раз в POLL_EVERY спрашивает сервер о новых записях и заменяет себя ответом.
+    """Block that asks the server for new records every POLL_EVERY and replaces itself with the response.
 
-    url уже содержит точку отсчёта (?after=N). text — плашка о новых записях; None — новых нет.
+    url already contains the baseline (?after=N). text is the new-records badge; None means nothing new.
     """
     if text is None:
         return Markup('<div class="d-none" hx-get="{}" hx-trigger="every {}" hx-swap="outerHTML"></div>').format(
@@ -49,12 +49,12 @@ def new_records_poller(url: str, *, text: str | None = None, warning: bool = Fal
 
 
 def client_block_loader(url: str) -> Markup:
-    """Место под кнопку блокировки: её состояние подгружается после открытия страницы."""
+    """Placeholder for the block button: its state is loaded after the page opens."""
     return Markup('<span class="client-block" hx-get="{}" hx-trigger="load" hx-swap="outerHTML"></span>').format(url)
 
 
 def client_block_control(url: str, chat_id: int, *, blocked: bool | None) -> Markup:
-    """Кнопка «Заблокировать» / «Разблокировать». blocked=None — клиента нет в базе."""
+    """«Заблокировать» / «Разблокировать» button. blocked=None means the client is not in the DB."""
     if blocked is None:
         return Markup('<span class="client-block ms-2 text-secondary">клиент не найден</span>')
     if blocked:
@@ -71,7 +71,7 @@ def client_block_control(url: str, chat_id: int, *, blocked: bool | None) -> Mar
     ).format(url, chat_id)
 
 
-# ---------- Порядок перетаскиванием ----------
+# ---------- Drag-and-drop ordering ----------
 
 REORDER_SAVED = Markup(
     '<span class="text-success"><i class="fa-solid fa-check me-1"></i>'
@@ -83,7 +83,7 @@ REORDER_CONFLICT = Markup(
 
 
 def sort_handle(item_id: int) -> Markup:
-    """Ячейка «Порядок»: за значок строку перетаскивают, скрытое поле передаёт id в новом порядке."""
+    """«Порядок» cell: the row is dragged by the icon, a hidden field sends the id in the new order."""
     return Markup(
         '<span class="drag-handle" title="Перетащите, чтобы поменять порядок">'
         '<i class="fa-solid fa-grip-vertical"></i></span>'

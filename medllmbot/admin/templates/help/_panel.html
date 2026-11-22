@@ -1,12 +1,12 @@
 {#
-  Значки «?» и боковая панель справки раздела. Подключается из sqladmin/layout.html, ожидает topic.
-  Наведение на «?» — короткая подсказка, клик — панель справа, прокрученная к нужному блоку.
-  Панель не блокирует страницу: с ней можно продолжать работать в разделе.
+  «?» icons and the section help side panel. Included from sqladmin/layout.html, expects topic.
+  Hovering «?» shows a short tooltip; clicking opens the panel on the right, scrolled to the relevant block.
+  The panel does not block the page: you can keep working in the section with it open.
 #}
 {% set help_view = model_view if model_view is defined else none %}
 {% include "help/_assets.html" %}
 
-{# Подсказки полей. Скрипт ставит «?» у подписи поля формы, заголовка колонки или строки на странице записи #}
+{# Field hints. The script puts «?» next to a form field label, a column header or a row on the record page #}
 <template id="help-hints">
   {%- for name, text in topic.fields.items() %}
   <span data-name="{{ name }}"
@@ -36,14 +36,14 @@
 <script>
   (() => {
     const init = () => {
-      // Bootstrap входит в tabler.min.js, который SQLAdmin подключает в конце страницы
+      // Bootstrap is bundled in tabler.min.js, which SQLAdmin loads at the end of the page
       const { Offcanvas, Tooltip } = window.tabler ?? {};
       const panelEl = document.getElementById("help-panel");
       if (!Offcanvas || !Tooltip || !panelEl) return;
       const panel = Offcanvas.getOrCreateInstance(panelEl);
       const panelBody = panelEl.querySelector(".offcanvas-body");
 
-      // Открыть панель и прокрутить к блоку справки, подсветив его
+      // Open the panel and scroll to the help block, highlighting it
       const open = (anchor) => {
         panel.show();
         const target = anchor ? document.getElementById(anchor) : null;
@@ -53,7 +53,7 @@
         }
         target.scrollIntoView({ block: "center" });
         target.classList.remove("help-flash");
-        void target.offsetWidth; // перезапуск анимации подсветки
+        void target.offsetWidth; // restart the highlight animation
         target.classList.add("help-flash");
       };
 
@@ -65,7 +65,7 @@
         button.innerHTML = '<i class="fa-regular fa-circle-question"></i>';
         const tooltip = new Tooltip(button, { title: text, placement: "top", customClass: "help-tooltip" });
         button.addEventListener("click", (event) => {
-          // «?» может стоять внутри <label> или ссылки сортировки — не отдаём им клик
+          // «?» may sit inside a <label> or a sort link; do not pass the click to them
           event.preventDefault();
           event.stopPropagation();
           tooltip.hide();
@@ -74,13 +74,13 @@
         return button;
       };
 
-      // «?» раздела — у заголовка страницы, а если его нет — у заголовка первой карточки
+      // The section «?» goes next to the page title or, if there is none, the first card's title
       const title = [...document.querySelectorAll(".page-title, .card-header .card-title")].find(
         (el) => el.textContent.trim() && !panelEl.contains(el),
       );
       title?.append(helpButton(`${panelEl.dataset.summary} Нажмите — подробная справка.`, null, "help-q--section"));
 
-      // «?» полей: подписи в форме, заголовки колонок списка, строки на странице записи
+      // Field «?»: form labels, list column headers, rows on the record page
       const cells = [...document.querySelectorAll(".card-table thead th")];
       if (location.pathname.includes("/details/")) {
         cells.push(...document.querySelectorAll(".card-table tbody td:first-child"));
@@ -94,7 +94,7 @@
         for (const el of targets) el.append(" ", helpButton(text, anchor));
       }
 
-      // F1 или «?» — открыть и закрыть справку, кроме набора текста в полях
+      // F1 or «?» opens and closes the help, except while typing in fields
       document.addEventListener("keydown", (event) => {
         const el = event.target;
         if (el instanceof HTMLElement && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName))) {

@@ -1,6 +1,6 @@
-"""greeting_ro: приветствие по-румынски в настройках бота.
+"""greeting_ro: Romanian greeting in the bot settings.
 
-У существующих настроек поле пустое: клиенты получают прежнее приветствие, в котором бывают оба языка.
+Existing settings get an empty field: clients receive the previous greeting, which may contain both languages.
 
 Revision ID: e3174a6cc260
 Revises: 15280f8b2e3f
@@ -22,7 +22,7 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    # Колонка с NULL добавляется без пересоздания таблицы
+    # A nullable column is added without recreating the table
     op.add_column("bot_config", sa.Column("greeting_ro", sa.Text(), nullable=True))
 
 

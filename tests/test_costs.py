@@ -23,7 +23,7 @@ def usage(input_tokens: int = 0, output: int = 0, cache_read: int = 0, cache_wri
 
 class TestPrice:
     def test_cost_counts_every_token_kind(self) -> None:
-        # $/MTok == µUSD/токен: 1000·1 + 200·5 + 500·1.25 + 3000·0.1
+        # $/MTok == µUSD/token: 1000·1 + 200·5 + 500·1.25 + 3000·0.1
         cost = HAIKU_4_5.cost_micro_usd(usage(1000, 200, cache_read=3000, cache_write=500))
         assert cost == 1000 + 1000 + 625 + 300
 
@@ -45,7 +45,7 @@ class TestPriceBook:
         assert book.find("claude-sonnet-50", 100) is None
 
     def test_other_model_version_is_not_priced(self, book: PriceBook) -> None:
-        # Новая версия модели не должна тихо считаться по цене старой — её место в «без цены»
+        # A new model version must not be silently priced as the old one; it belongs in «без цены»
         assert book.find("claude-sonnet-5-5-6", 100) is None
         assert book.find("claude-haiku-5-5-preview", 100) is None
 
@@ -71,8 +71,8 @@ class TestPriceBook:
         assert book.find("claude-haiku-5-5", prompt_tokens) == expected
 
     def test_several_requests_priced_one_by_one(self, book: PriceBook) -> None:
-        # Ответ с поиском по каталогу: два запроса по 60 000 токенов. Вместе 120 000, но тариф —
-        # по каждому запросу, как в счёте Anthropic, поэтому дорогой тариф не применяется
+        # A reply with catalog search: two requests of 60,000 tokens. 120,000 together, but the tier is
+        # per request, as on the Anthropic invoice, so the expensive tier does not apply
         requests = [usage(60_000, 100), usage(60_000, 100)]
         assert book.total_micro_usd("claude-haiku-5-5", requests) == 2 * round(60_000 * 0.10 + 100 * 0.50)
         assert book.cost_micro_usd("claude-haiku-5-5", usage(120_000, 200)) == round(120_000 * 0.50 + 200 * 2.50)
@@ -82,7 +82,7 @@ class TestPriceBook:
         assert book.total_micro_usd("claude-haiku-5-5", []) == 0
 
     def test_tier_counts_cached_tokens(self, book: PriceBook) -> None:
-        # Порог считается по всему промпту, включая чтение из кэша
+        # The threshold counts the whole prompt, including cache reads
         cost = book.cost_micro_usd("claude-haiku-5-5", usage(1, cache_read=100_000))
         assert cost == round(1 * 0.50 + 100_000 * 0.05)
 
@@ -113,7 +113,7 @@ class TestBuildReport:
         assert [r.model for r in nov.rows] == [
             "claude-sonnet-5",
             "claude-haiku-4-5",
-        ]  # дороже — выше
+        ]  # more expensive first
         assert (nov.total.requests, nov.total.cost_micro_usd) == (3, 600)
         assert nov.total.unpriced_requests == 1
         assert nov.total.input_tokens == 200
@@ -123,7 +123,7 @@ class TestBuildReport:
 
         [nov, oct_] = build_report(rows, today=date(2026, 11, 10))
 
-        # $1 за 10 дней ноября (30 дней) → $3 к концу месяца
+        # $1 for 10 days of November (30 days) → $3 by the end of the month
         assert nov.forecast_micro_usd == 3_000_000
         assert oct_.forecast_micro_usd is None
 

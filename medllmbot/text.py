@@ -1,16 +1,16 @@
-"""Обработка текста: нормализация для поиска по словам (аналитика тем, просьба позвать оператора),
-язык клиента для готовых ответов и очистка ответа модели от Markdown.
+"""Text processing: normalization for word matching (topic analytics, requests for an operator),
+the client's language for canned replies and stripping Markdown from model replies.
 """
 
 import re
 from enum import StrEnum
 
-# Сравнение без регистра, «ё» и румынских диакритик: «Приём» = «прием», «preț» = «pret».
-# Типографский апостроф Claude — обычный: «don’t» = «don't»
+# Comparison ignoring case, «ё» and Romanian diacritics: «Приём» = «прием», «preț» = «pret».
+# Claude's typographic apostrophe becomes a plain one: «don’t» = «don't»
 _FOLD = str.maketrans({"ё": "е", "ă": "a", "â": "a", "î": "i", "ș": "s", "ş": "s", "ț": "t", "ţ": "t", "’": "'"})
 
-# Разметка, которую Telegram без parse_mode показывает как есть. Звёздочка вплотную к тексту с обеих сторон —
-# выделение, а «5 * 3» и «2*2» не трогаем
+# Markup that Telegram without parse_mode shows as is. An asterisk touching the text on both sides is
+# emphasis, while «5 * 3» and «2*2» are left alone
 _BOLD = re.compile(r"\*\*(?=\S)(.+?)(?<=\S)\*\*|__(?=\S)(.+?)(?<=\S)__")
 _ITALIC = re.compile(r"(?<![\w*])\*(?=[^\s*])([^*\n]+?)(?<=[^\s*])\*(?![\w*])")
 _HEADING = re.compile(r"^[ \t]*#{1,6}[ \t]+", re.MULTILINE)
@@ -18,14 +18,14 @@ _STAR_BULLET = re.compile(r"^([ \t]*)\*[ \t]+", re.MULTILINE)
 
 
 def normalize(text: str) -> str:
-    """Текст для сравнения: строчные буквы, «ё» → «е», румынские буквы без диакритики и обычный апостроф,
-    одиночные пробелы.
+    """Text for comparison: lowercase, «ё» → «е», Romanian letters without diacritics, a plain apostrophe,
+    single spaces.
     """
     return " ".join(text.lower().translate(_FOLD).split())
 
 
 class Language(StrEnum):
-    """Языки клиентов. Русский — язык базы знаний и ответ по умолчанию."""
+    """Client languages. Russian is the knowledge base language and the default reply language."""
 
     RU = "ru"
     RO = "ro"
@@ -35,8 +35,8 @@ _LETTER = re.compile(r"[^\W\d_]")
 _WORD = re.compile(r"[^\W\d_]+")
 _CYRILLIC = re.compile(r"[а-яё]", re.IGNORECASE)
 _ROMANIAN_LETTERS = re.compile(r"[ăâîșțşţ]", re.IGNORECASE)
-# Частые румынские слова — их пишут и без диакритики: «buna ziua», «cat costa». Слов, которые бывают
-# в английском («care», «am») или в русском латиницей («da», «nu», «telefon»), здесь нет
+# Common Romanian words, often written without diacritics: «buna ziua», «cat costa». Words that also occur
+# in English («care», «am») or in Russian written in Latin letters («da», «nu», «telefon») are left out
 _ROMANIAN_WORDS: frozenset[str] = frozenset(
     {
         "buna", "ziua", "seara", "salut", "multumesc", "va", "rog", "cat", "costa", "pret", "pretul", "preturile",
@@ -48,10 +48,11 @@ _ROMANIAN_WORDS: frozenset[str] = frozenset(
 
 
 def language_of(text: str) -> Language | None:
-    """Язык сообщения клиента: румынские буквы или слова — румынский, кириллица — русский.
+    """Language of a client message: Romanian letters or words mean Romanian, Cyrillic means Russian.
 
-    Русские названия в румынском сообщении и латинские марки в русском язык не переворачивают, пока их
-    меньше половины букв. None — по тексту не понять: номер заказа, «S8?», команда, английский.
+    Russian names in a Romanian message and Latin brand names in a Russian one do not flip the language while
+    they make up less than half of the letters. None means the text does not tell: an order number, «S8?»,
+    a command, English.
     """
     letters: list[str] = _LETTER.findall(text)
     if not letters:
@@ -65,26 +66,26 @@ def language_of(text: str) -> Language | None:
 
 
 def telegram_language(code: str | None) -> Language | None:
-    """Язык интерфейса Telegram клиента (`language_code`: «ro», «ru-RU»); None — другой язык или неизвестен."""
+    """Language of the client's Telegram interface (`language_code`: «ro», «ru-RU»); None if other or unknown."""
     base = (code or "").split("-")[0].lower()
     return next((language for language in Language if language == base), None)
 
 
 def reply_language(text: str, telegram_code: str | None = None) -> Language:
-    """Язык готового ответа: язык сообщения, а если по тексту не понять — язык Telegram клиента.
-    По умолчанию — русский.
+    """Language of a canned reply: the message language or, if the text does not tell, the client's Telegram
+    language. Russian by default.
     """
     return language_of(text) or telegram_language(telegram_code) or Language.RU
 
 
 def plain_text(text: str) -> str:
-    """Ответ модели без Markdown: жирный и курсив — обычным текстом, заголовки без «#», списки «*» — через «-».
+    """Model reply without Markdown: bold and italics as plain text, headings without «#», «*» lists with «-».
 
-    Промпт уже просит писать без разметки, но модель иногда выделяет жирным — клиент увидел бы звёздочки.
-    Таблицы не переделываются: их не перевести в обычный текст без потери смысла.
+    The prompt already asks for no markup, but the model sometimes uses bold, and the client would see asterisks.
+    Tables are not converted: they cannot be turned into plain text without losing meaning.
     """
     text = _STAR_BULLET.sub(r"\1- ", text)
     text = _HEADING.sub("", text)
     text = _BOLD.sub(lambda match: match.group(1) or match.group(2), text)
-    text = text.replace("**", "")  # непарные: модель оборвала выделение
+    text = text.replace("**", "")  # unpaired: the model cut the emphasis short
     return _ITALIC.sub(r"\1", text)

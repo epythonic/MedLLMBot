@@ -1,4 +1,4 @@
-"""llm costs: стоимость запросов, дневные итоги расхода и прайс-лист моделей
+"""llm costs: request cost, daily spending totals and model price list
 
 Revision ID: a6cc85d9a7c3
 Revises: 3dd8a78a3f17
@@ -11,13 +11,13 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-# Прайс-лист Anthropic на 2026-11-10, USD за миллион токенов:
+# Anthropic price list as of 2026-11-10, USD per million tokens:
 # https://platform.claude.com/docs/en/about-claude/pricing
-# (модель, от длины промпта, вход, запись в кэш 5 мин, чтение из кэша, выход).
-# Дальше цены правятся в админке («Расходы → Цены моделей»).
+# (model, from prompt length, input, 5-min cache write, cache read, output).
+# From then on prices are edited in the admin («Расходы → Цены моделей»).
 PRICES_2026_11_10 = [
     ("claude-haiku-5-5", 0, 0.10, 0.125, 0.01, 0.50),
-    ("claude-haiku-5-5", 100_001, 0.50, 0.625, 0.05, 2.50),  # промпт длиннее 100 000 токенов
+    ("claude-haiku-5-5", 100_001, 0.50, 0.625, 0.05, 2.50),  # prompt longer than 100,000 tokens
     ("claude-haiku-4-5", 0, 1.00, 1.25, 0.10, 5.00),
     ("claude-sonnet-5-5", 0, 2.00, 2.50, 0.10, 10.00),
     ("claude-sonnet-5", 0, 2.00, 2.50, 0.20, 10.00),

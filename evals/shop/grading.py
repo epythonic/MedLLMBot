@@ -1,7 +1,7 @@
-"""Оценка ответа бота: бесплатные проверки кодом и Claude-судья по рубрике.
+"""Grading a bot answer: free code checks and a Claude judge with a rubric.
 
-Каждая проверка — отдельная метрика 0/1, и пишется только там, где относится к вопросу: у вопроса без
-обязательных фактов нет метрики `facts`. Итог `pass` — все метрики ответа равны 1.
+Each check is a separate 0/1 metric and is recorded only where it applies to the question: a question without
+required facts has no `facts` metric. The overall `pass` means every metric of the answer equals 1.
 """
 
 import json
@@ -20,7 +20,7 @@ from medllmbot.db.models import AuditOutcome
 
 @dataclass(frozen=True)
 class ToolEvent:
-    """Вызов инструмента ботом и что инструмент ответил — как это увидела модель."""
+    """A tool call made by the bot and what the tool returned, as the model saw it."""
 
     name: str
     tool_input: dict[str, object]
@@ -28,22 +28,22 @@ class ToolEvent:
     is_error: bool
 
 
-# ---------- Проверки кодом ----------
+# ---------- Code checks ----------
 
-# Telegram показывает разметку как есть: жирный, заголовки, списки со звёздочкой, таблицы. Тире-списки — обычный текст
+# Telegram shows markup as is: bold, headings, asterisk lists, tables. Dash lists are plain text
 MARKDOWN = re.compile(r"\*\*|__|^\s*#{1,6}\s|^\s*\*\s|^\s*\|.*\|\s*$", re.MULTILINE)
 _LETTER = re.compile(r"[^\W\d_]")
 _CYRILLIC = re.compile(r"[а-яё]", re.IGNORECASE)
-# Румынский ответ отличаем от английского: диакритика или частые служебные слова. «Lei» не признак —
-# валюту называют и по-английски
+# Tells a Romanian answer from an English one: diacritics or common function words. «Lei» is not a sign:
+# the currency is called that in English too
 _ROMANIAN = re.compile(r"[ăâîșțşţ]|\b(?:și|este|pentru|sunt|aveți|puteți|vă|livrare|comanda|cu|în)\b", re.IGNORECASE)
 
 
 def answer_language(text: str) -> Lang | None:
-    """Язык ответа по буквам: кириллица — русский, латиница с румынскими признаками — румынский.
+    """Answer language by its letters: Cyrillic is Russian, Latin with Romanian signs is Romanian.
 
-    Названия товаров латиницей в русском ответе и русские названия из каталога в румынском долю не переворачивают.
-    None — текста нет или язык другой.
+    Latin product names in a Russian answer and Russian catalog names in a Romanian one do not flip the share.
+    None means there is no text or the language is different.
     """
     letters: list[str] = _LETTER.findall(text)
     if not letters:
@@ -55,7 +55,7 @@ def answer_language(text: str) -> Lang | None:
 
 
 def code_checks(case: Case, answer: str, outcome: AuditOutcome, tools_called: Sequence[str]) -> dict[str, int]:
-    """Проверки кодом. `delivered` — клиент получил ответ модели, а не заглушку «Уточню у менеджера»."""
+    """Code checks. `delivered` means the customer got the model's answer, not the «Уточню у менеджера» fallback."""
     scores = {
         "delivered": int(outcome is AuditOutcome.ANSWERED),
         "language": int(answer_language(answer) == case.lang),
@@ -73,7 +73,7 @@ def code_checks(case: Case, answer: str, outcome: AuditOutcome, tools_called: Se
     return scores
 
 
-# ---------- Судья ----------
+# ---------- Judge ----------
 
 CRITERIA: tuple[str, ...] = ("grounded", "rules", "helpful")
 
@@ -132,11 +132,11 @@ class Verdict:
     explanations: dict[str, str]
     model: str
     usage: TokenUsage
-    raw: str  # ответ судьи целиком — для разбора спорных оценок
+    raw: str  # the judge's full reply, for reviewing disputed grades
 
 
 class JudgeError(Exception):
-    """Судья не дал разборчивого ответа: другой моделью, обрезанный, отказ, не по схеме."""
+    """The judge gave no usable reply: wrong model, truncated, refusal, off-schema."""
 
     usage: TokenUsage | None
 
@@ -146,7 +146,7 @@ class JudgeError(Exception):
 
 
 def judge_prompt(case: Case, system_prompt: str, tool_events: Sequence[ToolEvent], answer: str) -> str:
-    """Всё, что судья проверяет. Ответ — ровно то, что получил клиент."""
+    """Everything the judge checks. The answer is exactly what the customer received."""
     tools = "\n\n".join(
         f"{event.name}({json.dumps(event.tool_input, ensure_ascii=False)})"
         f"{' — ошибка' if event.is_error else ''}:\n{event.output}"
@@ -172,7 +172,7 @@ def _usage(response: anthropic.types.Message) -> TokenUsage:
 
 
 def parse_verdict(text: str) -> tuple[dict[str, int], dict[str, str]]:
-    """Оценки и пояснения из JSON судьи. ValidationError — ответ не по схеме."""
+    """Scores and explanations from the judge's JSON. ValidationError means the reply is off-schema."""
     reply = _JudgeReply.model_validate_json(text)
     criteria = {"grounded": reply.grounded, "rules": reply.rules, "helpful": reply.helpful}
     return (
@@ -189,7 +189,7 @@ async def judge(
     tool_events: Sequence[ToolEvent],
     answer: str,
 ) -> Verdict:
-    """Один вызов судьи. Ответ строго по JSON-схеме (structured outputs) — разбор детерминирован."""
+    """One judge call. The reply strictly follows the JSON schema (structured outputs): parsing is deterministic."""
     messages: list[MessageParam] = [{"role": "user", "content": judge_prompt(case, system_prompt, tool_events, answer)}]
     output_config: OutputConfigParam = {"format": {"type": "json_schema", "schema": JUDGE_SCHEMA}}
     response = await client.messages.create(
@@ -201,12 +201,12 @@ async def judge(
     )
     usage = _usage(response)
     if match_model(response.model, [model]) is None:
-        raise JudgeError(f"судью обслужила другая модель: {response.model}", usage)
+        raise JudgeError(f"the judge was served by another model: {response.model}", usage)
     if response.stop_reason != "end_turn":
-        raise JudgeError(f"судья не закончил ответ: stop_reason={response.stop_reason}", usage)
+        raise JudgeError(f"the judge did not finish its reply: stop_reason={response.stop_reason}", usage)
     text = next((block.text for block in response.content if block.type == "text"), "")
     try:
         scores, explanations = parse_verdict(text)
     except ValidationError as error:
-        raise JudgeError(f"ответ судьи не по схеме: {error.error_count()} ошибок", usage) from error
+        raise JudgeError(f"judge reply is off-schema: {error.error_count()} errors", usage) from error
     return Verdict(scores, explanations, response.model, usage, text)

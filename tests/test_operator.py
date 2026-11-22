@@ -1,4 +1,4 @@
-"""Живой оператор: просьба позвать человека, пересылка в обе стороны, возврат к боту."""
+"""Live operator: asking for a human, relaying both ways, handing back to the bot."""
 
 import json
 from collections.abc import AsyncGenerator, Awaitable, Callable
@@ -50,7 +50,7 @@ def utcnow() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
 
-# ---------- Распознавание просьбы и тексты ----------
+# ---------- Request detection and texts ----------
 
 
 @pytest.mark.parametrize(
@@ -100,7 +100,7 @@ def test_asks_for_operator(text: str) -> None:
         "Можно поговорить с врачом перед лечением?",
         "Сколько человек в очереди?",
         "Сколько стоит чистка?",
-        # Вопрос о контактах — на него ответит бот
+        # A question about contacts — the bot answers it
         "Как связаться с администратором клиники по телефону?",
         "Я настоящий человек, не бот",
         "Нужен оператор связи для симки?",
@@ -119,7 +119,7 @@ def test_deadline() -> None:
     until = operator_deadline(now, 12)
     assert until == datetime(2026, 11, 21, 22, 0)
     assert with_operator(until, now)
-    assert not with_operator(until, until)  # срок прошёл — снова бот
+    assert not with_operator(until, until)  # deadline passed — back to the bot
     assert not with_operator(None, now)
 
 
@@ -140,7 +140,7 @@ def test_handoff_notice() -> None:
     assert lines[:2] == ["Клиент @ivan (chat 42) просит оператора:", "Позовите менеджера"]
     assert "Клиент: Сколько стоит чистка?" in lines
     bot_line = next(line for line in lines if line.startswith("Бот: "))
-    assert bot_line.endswith("…") and len(bot_line) <= len("Бот: ") + 300  # длинный ответ укорочен
+    assert bot_line.endswith("…") and len(bot_line) <= len("Бот: ") + 300  # long answer is truncated
     assert "«Вернуть бота»" in notice
     assert "12 ч" in notice
 
@@ -150,7 +150,7 @@ def test_notice_without_history() -> None:
     assert "Последние сообщения" not in notice
 
 
-# ---------- Репозиторий ----------
+# ---------- Repository ----------
 
 
 class TestRepository:
@@ -162,25 +162,25 @@ class TestRepository:
 
         assert await seeded_repo.end_operator(CHAT_ID, now) is True
         assert await seeded_repo.operator_until(CHAT_ID) is None
-        assert await seeded_repo.end_operator(CHAT_ID, now) is False  # уже с ботом
+        assert await seeded_repo.end_operator(CHAT_ID, now) is False  # already with the bot
 
     async def test_end_after_deadline_is_not_active(self, seeded_repo: Repository) -> None:
         now = utcnow()
         await seeded_repo.start_operator(CHAT_ID, now - timedelta(minutes=1))
         assert await seeded_repo.end_operator(CHAT_ID, now) is False
         assert await seeded_repo.operator_until(CHAT_ID) is None
-        assert await seeded_repo.end_operator(999, now) is False  # такого клиента нет
+        assert await seeded_repo.end_operator(999, now) is False  # no such client
 
     async def test_relays(self, seeded_repo: Repository) -> None:
         await seeded_repo.touch_client(43, "maria", "Мария")
         await seeded_repo.add_relay(ADMIN_ID, 100, CHAT_ID)
         assert await seeded_repo.relay_chat(ADMIN_ID, 100) == CHAT_ID
         assert await seeded_repo.relay_chat(ADMIN_ID, 101) is None
-        await seeded_repo.add_relay(ADMIN_ID, 100, 43)  # номер сообщения переиспользован — новая связь
+        await seeded_repo.add_relay(ADMIN_ID, 100, 43)  # message id reused — new link
         assert await seeded_repo.relay_chat(ADMIN_ID, 100) == 43
 
     async def test_relays_belong_to_admin_chat(self, seeded_repo: Repository) -> None:
-        # Номера сообщений повторяются в разных чатах: у нового администратора свой счёт
+        # Message ids repeat across chats: a new admin has their own numbering
         await seeded_repo.add_relay(ADMIN_ID, 100, CHAT_ID)
         assert await seeded_repo.relay_chat(888, 100) is None
 
@@ -203,7 +203,7 @@ class TestRepository:
 
     async def test_save_message(self, seeded_repo: Repository) -> None:
         await seeded_repo.save_message(CHAT_ID, "user", "Где мой заказ?")
-        await seeded_repo.save_message(CHAT_ID, "user", "   ")  # пустое API Claude отклонит — не сохраняется
+        await seeded_repo.save_message(CHAT_ID, "user", "   ")  # the Claude API rejects empty content — not saved
         await seeded_repo.save_message(CHAT_ID, "assistant", "Уже в пути")
         assert await seeded_repo.load_history(CHAT_ID, limit=8) == [
             {"role": "user", "content": "Где мой заказ?"},
@@ -211,7 +211,7 @@ class TestRepository:
         ]
 
     async def test_history_starts_with_client_after_operator_replies(self, seeded_repo: Repository) -> None:
-        # Оператор ответил несколько раз подряд — в окне истории первыми оказались ответы, а не вопрос
+        # The operator replied several times in a row — the history window starts with replies, not the question
         await seeded_repo.save_message(CHAT_ID, "user", "Позовите менеджера")
         for i in range(4):
             await seeded_repo.save_message(CHAT_ID, "assistant", f"Ответ оператора {i}")
@@ -220,18 +220,18 @@ class TestRepository:
         assert [m["role"] for m in history] == ["user"]
 
 
-# ---------- Бот целиком: диспетчер, middleware и хендлеры ----------
+# ---------- Whole bot: dispatcher, middleware and handlers ----------
 
 
 class FakeSession(BaseSession):
-    """Telegram без сети: запоминает запросы и отвечает как сервер. `blocked` — чаты, куда отправка не проходит."""
+    """Telegram without network: records requests and replies like the server. `blocked` — chats where sending fails."""
 
     requests: list[TelegramMethod[object]]
     blocked: set[int]
-    broken: set[int]  # чаты, где Telegram отвечает ошибкой запроса, а не блокировкой
+    broken: set[int]  # chats where Telegram returns a request error, not a block
     message_ids: dict[int, int]
-    # Вызывается перед каждой отправкой: тест смотрит состояние БД в момент, когда уведомление ещё в пути
-    on_send: Callable[[], Awaitable[None]] | None  # номер запроса → номер сообщения, которое он создал
+    # Called before each send: the test checks DB state while the notice is still in flight
+    on_send: Callable[[], Awaitable[None]] | None  # request index → id of the message it created
     _next_id: int
 
     def __init__(self) -> None:
@@ -250,7 +250,7 @@ class FakeSession(BaseSession):
     @override
     async def make_request(self, bot: Bot, method: TelegramMethod[TelegramType], timeout: int | None = None) -> TelegramType:
         self.requests.append(cast(TelegramMethod[object], method))
-        # isinstance сужает тип `method`, а check_response нужен исходный обобщённый тип — копия ссылки его сохраняет
+        # isinstance narrows `method`, but check_response needs the original generic type — a reference copy keeps it
         request: TelegramMethod[TelegramType] = method
         if self.on_send is not None and isinstance(method, SendMessage):
             await self.on_send()
@@ -291,13 +291,13 @@ class FakeSession(BaseSession):
         return [m for m in self.requests if isinstance(m, kind)]
 
     def last_id(self, kind: type[SendMessage | CopyMessage], chat_id: int) -> int:
-        """Номер последнего сообщения бота такого типа в чате."""
+        """Id of the bot's last message of this type in the chat."""
         index = max(i for i, m in enumerate(self.requests) if isinstance(m, kind) and m.chat_id == chat_id)
         return self.message_ids[index]
 
 
 class Harness:
-    """Диспетчер бота поверх настоящей БД; Claude — мок, Telegram — FakeSession."""
+    """Bot dispatcher over a real DB; Claude is a mock, Telegram is FakeSession."""
 
     dp: Dispatcher
     bot: Bot
@@ -337,7 +337,7 @@ class Harness:
             "username": "ivan" if chat_id == CHAT_ID else "boss",
         }
         if language_code is not None:
-            user["language_code"] = language_code  # язык интерфейса Telegram клиента
+            user["language_code"] = language_code  # client's Telegram UI language
         message: dict[str, object] = {
             "message_id": self._update_id + 1,
             "date": 0,
@@ -361,7 +361,7 @@ class Harness:
         )
 
     def last_admin_message_id(self) -> int:
-        """Номер последнего сообщения бота администратору — на него администратор отвечает."""
+        """Id of the bot's last message to the admin — the admin replies to it."""
         return self.session.last_id(SendMessage, ADMIN_ID)
 
     def callback_answers(self) -> list[str | None]:
@@ -382,11 +382,11 @@ class TestHandoff:
     async def test_full_conversation(self, harness: Harness, sessions: Sessions) -> None:
         session, assistant = harness.session, harness.assistant
 
-        # 1. Обычный вопрос — отвечает бот
+        # 1. A regular question — the bot answers
         await harness.write("Сколько стоит чистка?")
         assert assistant.reply.await_count == 1
 
-        # 2. Просьба позвать человека: Claude не вызывается, клиенту — что вопрос передан, администратору — уведомление
+        # 2. Asking for a human: no Claude call; the client is told the question was passed on, the admin is notified
         await harness.write("Позовите менеджера")
         assert assistant.reply.await_count == 1
         assert session.texts(CHAT_ID)[-1] == REPLIES.operator_started
@@ -397,20 +397,20 @@ class TestHandoff:
         until = await harness.repo.operator_until(CHAT_ID)
         assert until is not None and until > utcnow() + timedelta(hours=11)
 
-        # 3. Сообщение клиента — администратору, бот молчит
+        # 3. The client's message goes to the admin, the bot stays silent
         await harness.write("Где вы находитесь?")
         assert assistant.reply.await_count == 1
-        assert session.texts(CHAT_ID)[-1] == REPLIES.operator_started  # новых ответов бота нет
+        assert session.texts(CHAT_ID)[-1] == REPLIES.operator_started  # no new bot replies
         assert session.texts(ADMIN_ID)[-1] == "@ivan (chat 42):\nГде вы находитесь?"
 
-        # 4. Ответ администратора на это сообщение — клиенту, с отметкой о доставке
+        # 4. The admin's reply to that message goes to the client, with a delivery mark
         await harness.write("ул. Примерная, 1", chat_id=ADMIN_ID, reply_to=harness.last_admin_message_id())
         [copy] = session.of_type(CopyMessage)
         assert (copy.chat_id, copy.from_chat_id) == (CHAT_ID, ADMIN_ID)
         assert session.of_type(SetMessageReaction)
         assert assistant.reply.await_count == 1
 
-        # 5. «Вернуть бота»: клиент узнаёт об этом, дальше снова отвечает бот
+        # 5. «Вернуть бота»: the client is told, then the bot answers again
         await harness.press_end()
         assert session.texts(CHAT_ID)[-1] == REPLIES.operator_ended
         assert harness.callback_answers() == [ENDED]
@@ -420,13 +420,13 @@ class TestHandoff:
 
         assert await outcomes(sessions) == [AuditOutcome.HANDOFF, AuditOutcome.TO_OPERATOR, AuditOutcome.FROM_OPERATOR]
         reply_event = (await load_audit(sessions))[-1]
-        # Ответ оператора — в журнале клиента: что написал администратор и что получил клиент
+        # The operator's reply is in the client's log: what the admin wrote and what the client received
         assert (reply_event.chat_id, reply_event.user_text, reply_event.final_answer) == (
             CHAT_ID,
             "ул. Примерная, 1",
             "ул. Примерная, 1",
         )
-        # Разговор с оператором — в истории: вернувшись, бот знает, о чём шла речь
+        # The operator conversation is in the history: once back, the bot knows what was discussed
         async with sessions() as s:
             history = [(m.role, m.content) for m in await s.scalars(select(ChatMessage).order_by(ChatMessage.id))]
         assert history == [
@@ -449,7 +449,7 @@ class TestHandoff:
         assert harness.session.texts(ADMIN_ID)[-1] == "@ivan (chat 42):\n[photo]"
         [copy] = harness.session.of_type(CopyMessage)
         assert (copy.chat_id, copy.from_chat_id) == (ADMIN_ID, CHAT_ID)
-        # Ответ на само фото тоже уйдёт клиенту
+        # A reply to the photo itself also reaches the client
         assert await harness.repo.relay_chat(ADMIN_ID, harness.session.last_id(CopyMessage, ADMIN_ID)) == CHAT_ID
 
     async def test_phone_to_operator_is_still_a_lead(self, harness: Harness, sessions: Sessions) -> None:
@@ -466,7 +466,7 @@ class TestHandoff:
             await s.execute(update(Client).where(Client.chat_id == CHAT_ID).values(operator_until=utcnow()))
         await harness.write("Сколько стоит чистка?")
         assert harness.assistant.reply.await_count == 1
-        # Кнопка после срока: клиенту не пишем, администратору — что клиент уже с ботом
+        # Button after the deadline: nothing to the client; the admin is told the client is already with the bot
         await harness.press_end()
         assert REPLIES.operator_ended not in harness.session.texts(CHAT_ID)
         assert harness.callback_answers() == [ALREADY_ENDED]
@@ -492,7 +492,7 @@ class TestHandoff:
 
 class TestOnlyAdminIsOperator:
     async def test_admin_message_without_reply_goes_to_bot(self, harness: Harness) -> None:
-        # Администратор может сам проверить бота как клиент
+        # The admin can test the bot as a client
         await harness.write("Сколько стоит чистка?", chat_id=ADMIN_ID)
         assert harness.assistant.reply.await_count == 1
         assert harness.session.of_type(CopyMessage) == []
@@ -504,7 +504,7 @@ class TestOnlyAdminIsOperator:
     async def test_client_reply_to_relay_number_is_not_operator(self, harness: Harness) -> None:
         await harness.write("Позовите менеджера")
         await harness.repo.touch_client(43, "maria", "Мария")
-        # Номер сообщения совпал с уведомлением в чате администратора — но пишет не администратор
+        # The message id matches a notice in the admin's chat — but the sender is not the admin
         await harness.write("Сколько стоит чистка?", chat_id=43, reply_to=harness.last_admin_message_id())
         assert harness.assistant.reply.await_count == 1
         assert harness.session.of_type(CopyMessage) == []
@@ -527,7 +527,7 @@ class TestOnlyAdminIsOperator:
 
 class TestDeliveryFailures:
     async def test_admin_unavailable_on_request(self, harness: Harness, sessions: Sessions) -> None:
-        harness.session.blocked.add(ADMIN_ID)  # администратор не нажал /start у бота
+        harness.session.blocked.add(ADMIN_ID)  # the admin never pressed /start in the bot
         await harness.write("Позовите менеджера")
 
         assert harness.session.texts(CHAT_ID) == [TECH_ERROR]
@@ -539,7 +539,7 @@ class TestDeliveryFailures:
         await harness.write("Позовите менеджера")
         harness.session.blocked.add(ADMIN_ID)
         await harness.write("Вы здесь?")
-        # Клиент не ждёт молча: ему сообщают об ошибке, дальше снова отвечает бот
+        # The client doesn't wait in silence: they get an error message, then the bot answers again
         assert harness.session.texts(CHAT_ID)[-1] == TECH_ERROR
         assert await harness.repo.operator_until(CHAT_ID) is None
 
@@ -548,7 +548,7 @@ class TestDeliveryFailures:
         harness.session.blocked.add(CHAT_ID)
         await harness.write("Здравствуйте!", chat_id=ADMIN_ID, reply_to=harness.last_admin_message_id())
         assert harness.session.texts(ADMIN_ID)[-1] == DELIVERY_FORBIDDEN
-        # В журнале ответ есть, но «Отправлено клиенту» пусто: не дошло
+        # The reply is in the log, but «Отправлено клиенту» is empty: not delivered
         event = (await load_audit(sessions))[-1]
         assert (event.outcome, event.user_text, event.final_answer) == (AuditOutcome.FROM_OPERATOR, "Здравствуйте!", None)
 
@@ -577,7 +577,7 @@ async def test_shop_replies_name_manager(harness: Harness, sessions: Sessions) -
 
 
 class TestRomanianClient:
-    """Готовые ответы оператора — на языке клиента. Раньше румынский клиент получал их по-русски."""
+    """Canned operator replies are in the client's language. A Romanian client used to get them in Russian."""
 
     ro: Replies = PROFILES[BusinessProfile.CLINIC].replies_ro
 
@@ -587,9 +587,9 @@ class TestRomanianClient:
         [event] = await load_audit(sessions)
         assert event.final_answer == self.ro.operator_started
 
-        await harness.write("0102")  # по номеру язык не понять — берётся прошлое сообщение клиента
+        await harness.write("0102")  # a number doesn't reveal the language — the client's previous message is used
         await harness.press_end()
-        # Кнопку нажал администратор: язык — по последним сообщениям клиента в истории
+        # The admin pressed the button: the language comes from the client's latest messages in history
         assert harness.session.texts(CHAT_ID)[-1] == self.ro.operator_ended
 
     async def test_russian_dialog_ends_in_russian(self, harness: Harness) -> None:
@@ -598,7 +598,7 @@ class TestRomanianClient:
         assert harness.session.texts(CHAT_ID)[-1] == PROFILES[BusinessProfile.CLINIC].replies.operator_ended
 
     async def test_operator_command_uses_telegram_language(self, harness: Harness) -> None:
-        # В «/operator» языка нет — он берётся из настроек Telegram клиента
+        # «/operator» has no language — it comes from the client's Telegram settings
         await harness.write("/operator", language_code="ro")
         assert harness.session.texts(CHAT_ID) == [self.ro.operator_started]
 
@@ -628,18 +628,18 @@ async def test_operator_hours_from_config(harness: Harness, sessions: Sessions) 
 
 
 def test_outcome_names_fit_audit_column() -> None:
-    # Итоги хранятся по имени в String(20) без CHECK: новые значения не требуют миграции, пока помещаются
+    # Outcomes are stored by name in String(20) without CHECK: new values need no migration while they fit
     assert all(len(outcome.name) <= 20 for outcome in AuditOutcome)
 
 
 class TestReviewFixes:
     async def test_photo_from_regular_client_still_works(self, harness: Harness) -> None:
-        # Роутер оператора проверяет каждое сообщение первым: у фото нет текста для поиска просьбы
+        # The operator router checks every message first: a photo has no text to look for a request in
         await harness.write(None, photo=True)
         assert harness.session.texts(CHAT_ID) == [TEXT_ONLY]
 
     async def test_photo_with_operator_caption_is_not_a_request(self, harness: Harness, sessions: Sessions) -> None:
-        # Command в aiogram проверяет и подписи; пустой вопрос в истории сломал бы запросы к Claude
+        # aiogram's Command checks captions too; an empty question in history would break Claude requests
         await harness.write(None, photo=True, caption="/operator")
         assert harness.session.texts(CHAT_ID) == [TEXT_ONLY]
         assert await harness.repo.operator_until(CHAT_ID) is None
@@ -659,14 +659,14 @@ class TestReviewFixes:
         await harness.write("/start")
         assert await harness.repo.operator_until(CHAT_ID) is None
         config = await harness.repo.get_config()
-        # Язык Telegram клиента неизвестен — оба приветствия подряд
+        # The client's Telegram language is unknown — both greetings in a row
         assert harness.session.texts(CHAT_ID)[-1] == f"{config.greeting}\n\n{config.greeting_ro}"
         assert harness.session.texts(ADMIN_ID)[-1] == f"@ivan (chat 42): {CLIENT_LEFT}"
         await harness.write("Сколько стоит чистка?")
         assert harness.assistant.reply.await_count == 1
 
     async def test_operator_mode_starts_before_notice_is_sent(self, harness: Harness) -> None:
-        # Второе сообщение клиента, пришедшее, пока уведомление в пути, уже не должно уйти к Claude
+        # A second client message arriving while the notice is in flight must no longer go to Claude
         states: list[bool] = []
 
         async def remember() -> None:
@@ -679,18 +679,18 @@ class TestReviewFixes:
     async def test_long_message_is_split_with_button_on_last_part(self, harness: Harness) -> None:
         await harness.write("Позовите менеджера")
         config = await harness.repo.get_config()
-        long_text = "очень длинный вопрос " * 250  # больше лимита Telegram в 4096 символов
+        long_text = "очень длинный вопрос " * 250  # over Telegram's 4096-character limit
         await harness.write(long_text)
         parts = harness.session.sent(ADMIN_ID)[1:]
         assert len(parts) >= 2
         assert all(len(part.text) <= 4096 for part in parts)
-        # Кнопка «Вернуть бота» — только у последней части
+        # The «Вернуть бота» button is only on the last part
         assert [part.reply_markup is not None for part in parts] == [False] * (len(parts) - 1) + [True]
-        # Ответ на любую часть уйдёт клиенту
+        # A reply to any part reaches the client
         for i, request in enumerate(harness.session.requests):
             if request in parts:
                 assert await harness.repo.relay_chat(ADMIN_ID, harness.session.message_ids[i]) == CHAT_ID
-        # Длиннее лимита вопроса — в историю для Claude не идёт, как и в обычном режиме
+        # Longer than the question limit — kept out of Claude's history, same as in normal mode
         assert len(long_text) > config.max_len
         history = await harness.repo.load_history(CHAT_ID, limit=8)
         assert all(m["content"] != long_text for m in history)
@@ -701,7 +701,7 @@ class TestReviewFixes:
         async with sessions() as s:
             [lead] = list(await s.scalars(select(Lead)))
         assert (lead.phone, lead.message) == ("069123456", "Снимок зуба, мой номер 069123456")
-        # Подпись не дублируется: в заголовке только тип, подпись — у копии фото
+        # The caption isn't duplicated: the header has only the type, the caption stays on the photo copy
         assert "@ivan (chat 42):\n[photo]" in harness.session.texts(ADMIN_ID)
 
     async def test_admin_asking_for_operator_talks_to_bot(self, harness: Harness) -> None:
@@ -710,7 +710,7 @@ class TestReviewFixes:
         assert await harness.repo.operator_until(ADMIN_ID) is None
 
     async def test_group_admin_id_keeps_old_behaviour(self, seeded_repo: Repository) -> None:
-        # Из группы администратор не может ответить reply от своего имени — бот отвечает сам, как раньше
+        # From a group the admin can't reply in their own name — the bot answers itself, as before
         harness = Harness(seeded_repo, admin_id=-100123)
         await harness.write("Позовите менеджера")
         assert harness.assistant.reply.await_count == 1

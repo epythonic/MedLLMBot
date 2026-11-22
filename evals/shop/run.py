@@ -1,16 +1,16 @@
-"""Прогон оценки магазина: вопросы из cases.py — настоящему боту, ответы — проверкам кодом и судье.
+"""Shop eval run: questions from cases.py go to the real bot, its answers to code checks and the judge.
 
-    uv run python -m evals.shop.run --cases price-01,order-02   # пилот на нескольких вопросах
-    uv run python -m evals.shop.run --reps 2                    # весь набор
-    uv run python -m evals.shop.run --regrade                   # бесплатно: проверки кодом заново по сохранённым ответам
+    uv run python -m evals.shop.run --cases price-01,order-02   # pilot on a few questions
+    uv run python -m evals.shop.run --reps 2                    # the full set
+    uv run python -m evals.shop.run --regrade                   # free: rerun code checks on saved answers
 
-Каждый запуск вызывает Claude API за деньги. Бот тот же, что в Telegram (ClinicAssistant с промптом
-и инструментами магазина), на временной копии демо-базы: рабочая БД не затрагивается. Ключ Claude берётся
-из окружения или .env, как у бота.
+Every run calls the Claude API and costs money. The bot is the same as in Telegram (ClinicAssistant with the shop
+prompt and tools), on a temporary copy of the demo database: the working DB is not touched. The Claude key comes
+from the environment or .env, as for the bot.
 
-Результаты — в .claude/hillclimb/shop/<variant>/: results.jsonl (строка на ответ), traces/ (что видела
-модель), judge/ (вход и ответ судьи), errors.jsonl (попытки без оценки). Повторный запуск продолжает
-с места остановки. Отчёт: node <скилл claude-api>/shared/evals/report/build-report-lite.mjs .claude/hillclimb/shop/
+Results go to .claude/hillclimb/shop/<variant>/: results.jsonl (one row per answer), traces/ (what the model
+saw), judge/ (judge input and reply), errors.jsonl (attempts without a grade). A repeated run resumes where
+it stopped. Report: node <claude-api skill>/shared/evals/report/build-report-lite.mjs .claude/hillclimb/shop/
 """
 
 import argparse
@@ -44,59 +44,59 @@ from medllmbot.llm import ClinicLLM, LLMResult, LLMUnavailable, ToolOutput, Tool
 
 FLOW_DIR = Path(".claude/hillclimb/shop")
 DEFAULT_JUDGE = "claude-sonnet-5"
-MAX_ATTEMPTS = 3  # попыток на ответ при сбоях API; каждая видна в errors.jsonl
-CHAT_ID_BASE = 1_000_000  # chat_id вопросов: у каждой попытки свой чат с пустой историей
+MAX_ATTEMPTS = 3  # attempts per answer on API failures; each one shows up in errors.jsonl
+CHAT_ID_BASE = 1_000_000  # chat_id of the questions: each attempt gets its own chat with an empty history
 
-# Метрики в порядке важности: первая — итог отчёта. Подписи до 14 символов — так их показывает отчёт
+# Metrics by importance: the first is the report's headline. Labels are up to 14 chars, as the report shows them
 METRICS: list[dict[str, str]] = [
-    {"id": "pass", "label": "Итог", "kind": "binary"},
-    {"id": "facts", "label": "Факты", "kind": "binary"},
-    {"id": "no_leak", "label": "Без утечек", "kind": "binary"},
-    {"id": "tools", "label": "Инструменты", "kind": "binary"},
-    {"id": "language", "label": "Язык", "kind": "binary"},
-    {"id": "format", "label": "Формат", "kind": "binary"},
-    {"id": "delivered", "label": "Доставлено", "kind": "binary"},
-    {"id": "grounded", "label": "Без выдумок", "kind": "binary"},
-    {"id": "rules", "label": "Правила", "kind": "binary"},
-    {"id": "helpful", "label": "Польза", "kind": "binary"},
+    {"id": "pass", "label": "Overall", "kind": "binary"},
+    {"id": "facts", "label": "Facts", "kind": "binary"},
+    {"id": "no_leak", "label": "No leaks", "kind": "binary"},
+    {"id": "tools", "label": "Tools", "kind": "binary"},
+    {"id": "language", "label": "Language", "kind": "binary"},
+    {"id": "format", "label": "Format", "kind": "binary"},
+    {"id": "delivered", "label": "Delivered", "kind": "binary"},
+    {"id": "grounded", "label": "Grounded", "kind": "binary"},
+    {"id": "rules", "label": "Rules", "kind": "binary"},
+    {"id": "helpful", "label": "Helpful", "kind": "binary"},
 ]
 PERF_FIELDS: list[dict[str, str]] = [
-    {"id": "cost_usd", "label": "$ бот", "unit": "$"},
-    {"id": "judge_cost_usd", "label": "$ судья", "unit": "$"},
-    {"id": "latency_s", "label": "Ответ, с", "unit": "s"},
-    {"id": "tool_calls", "label": "Вызовов"},
-    {"id": "out_tokens", "label": "Токенов"},
-    {"id": "answer_chars", "label": "Символов"},
+    {"id": "cost_usd", "label": "$ bot", "unit": "$"},
+    {"id": "judge_cost_usd", "label": "$ judge", "unit": "$"},
+    {"id": "latency_s", "label": "Latency, s", "unit": "s"},
+    {"id": "tool_calls", "label": "Tool calls"},
+    {"id": "out_tokens", "label": "Out tokens"},
+    {"id": "answer_chars", "label": "Characters"},
 ]
 METRICS_MD = """\
-# Метрики оценки магазина
+# Shop eval metrics
 
-Метрика пишется только там, где относится к вопросу: «—» в отчёте значит «не проверялось», а не ноль.
+A metric is recorded only where it applies to the question: "—" in the report means "not checked", not zero.
 
-- **Итог** — все метрики ответа равны 1.
-- **Факты** — в ответе есть обязательные цены и условия (любая запись числа: «4 999», «4999», «4.999»).
-- **Без утечек** — нет запрещённого: статуса чужого заказа, скидки, посчитанной суммы в месяц.
-- **Инструменты** — для цен вызван поиск, для заказа с цифрами — `order_status`, без цифр — не вызван.
-- **Язык** — ответ на языке вопроса (русский или румынский).
-- **Формат** — без Markdown, который Telegram покажет как есть.
-- **Доставлено** — клиент получил ответ модели, а не заглушку «Уточню у менеджера».
-- **Без выдумок**, **Правила**, **Польза** — судья (по умолчанию claude-sonnet-5) по рубрике из `grading.py`;
-  пояснения судьи — в отчёте и в `judge/`.
+- **Overall** — every metric of the answer equals 1.
+- **Facts** — the answer has the required prices and terms (any way of writing a number: «4 999», «4999», «4.999»).
+- **No leaks** — nothing forbidden: no status of someone else's order, no discount, no computed monthly payment.
+- **Tools** — search is called for prices, `order_status` for an order with digits, and not called without digits.
+- **Language** — the answer is in the language of the question (Russian or Romanian).
+- **Format** — no Markdown, which Telegram would show as is.
+- **Delivered** — the customer got the model's answer, not the «Уточню у менеджера» fallback.
+- **Grounded**, **Rules**, **Helpful** — the judge (claude-sonnet-5 by default) with the rubric from `grading.py`;
+  the judge's explanations are in the report and in `judge/`.
 """
 
 
 class EvalSettings(AppSettings):
-    """Только ключ Claude: остальные настройки бота оценке не нужны."""
+    """Only the Claude key: the eval needs none of the other bot settings."""
 
     anthropic_api_key: SecretStr
 
 
-# ---------- Запись того, что видела модель ----------
+# ---------- Recording what the model saw ----------
 
 
 @dataclass
 class Record:
-    """Что произошло в одном ответе бота: промпт, вызовы инструментов, результат модели."""
+    """What happened in one bot answer: the prompt, tool calls, the model result."""
 
     system_prompt: str = ""
     tool_events: list[ToolEvent] = field(default_factory=list[ToolEvent])
@@ -105,7 +105,7 @@ class Record:
 
 
 class RecordingTools:
-    """Инструменты бота как есть, но каждый вызов и его результат записываются."""
+    """The bot's tools as is, but every call and its result are recorded."""
 
     inner: ToolRunner
     events: list[ToolEvent]
@@ -125,7 +125,7 @@ class RecordingTools:
 
 
 class RecordingLLM(ClinicLLM):
-    """Тот же клиент Claude, что у бота; запоминает системный промпт, инструменты и результат."""
+    """The same Claude client as the bot's; remembers the system prompt, the tool calls and the result."""
 
     record: Record
 
@@ -158,11 +158,11 @@ class RecordingLLM(ClinicLLM):
         return result
 
 
-# ---------- Один ответ ----------
+# ---------- One answer ----------
 
 
 class AttemptError(Exception):
-    """Попытка без оценки: сбой API, другая модель, сбой судьи. Идёт в errors.jsonl, а не в оценки."""
+    """An attempt without a grade: API failure, wrong model, judge failure. Goes to errors.jsonl, not to grades."""
 
     failure_class: str
     usage: TokenUsage | None
@@ -183,17 +183,17 @@ class Context:
     judge_client: anthropic.AsyncAnthropic
     judge_model: str
     prices: PriceBook
-    out: Path  # каталог варианта: baseline/, v1/…
+    out: Path  # variant directory: baseline/, v1/…
     timeout_s: float
     runner_sha: str
 
 
 @dataclass(frozen=True)
 class Outcome:
-    """Итог одного ответа для сводки в консоли; полная строка — в results.jsonl."""
+    """Result of one answer for the console summary; the full row is in results.jsonl."""
 
     case_id: str
-    passed: int | None  # None — ответ обрезан и не оценивался
+    passed: int | None  # None: the answer was truncated and not graded
     cost_usd: float
     judge_cost_usd: float
 
@@ -214,7 +214,7 @@ def total_usage(usages: Sequence[TokenUsage]) -> TokenUsage:
 
 
 def usage_json(usage: TokenUsage) -> dict[str, int]:
-    """Поля usage так, как их читает отчёт."""
+    """Usage fields as the report reads them."""
     return {
         "input_tokens": usage.input_tokens,
         "output_tokens": usage.output_tokens,
@@ -228,7 +228,7 @@ def usd(micro_usd: int | None) -> float | None:
 
 
 def trace(case: Case, record: Record, answer: str) -> list[dict[str, str]]:
-    """Разговор для отчёта: промпт, вопрос, вызовы инструментов с результатами, ответ клиенту."""
+    """The conversation for the report: prompt, question, tool calls with results, the answer to the customer."""
     turns: list[dict[str, str]] = [
         {"role": "system", "content": record.system_prompt},
         {"role": "user", "content": case.question},
@@ -255,7 +255,7 @@ async def judge_with_retries(ctx: Context, case: Case, record: Record, answer: s
 
 
 async def attempt_case(ctx: Context, case: Case, rep: int, chat_id: int) -> Scored:
-    """Один ответ бота и его оценка: строка results.jsonl. AttemptError — попытка без оценки."""
+    """One bot answer and its grade: a results.jsonl row. AttemptError means an attempt without a grade."""
     await ctx.repo.touch_client(chat_id, None, f"eval {case.id}")
     record = Record()
     assistant = ClinicAssistant(RecordingLLM(ctx.client, record), ctx.repo)
@@ -269,7 +269,7 @@ async def attempt_case(ctx: Context, case: Case, rep: int, chat_id: int) -> Scor
         raise AttemptError("serving_error", record.error or reply.outcome.name, partial, ctx.config.model)
     usage = total_usage(result.usages)
     if match_model(result.model, [ctx.config.model]) is None:
-        raise AttemptError("model_mismatch", f"ответила {result.model}, а не {ctx.config.model}", usage, result.model)
+        raise AttemptError("model_mismatch", f"answered by {result.model}, not {ctx.config.model}", usage, result.model)
 
     case_dir = ctx.out
     (case_dir / "traces").mkdir(parents=True, exist_ok=True)
@@ -298,7 +298,7 @@ async def attempt_case(ctx: Context, case: Case, rep: int, chat_id: int) -> Scor
         "meta": {"expect": case.expect, "chat_id": chat_id, "runner_sha": ctx.runner_sha},
     }
     if reply.outcome is AuditOutcome.TRUNCATED:
-        # Обрезанный ответ не оценивается как неверный: он виден в отчёте отдельно
+        # A truncated answer is not graded as wrong: the report shows it separately
         row |= {"status": "truncated", "grade": {}}
         return Scored(row, Outcome(case.id, None, cost or 0.0, 0.0))
 
@@ -327,21 +327,21 @@ async def attempt_case(ctx: Context, case: Case, rep: int, chat_id: int) -> Scor
 
 
 def append_jsonl(path: Path, row: dict[str, object]) -> None:
-    """Строка пишется сразу, как ответ готов: сбой посреди прогона не теряет готовое."""
+    """A row is written as soon as the answer is ready: a failure mid-run does not lose finished work."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as file:
         file.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
 async def run_case(ctx: Context, case: Case, index: int, rep: int) -> Outcome | None:
-    """Ответ с повторами при сбоях. None — все попытки без оценки (они в errors.jsonl)."""
+    """An answer with retries on failures. None means every attempt went ungraded (they are in errors.jsonl)."""
     for attempt in range(MAX_ATTEMPTS):
         chat_id = CHAT_ID_BASE + index * 100 + rep * 10 + attempt
         try:
             async with asyncio.timeout(ctx.timeout_s):
                 scored = await attempt_case(ctx, case, rep, chat_id)
         except TimeoutError:
-            error = AttemptError("timeout", f"дольше {ctx.timeout_s:.0f} с")
+            error = AttemptError("timeout", f"took longer than {ctx.timeout_s:.0f} s")
         except AttemptError as failed:
             error = failed
         else:
@@ -364,11 +364,11 @@ async def run_case(ctx: Context, case: Case, index: int, rep: int) -> Outcome | 
     return None
 
 
-# ---------- Прогон целиком ----------
+# ---------- Full run ----------
 
 
 def price_book() -> PriceBook:
-    """Цены моделей те же, что в демо-базе бота (seed.DEMO_PRICES): бот и судья считаются одинаково."""
+    """Model prices are those of the bot's demo DB (seed.DEMO_PRICES): the bot and the judge are costed alike."""
     return PriceBook(
         Price(model, from_tokens, input_price, output_price, cache_write, cache_read)
         for model, from_tokens, input_price, cache_write, cache_read, output_price in DEMO_PRICES
@@ -376,7 +376,7 @@ def price_book() -> PriceBook:
 
 
 class _StoredRow(BaseModel):
-    """Поля сохранённой строки, нужные для переоценки; остальные поля строки сохраняются как есть."""
+    """Fields of a stored row needed for regrading; the other fields of the row are kept as is."""
 
     prompt_id: str
     rep: int
@@ -396,9 +396,9 @@ _TRACE = TypeAdapter(list[_TraceTurn])
 
 
 def regrade(variant_dir: Path) -> int:
-    """Проверки кодом заново по сохранённым ответам — после правки шаблонов в cases.py, без вызовов API.
+    """Reruns code checks on saved answers, after editing the patterns in cases.py, with no API calls.
 
-    Оценки судьи остаются прежними. Возвращает число строк, у которых изменился итог.
+    Judge grades stay as they were. Returns the number of rows whose overall result changed.
     """
     path = variant_dir / "results.jsonl"
     changed = 0
@@ -429,7 +429,7 @@ class _RowKey(BaseModel):
 
 
 def done_keys(results: Path) -> set[tuple[str, int]]:
-    """(вопрос, повтор), у которых уже есть оценка, — для продолжения прерванного прогона."""
+    """(question, rep) pairs that already have a grade, to resume an interrupted run."""
     if not results.exists():
         return set()
     keys = (_RowKey.model_validate_json(line) for line in results.read_text(encoding="utf-8").splitlines() if line.strip())
@@ -437,7 +437,7 @@ def done_keys(results: Path) -> set[tuple[str, int]]:
 
 
 def runner_sha() -> str:
-    """Версия кода оценки в каждой строке: оценки разных версий не сравнивают."""
+    """Eval code version in every row: grades from different versions are not compared."""
     digest = hashlib.sha256()
     for path in sorted(Path(__file__).parent.glob("*.py")):
         digest.update(path.read_bytes())
@@ -445,7 +445,7 @@ def runner_sha() -> str:
 
 
 def write_state(flow: Path) -> None:
-    """Описание метрик для отчёта — один раз, дальше файл не трогается."""
+    """Metric descriptions for the report, written once; after that the files are left alone."""
     flow.mkdir(parents=True, exist_ok=True)
     state = flow / "_state.json"
     if not state.exists():
@@ -468,7 +468,7 @@ class Summary:
 
 
 def summarize(outcomes: Sequence[Outcome], errors: int, wall_s: float) -> Summary:
-    """Доля прошедших с 95% интервалом по вопросам (повторы одного вопроса не независимы)."""
+    """Pass rate with a 95% interval over questions (reps of the same question are not independent)."""
     by_case: dict[str, list[int]] = {}
     for outcome in outcomes:
         if outcome.passed is not None:
@@ -532,7 +532,7 @@ async def run_all(
 
 
 class Args(argparse.Namespace):
-    """Аргументы командной строки с типами: argparse заполняет атрибуты этого объекта."""
+    """Typed command-line arguments: argparse fills in the attributes of this object."""
 
     cases: str = ""
     reps: int = 2
@@ -543,15 +543,13 @@ class Args(argparse.Namespace):
 
 
 def parse_args(argv: Sequence[str] | None = None) -> Args:
-    parser = argparse.ArgumentParser(description="Оценка ответов магазина Demo Electro (платные вызовы Claude API)")
-    parser.add_argument("--cases", help="id вопросов через запятую; по умолчанию все")
-    parser.add_argument("--reps", type=int, help="сколько раз задавать каждый вопрос (по умолчанию 2)")
-    parser.add_argument("--variant", help="каталог результатов: baseline, v1, v2…")
-    parser.add_argument("--judge-model", help=f"модель-судья (по умолчанию {DEFAULT_JUDGE})")
-    parser.add_argument("--concurrency", type=int, help="ответов одновременно (по умолчанию 4)")
-    parser.add_argument(
-        "--regrade", action="store_true", help="бесплатно: проверки кодом заново по сохранённым ответам, без API"
-    )
+    parser = argparse.ArgumentParser(description="Demo Electro shop answer eval (paid Claude API calls)")
+    parser.add_argument("--cases", help="comma-separated question ids; all by default")
+    parser.add_argument("--reps", type=int, help="how many times to ask each question (default 2)")
+    parser.add_argument("--variant", help="results directory: baseline, v1, v2…")
+    parser.add_argument("--judge-model", help=f"judge model (default {DEFAULT_JUDGE})")
+    parser.add_argument("--concurrency", type=int, help="answers in parallel (default 4)")
+    parser.add_argument("--regrade", action="store_true", help="free: rerun code checks on saved answers, no API calls")
     return parser.parse_args(argv, namespace=Args())
 
 
@@ -562,7 +560,7 @@ def select_cases(ids: str) -> list[Case]:
     known = {case.id: case for case in CASES}
     unknown = [item for item in wanted if item not in known]
     if unknown:
-        raise SystemExit(f"Нет таких вопросов: {', '.join(unknown)}")
+        raise SystemExit(f"Unknown question ids: {', '.join(unknown)}")
     return [known[item] for item in wanted]
 
 
@@ -570,23 +568,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     if args.regrade:
         changed = regrade(FLOW_DIR / args.variant)
-        print(f"{args.variant}: проверки кодом пересчитаны, итог изменился у {changed} ответов")
+        print(f"{args.variant}: code checks recomputed, overall result changed for {changed} answers")
         return 0
     cases = select_cases(args.cases)
     settings = EvalSettings.from_env()
-    # Тот же клиент, что у бота в main.py: таймаут 30 с, один повтор SDK
+    # Same client as the bot's in main.py: 30 s timeout, one SDK retry
     client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key.get_secret_value(), timeout=30.0, max_retries=1)
     write_state(FLOW_DIR)
     with TemporaryDirectory(prefix="medllmbot-eval-") as tmp:
         db = Path(tmp) / "eval.db"
-        upgrade_db(db)  # миграции — до запуска event loop, как у бота
+        upgrade_db(db)  # migrations run before the event loop starts, as in the bot
         summary = asyncio.run(
             run_all(db, cases, args.reps, FLOW_DIR / args.variant, client, args.judge_model, args.concurrency)
         )
     print(
-        f"{args.variant}: {summary.pass_rate:.0%} ± {summary.ci_half_width:.0%} прошли все проверки "
-        f"({summary.rows} ответов по {summary.cases} вопросам, без оценки: {summary.errors}). "
-        f"Стоимость: бот ${summary.cost_usd:.4f}, судья ${summary.judge_cost_usd:.4f}; {summary.wall_s:.0f} с."
+        f"{args.variant}: {summary.pass_rate:.0%} ± {summary.ci_half_width:.0%} passed all checks "
+        f"({summary.rows} answers to {summary.cases} questions, ungraded: {summary.errors}). "
+        f"Cost: bot ${summary.cost_usd:.4f}, judge ${summary.judge_cost_usd:.4f}; {summary.wall_s:.0f} s."
     )
     return 1 if summary.errors else 0
 

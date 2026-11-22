@@ -1,4 +1,4 @@
-"""business profile: стоматология или магазин электроники
+"""business profile: dental clinic or electronics shop
 
 Revision ID: 5a84015c5062
 Revises: f79015512d1f

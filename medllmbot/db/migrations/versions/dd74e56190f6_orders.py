@@ -1,4 +1,4 @@
-"""orders: заказы магазина для инструмента order_status
+"""orders: shop orders for the order_status tool
 
 Revision ID: dd74e56190f6
 Revises: 5a84015c5062

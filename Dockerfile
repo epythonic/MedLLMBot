@@ -9,14 +9,14 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Сначала зависимости — этот слой кэшируется, пока не меняется uv.lock
+# Dependencies first: this layer stays cached until uv.lock changes
 COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-dev --no-install-project
 
-# Миграции Alembic лежат внутри пакета (medllmbot/db/migrations)
+# Alembic migrations live inside the package (medllmbot/db/migrations)
 COPY medllmbot ./medllmbot
 
-# Процессы работают не от root; база лежит в /app/storage (volume)
+# Processes do not run as root; the DB lives in /app/storage (volume)
 RUN useradd --create-home --uid 1000 bot \
     && mkdir -p /app/storage \
     && chown bot:bot /app/storage
@@ -25,5 +25,5 @@ USER bot
 ENV DB_PATH=/app/storage/bot.db
 EXPOSE 8000
 
-# Один образ — три команды: бот (по умолчанию), админка, миграции
+# One image, three commands: bot (default), admin, migrations
 CMD ["python", "-m", "medllmbot"]

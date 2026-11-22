@@ -1,4 +1,4 @@
-"""Окружение Alembic: async-движок SQLite, batch-режим для ALTER TABLE."""
+"""Alembic environment: async SQLite engine, batch mode for ALTER TABLE."""
 
 import asyncio
 from logging.config import fileConfig
@@ -15,7 +15,7 @@ from medllmbot.db.models import Base
 
 config = context.config
 
-# Логирование из alembic.ini — только при запуске из CLI, чтобы не ломать логи бота
+# Logging from alembic.ini only when run from the CLI, so as not to break the bot's logs
 if config.config_file_name is not None and config.attributes.get("configure_logger", True):
     fileConfig(config.config_file_name)
 
@@ -32,8 +32,8 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        render_as_batch=True,  # SQLite не умеет большинство ALTER TABLE
-        include_name=include_name,  # индекс FTS создаётся вручную, autogenerate его не трогает
+        render_as_batch=True,  # SQLite does not support most ALTER TABLE operations
+        include_name=include_name,  # the FTS index is created manually; autogenerate leaves it alone
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -44,7 +44,7 @@ def do_run_migrations(connection: Connection) -> None:
         connection=connection,
         target_metadata=target_metadata,
         render_as_batch=True,
-        include_name=include_name,  # индекс FTS создаётся вручную, autogenerate его не трогает
+        include_name=include_name,  # the FTS index is created manually; autogenerate leaves it alone
     )
     with context.begin_transaction():
         context.run_migrations()

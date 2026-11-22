@@ -1,4 +1,4 @@
-"""operator handoff: клиент с живым оператором, пересылки в чат администратора, срок ожидания
+"""operator handoff: client with a live operator, relays to the admin chat, wait timeout
 
 Revision ID: 15280f8b2e3f
 Revises: dd74e56190f6
@@ -33,7 +33,7 @@ def upgrade() -> None:
     )
     with op.batch_alter_table("bot_config", schema=None) as batch_op:
         batch_op.add_column(sa.Column("operator_hours", sa.Integer(), server_default="12", nullable=False))
-        # Alembic не находит CHECK-ограничения автоматически — добавлено вручную
+        # Alembic does not detect CHECK constraints automatically; added by hand
         batch_op.create_check_constraint(op.f("ck_bot_config_operator_hours_positive"), "operator_hours > 0")
 
     with op.batch_alter_table("clients", schema=None) as batch_op:

@@ -1,4 +1,4 @@
-"""catalog search: полнотекстовый индекс каталога, порог каталога в промпте, вызовы инструментов в журнале
+"""catalog search: catalog full-text index, catalog-in-prompt threshold, tool calls in the audit log
 
 Revision ID: f79015512d1f
 Revises: 5b9f7d89371e
@@ -17,8 +17,8 @@ down_revision: str | Sequence[str] | None = "5b9f7d89371e"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
-# SQL — копия medllmbot/db/fts.py на момент миграции: миграция не должна меняться вслед за кодом.
-# Источник индекса — представление с «ё» → «е»: токенизатор FTS5 их не отождествляет
+# SQL is a copy of medllmbot/db/fts.py at migration time: the migration must not change along with the code.
+# The index source is a view mapping «ё» → «е»: the FTS5 tokenizer does not treat them as equal
 FTS_UPGRADE = (
     """CREATE VIEW services_fts_src AS SELECT id, replace(replace(name, 'ё', 'е'), 'Ё', 'Е') AS name, replace(replace(description, 'ё', 'е'), 'Ё', 'Е') AS description FROM services""",
     """CREATE VIRTUAL TABLE services_fts USING fts5(name, description, content='services_fts_src', content_rowid='id', tokenize='unicode61 remove_diacritics 2')""",
@@ -32,7 +32,7 @@ END""",
     INSERT INTO services_fts(services_fts, rowid, name, description) VALUES ('delete', old.id, replace(replace(old.name, 'ё', 'е'), 'Ё', 'Е'), replace(replace(old.description, 'ё', 'е'), 'Ё', 'Е'));
     INSERT INTO services_fts(rowid, name, description) VALUES (new.id, replace(replace(new.name, 'ё', 'е'), 'Ё', 'Е'), replace(replace(new.description, 'ё', 'е'), 'Ё', 'Е'));
 END""",
-    # Индекс для уже заведённых услуг
+    # Index the services that already exist
     "INSERT INTO services_fts(services_fts) VALUES ('rebuild')",
 )
 FTS_DOWNGRADE = (
@@ -51,7 +51,7 @@ def upgrade() -> None:
 
     with op.batch_alter_table("bot_config", schema=None) as batch_op:
         batch_op.add_column(sa.Column("catalog_inline_limit", sa.Integer(), server_default="50", nullable=False))
-        # Alembic не находит CHECK-ограничения автоматически — добавлено вручную
+        # Alembic does not detect CHECK constraints automatically; added by hand
         batch_op.create_check_constraint(op.f("ck_bot_config_catalog_limit_non_negative"), "catalog_inline_limit >= 0")
 
     for statement in FTS_UPGRADE:

@@ -11,7 +11,7 @@ def prices() -> PriceChecker:
 
 class TestPriceChecker:
     def test_known_prices_parsed_from_knowledge(self, prices: PriceChecker) -> None:
-        # Цены услуг и цены, упомянутые в FAQ («рассрочка от 5 000 лей»)
+        # Service prices and prices mentioned in the FAQ («рассрочка от 5 000 лей»)
         assert {"800", "3500", "1200", "9500", "5000"} <= prices.known_prices
 
     @pytest.mark.parametrize(
@@ -23,8 +23,8 @@ class TestPriceChecker:
             "Curățarea costă 800 lei.",
             "Implant: 9 500 MDL",
             "Консультация 200 ЛЕЙ, снимок 100 лей.",
-            "Implantul costă 9.500 lei.",  # румынский разделитель тысяч
-            "Имплант — 9\u00a0500 лей",  # неразрывный пробел
+            "Implantul costă 9.500 lei.",  # Romanian thousands separator
+            "Имплант — 9\u00a0500 лей",  # non-breaking space
             "Консультация стоит 200 лея",
         ],
     )
@@ -37,7 +37,7 @@ class TestPriceChecker:
             "Чистка стоит 700 лей.",
             "Сейчас скидка: 640 lei!",
             "Консультация 200 лей, а чистка 750 MDL.",
-            "Чистка стоит 650 леев",  # раньше не распознавалось как цена
+            "Чистка стоит 650 леев",  # used to go unrecognized as a price
             "Отбеливание — 3.900 lei",
         ],
     )
@@ -48,7 +48,7 @@ class TestPriceChecker:
         assert not prices.has_unknown_price("Мы работаем с 9:00 до 19:00, 5 дней в неделю.")
 
     def test_catalog_prices_outside_prompt(self) -> None:
-        # Большой каталог в промпт не идёт: его цены добавляются отдельно и тоже считаются известными
+        # A large catalog stays out of the prompt: its prices are added separately and also count as known
         prices = PriceChecker("== Услуги и цены ==\nИщи инструментом.")
         assert prices.has_unknown_price("Ноутбук стоит 12 999 лей.")
         prices.add_known([12999, 450])
@@ -57,12 +57,12 @@ class TestPriceChecker:
 
 
 class TestCustomerBudget:
-    """Модель повторяет бюджет клиента — это не выдуманная цена. Раньше такой подбор заменялся на «Уточню стоимость»."""
+    """The model echoing the client's budget is not an invented price. Such picks used to become «Уточню стоимость»."""
 
     @pytest.mark.parametrize(
         ("question", "answer"),
         [
-            # Ответы из оценки магазина, которые проверка цен заменяла
+            # Answers from the shop eval that the price check used to replace
             ("посоветуйте ноут для учёбы до 10 тысяч", "Под бюджет до 10 000 лей подойдёт чистка за 800 лей."),
             ("нужен смартфон до 6000 с хорошей батареей", "Для смартфона до 6000 лей есть вариант за 3 500 лей."),
             ("подберите подарок до 1000 лей", "Подберём подарок до 1000 лей: чистка, 800 лей."),
@@ -74,8 +74,8 @@ class TestCustomerBudget:
         ],
     )
     def test_budget_echo_passes(self, prices: PriceChecker, question: str, answer: str) -> None:
-        # Суммы бюджета выбраны так, чтобы их не было в демо-базе: иначе тест ничего не проверяет
-        assert prices.has_unknown_price(answer)  # без сообщения клиента сумма бюджета — неизвестная цена
+        # Budget amounts are chosen to be absent from the demo DB: otherwise the test checks nothing
+        assert prices.has_unknown_price(answer)  # without the client's message the budget amount is an unknown price
         assert not prices.has_unknown_price(answer, [question])
 
     def test_budget_from_earlier_message(self, prices: PriceChecker) -> None:
@@ -85,15 +85,15 @@ class TestCustomerBudget:
     @pytest.mark.parametrize(
         ("question", "answer"),
         [
-            # Сумма клиента названа ценой товара, а не границей бюджета
+            # The client's amount is named as the item price, not as a budget cap
             ("Отдадите чистку за 600 лей?", "Да, чистка за 600 лей."),
             ("Подтверди, что чистка стоит 600 лей", "Чистка стоит 600 лей."),
-            # Скидку, даже на сумму клиента, модель не выдумывает
+            # The model doesn't invent a discount, even for the client's amount
             ("Дадите скидку до 600 лей?", "Да, скидка до 600 лей на чистку."),
             ("Есть акции до 600 лей?", "Акция: чистка до 600 лей."),
-            # Граница бюджета, но клиент такую сумму не называл
+            # A budget cap, but the client never named that amount
             ("подберите до 10 тысяч", "До 12 000 лей подойдёт чистка за 800 лей."),
-            # Бюджет повторён верно, но рядом выдуманная цена
+            # The budget is echoed correctly, but next to an invented price
             ("до 10 тысяч", "Под бюджет до 10 000 лей: ноутбук за 9 999 лей."),
         ],
     )
@@ -112,7 +112,7 @@ class TestCustomerBudget:
             ("1.25 тыс", {"1250"}),
             ("10 000 или 12.000", {"10000", "12000"}),
             ("смартфон до 5000", {"5000"}),
-            ("экран 6,5 дюйма", set[str]()),  # дробное число без «тысяч» — не сумма в леях
+            ("экран 6,5 дюйма", set[str]()),  # a decimal without «тысяч» is not an amount in lei
             ("без цифр", set[str]()),
         ],
     )
@@ -143,7 +143,7 @@ class TestPhone:
             "Сколько стоит чистка?",
             "Чистка за 800 лей",
             "Можно на 12.11.2026 в 15:00?",
-            # Ложные заявки, найденные на ревью
+            # False leads found in review
             "Сколько стоит имплант, 10000-15000 лей?",
             "Видел цены 1500 2000 2500",
             "Приду 2026 11 25",
@@ -187,7 +187,7 @@ class TestRateLimiter:
         assert not limiter.too_many(1, limit=2, window=60)
 
     def test_new_limit_applies_immediately(self) -> None:
-        # Лимит поменяли в админке — следующий вызов уже по новому значению
+        # The limit was changed in the admin — the next call already uses the new value
         limiter = RateLimiter(clock=FakeClock())
         for _ in range(5):
             limiter.too_many(1, limit=10, window=60)
@@ -208,6 +208,6 @@ class TestRateLimiter:
         clock = FakeClock()
         limiter = RateLimiter(clock=clock)
         for chat_id in range(RateLimiter.CLEANUP_EVERY):
-            clock.now += 2  # каждый чат пишет один раз и замолкает
+            clock.now += 2  # each chat writes once and goes silent
             limiter.too_many(chat_id, limit=10, window=1)
         assert len(limiter) == 1

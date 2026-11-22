@@ -1,1 +1,1 @@
-"""Слой БД: модели SQLAlchemy, репозиторий, миграции Alembic и демо-данные."""
+"""Database layer: SQLAlchemy models, repository, Alembic migrations and demo data."""

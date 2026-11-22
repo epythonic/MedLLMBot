@@ -1,4 +1,4 @@
-"""Статус заказа: проверка владельца, защита от подбора, инструмент order_status и ответ ассистента."""
+"""Order status: owner check, brute-force protection, the order_status tool and the assistant's reply."""
 
 import asyncio
 from datetime import UTC, date, datetime, timedelta
@@ -37,9 +37,9 @@ ORDER = OrderInfo(
 
 
 class FakeOrders:
-    """Система магазина: заказы по ключу номера; запоминает, какие номера спрашивали.
+    """Shop system: orders keyed by number; remembers which numbers were asked for.
 
-    `delay` — время ответа магазина (CMS, 1С отвечают сотни миллисекунд), `error` — сбой его системы.
+    `delay` is the shop's response time (CMS and 1C take hundreds of milliseconds), `error` is its system failure.
     """
 
     def __init__(self, *orders: OrderInfo, delay: float = 0, error: Exception | None = None) -> None:
@@ -72,10 +72,10 @@ class FakeClock:
         ("de-10022", "DE-10022"),
         (" de 10022 ", "DE-10022"),
         ("DE - 10022", "DE-10022"),
-        ("DE\u201310022", "DE-10022"),  # тире от автозамены на телефоне
+        ("DE\u201310022", "DE-10022"),  # dash from phone autocorrect
         ("#DE-10022", "DE-10022"),
         ("№ DE-10022", "DE-10022"),
-        ("D\u0415-10022", "DE-10022"),  # русская «Е» на месте латинской
+        ("D\u0415-10022", "DE-10022"),  # Cyrillic «Е» instead of the Latin one
         ("DE10022", "DE10022"),
         ("10022", "10022"),
     ],
@@ -101,7 +101,7 @@ def test_phone_matches_last_digits() -> None:
     assert phone_matches("+373 69 000 102", "0102")
     assert phone_matches("069-000-102", "0102")
     assert not phone_matches("+373 69 000 102", "0103")
-    assert not phone_matches("+373 69 000 102", "102")  # ровно 4 цифры
+    assert not phone_matches("+373 69 000 102", "102")  # exactly 4 digits
     assert not phone_matches("+373 69 000 102", "+102")
 
 
@@ -113,7 +113,7 @@ class TestFailedLookups:
             assert failures.try_begin(CHAT_ID)
         assert not failures.try_begin(CHAT_ID)
         assert failures.blocked(CHAT_ID)
-        assert failures.try_begin(CHAT_ID + 1)  # другой чат не затронут
+        assert failures.try_begin(CHAT_ID + 1)  # another chat is unaffected
         clock.now += 61
         assert not failures.blocked(CHAT_ID)
 
@@ -152,18 +152,18 @@ class TestOrderTools:
             "Сумма: 11848 лей.",
             "Ожидаемая дата доставки или выдачи: 23.11.2026.",
         ]
-        assert "000 102" not in output.text  # телефон модели не передаётся
+        assert "000 102" not in output.text  # the phone is not passed to the model
         assert output.summary == "order_status DE-10022 → Передан в доставку"
         assert output.prices == (11_848,)
 
     async def test_wrong_phone_and_wrong_number_look_the_same(self) -> None:
-        # По ответу нельзя понять, существует ли заказ
+        # The reply does not reveal whether the order exists
         tools = _tools(FakeOrders(ORDER))
         wrong_phone = await tools.run("order_status", {"order_number": "DE-10022", "phone_last4": "9999"})
         wrong_number = await tools.run("order_status", {"order_number": "DE-99999", "phone_last4": "0102"})
         assert wrong_phone.text == wrong_number.text == ORDER_NOT_FOUND
         assert wrong_phone.prices == wrong_number.prices == ()
-        # Администратор в журнале видит причину
+        # The admin sees the reason in the audit log
         assert wrong_phone.summary == "order_status DE-10022 → телефон не совпал"
         assert wrong_number.summary == "order_status DE-99999 → не найден"
 
@@ -172,7 +172,7 @@ class TestOrderTools:
         tools = _tools(backend, _limits(per_chat=5))
         for guess in range(5):
             await tools.run("order_status", {"order_number": "DE-10022", "phone_last4": f"{guess:04}"})
-        # Даже верные цифры больше не проверяются: перебор остановлен
+        # Even the correct digits are no longer checked: guessing is stopped
         output = await tools.run("order_status", {"order_number": "DE-10022", "phone_last4": "0102"})
         assert (output.text, output.is_error) == (ORDER_LOCKED, True)
         assert len(backend.asked) == 5
@@ -186,7 +186,7 @@ class TestOrderTools:
         assert not limits.by_order.blocked("DE10022")
 
     async def test_parallel_messages_do_not_bypass_limit(self) -> None:
-        # Пока медленная система магазина отвечает, остальные сообщения чата уже не проходят
+        # While the slow shop system is responding, the chat's other messages are already rejected
         backend = FakeOrders(ORDER, delay=0.05)
         tools = _tools(backend, _limits(per_chat=5))
         guesses: list[dict[str, object]] = [{"order_number": "DE-10022", "phone_last4": f"{g:04}"} for g in range(10)]
@@ -195,7 +195,7 @@ class TestOrderTools:
         assert sum(output.text == ORDER_LOCKED for output in outputs) == 5
 
     async def test_one_order_is_protected_across_chats(self) -> None:
-        # Номера заказов идут подряд: перебор одного заказа с разных аккаунтов тоже упирается в лимит
+        # Order numbers are sequential: guessing one order from different accounts also hits the limit
         backend = FakeOrders(ORDER)
         limits = _limits(per_chat=5, per_order=10)
         for chat in range(12):
@@ -203,7 +203,7 @@ class TestOrderTools:
                 "order_status", {"order_number": "DE-10022", "phone_last4": f"{chat:04}"}
             )
         assert len(backend.asked) == 10
-        # Другой заказ из того же чата проверяется как обычно
+        # The limit belongs to that order: another order is checked as usual
         other = OrderInfo("DE-5", OrderStatus.NEW, "Чайник", 399, None, "069000005")
         output = await _tools(FakeOrders(other), limits, chat_id=99).run(
             "order_status", {"order_number": "DE-5", "phone_last4": "0005"}
@@ -233,7 +233,7 @@ class TestOrderTools:
         assert backend.asked == []
 
     async def test_garbage_number_is_not_looked_up(self) -> None:
-        # В магазин такой номер не уходит и попыткой не считается: честный клиент не запрёт себя опечаткой
+        # Such a number is not sent to the shop and is not an attempt: a typo won't lock out an honest client
         backend = FakeOrders(ORDER)
         limits = _limits(per_chat=1)
         output = await _tools(backend, limits).run("order_status", {"order_number": "мой заказ", "phone_last4": "0102"})
@@ -292,7 +292,7 @@ class TestShopAssistant:
         assistant = ClinicAssistant(ClinicLLM(fake_client.as_anthropic()), shop)
         reply = await assistant.reply(CHAT_ID, "Где мой заказ DE-10022? Последние цифры 0102", await shop.get_config())
 
-        # 11 848 лей нет в каталоге — это итог заказа из системы магазина, проверка цен его пропускает
+        # 11 848 лей is not in the catalog: it is the order total from the shop system, the price check skips it
         assert reply.outcome is AuditOutcome.ANSWERED
         tool_result = str(fake_client.messages.calls[1].messages[-1]["content"])
         assert "Заказ DE-10022: Передан в доставку." in tool_result
@@ -309,8 +309,8 @@ class TestShopAssistant:
         assert reply.outcome is AuditOutcome.PRICE_REPLACED
 
     async def test_follow_up_about_sum_needs_fresh_check(self, fake_client: FakeClient, shop: Repository) -> None:
-        # Сумма заказа допустима, только если её вернул order_status в этом ответе: старый ответ из истории
-        # мог устареть. Поэтому правило магазина просит вызывать инструмент заново
+        # An order total is allowed only if order_status returned it in this reply: an old answer from history
+        # may be outdated. That is why the shop rule asks to call the tool again
         assistant = ClinicAssistant(ClinicLLM(fake_client.as_anthropic()), shop)
         config = await shop.get_config()
         fake_client.messages.responses = [
@@ -333,7 +333,7 @@ class TestShopAssistant:
         assert "Статус, сумму и дату бери только из order_status в этом ответе" in rules(BusinessProfile.SHOP)
 
     async def test_lookups_are_limited_across_messages(self, fake_client: FakeClient, shop: Repository) -> None:
-        # Счётчик неудач живёт в ассистенте, а не в одном вопросе: перебор по сообщениям тоже упирается в лимит
+        # The failure counter lives in the assistant, not in one question: guessing across messages hits the limit too
         assistant = ClinicAssistant(ClinicLLM(fake_client.as_anthropic()), shop)
         config = await shop.get_config()
         for guess in range(6):
@@ -346,7 +346,7 @@ class TestShopAssistant:
         assert ORDER_LOCKED in last_result
 
     async def test_store_system_is_pluggable(self, fake_client: FakeClient, shop: Repository) -> None:
-        # Магазин подключает свою систему учёта тем же интерфейсом
+        # A shop plugs in its own back-office system through the same interface
         backend = FakeOrders(ORDER)
         fake_client.messages.responses = [
             make_tool_use({"order_number": "DE-10022", "phone_last4": "0102"}, name="order_status"),
@@ -366,7 +366,7 @@ async def test_clinic_has_no_order_tool(fake_client: FakeClient, seeded_repo: Re
     assistant = ClinicAssistant(ClinicLLM(fake_client.as_anthropic()), seeded_repo)
     await assistant.reply(CHAT_ID, "Где мой заказ?", await seeded_repo.get_config())
     [call] = fake_client.messages.calls
-    assert call.tools is None  # каталог в промпте, заказов у клиники нет — инструментов не нужно
+    assert call.tools is None  # catalog is in the prompt and the clinic has no orders, so no tools are needed
     assert "order_status" not in call.system[0]["text"]
 
 

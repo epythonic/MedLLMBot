@@ -1,7 +1,7 @@
 {#
-  Список SQLAdmin, где порядок меняют перетаскиванием: SortableJS двигает строки,
-  HTMX отправляет id всех строк в новом порядке. Сохранять можно только весь раздел целиком,
-  поэтому при поиске, фильтре или нескольких страницах перетаскивание выключено.
+  SQLAdmin list where the order is changed by dragging: SortableJS moves the rows,
+  HTMX sends the ids of all rows in the new order. Only the whole section can be saved at once,
+  so dragging is disabled with a search, a filter or several pages.
 #}
 {% extends "sqladmin/list.html" %}
 {% block content %}
@@ -57,7 +57,7 @@
       onEnd: (event) => {
         if (event.oldIndex === event.newIndex) return;
         const order = [...tbody.querySelectorAll("input[name='order']")].map((input) => input.value);
-        // source: bar — у него hx-sync, поэтому быстрые перетаскивания сохраняются по очереди, последним — итоговый порядок
+        // source: bar has hx-sync, so quick drags are saved in turn, with the final order saved last
         htmx.ajax("POST", bar.dataset.url, { source: bar, target: "#reorder-status", swap: "innerHTML", values: { order } });
       },
     });

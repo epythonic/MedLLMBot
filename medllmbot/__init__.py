@@ -1,1 +1,1 @@
-"""Telegram-бот помощник стоматологии (демо-версия) на aiogram 3 и Claude."""
+"""Dental clinic assistant Telegram bot (demo) built on aiogram 3 and Claude."""

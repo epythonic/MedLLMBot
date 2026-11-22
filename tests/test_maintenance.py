@@ -39,10 +39,10 @@ async def test_purge_with_nothing_to_delete(seeded_repo: Repository, sessions: S
 
 
 async def test_periodic_purge_runs_until_cancelled(seeded_repo: Repository, sessions: Sessions) -> None:
-    await _add_events(sessions, 100)  # срок по умолчанию — 90 дней
+    await _add_events(sessions, 100)  # default retention is 90 days
 
     task = asyncio.create_task(purge_periodically(seeded_repo, every=3600))
-    await asyncio.sleep(0.1)  # первая очистка — сразу при старте
+    await asyncio.sleep(0.1)  # the first purge runs right at startup
     task.cancel()
 
     assert await load_audit(sessions) == []

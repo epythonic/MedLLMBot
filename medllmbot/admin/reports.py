@@ -1,4 +1,4 @@
-"""Свои страницы админки без модели: «Клиенты → Аналитика» и «Расходы → Отчёт по месяцам»."""
+"""Custom admin pages without a model: «Клиенты → Аналитика» and «Расходы → Отчёт по месяцам»."""
 
 from datetime import UTC, datetime
 from typing import final
@@ -14,8 +14,8 @@ from medllmbot.db.repository import Repository
 
 
 def make_cost_report_view(repo: Repository) -> type[BaseView]:
-    """SQLAdmin создаёт представления без аргументов, поэтому репозиторий
-    передаём через замыкание — у каждого приложения своя БД.
+    """SQLAdmin creates views without arguments, so the repository
+    is passed through a closure: each app has its own DB.
     """
 
     @final
@@ -25,8 +25,8 @@ def make_cost_report_view(repo: Repository) -> type[BaseView]:
         category = "Расходы"
         identity = "costs"
 
-        # В SQLAdmin декоратор expose и TemplateResponse типизированы через Any и голый dict —
-        # исправить это можно только в библиотеке
+        # In SQLAdmin the expose decorator and TemplateResponse are typed with Any and a bare dict;
+        # this can only be fixed in the library
         @expose("/costs", methods=["GET"], identity="costs")  # pyright: ignore[reportAny]
         async def report(self, request: Request) -> Response:
             today = datetime.now(UTC).date()
@@ -41,7 +41,7 @@ def make_cost_report_view(repo: Repository) -> type[BaseView]:
 
 
 def make_analytics_view(repo: Repository) -> type[BaseView]:
-    """Аналитика вопросов: темы, доля диалогов с заявкой, вопросы без ответа. Репозиторий — через замыкание."""
+    """Question analytics: topics, share of dialogs with a lead, unanswered questions. Repository via closure."""
 
     @final
     class AnalyticsView(BaseView):
@@ -54,7 +54,7 @@ def make_analytics_view(repo: Repository) -> type[BaseView]:
         async def report(self, request: Request) -> Response:
             days = parse_period(request.query_params.get("days"))
             config = await repo.get_config()
-            # Время в журнале — UTC без часового пояса
+            # Audit log times are UTC without a time zone
             report = await collect(repo, config.profile, days, datetime.now(UTC).replace(tzinfo=None))
             return await self.templates.TemplateResponse(  # pyright: ignore[reportUnknownMemberType]
                 request,

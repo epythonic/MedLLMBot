@@ -1,5 +1,5 @@
-# HTTPS для админки на демо-сервере: Caddy сам получает и продлевает сертификат Let's Encrypt
-# для домена из переменной DOMAIN (в .env) и передаёт запросы админке.
+# HTTPS for the admin on the demo server: Caddy obtains and renews a Let's Encrypt certificate itself
+# for the domain from the DOMAIN variable (in .env) and proxies requests to the admin.
 {$DOMAIN} {
 	encode gzip
 	reverse_proxy admin:8000

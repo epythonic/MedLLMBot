@@ -1,16 +1,17 @@
-"""Полнотекстовый поиск по каталогу услуг: индекс SQLite FTS5 и запрос к нему.
+"""Full-text search over the service catalog: SQLite FTS5 index and the query against it.
 
-Индекс `services_fts` — внешнее содержимое: тексты хранятся только в `services`, а триггеры обновляют
-индекс при каждой правке, в том числе из админки. Источник индекса — представление `services_fts_src`,
-где «ё» заменена на «е»: токенизатор FTS5 их не отождествляет, а клиенты пишут «съемный» вместо «съёмный».
-Триггеры передают в индекс те же значения, иначе команда 'delete' удалила бы не то, что было записано.
+The `services_fts` index is external-content: texts live only in `services`, and triggers update
+the index on every edit, including edits from the admin. The index source is the `services_fts_src` view,
+where «ё» is replaced with «е»: the FTS5 tokenizer does not treat them as equal, and clients write «съемный»
+instead of «съёмный». Triggers pass the same values to the index, otherwise 'delete' would remove something
+other than what was written.
 
-Индекс создаётся миграцией и, для тестов на `create_all`, событием `after_create` у таблицы `services`
-(см. models.py). Ограничения:
-- SQLite пересоздаёт таблицу при batch-миграции (ALTER TABLE в Alembic), и триггеры при этом пропадают:
-  миграция, которая меняет `services`, должна создать их заново (`TRIGGERS`) и перестроить индекс (`REBUILD`);
-- `INSERT OR REPLACE` удаляет строку без триггера удаления, если не включён `recursive_triggers`
-  (он включается для каждого соединения в engine.py).
+The index is created by a migration and, for `create_all` tests, by the `after_create` event on the `services`
+table (see models.py). Caveats:
+- SQLite recreates the table during a batch migration (ALTER TABLE in Alembic) and the triggers are lost:
+  a migration that changes `services` must recreate them (`TRIGGERS`) and rebuild the index (`REBUILD`);
+- `INSERT OR REPLACE` deletes a row without the delete trigger unless `recursive_triggers` is on
+  (engine.py turns it on for every connection).
 """
 
 import re
@@ -20,14 +21,14 @@ FTS_SOURCE = f"{FTS_TABLE}_src"
 
 
 def _fold(column: str) -> str:
-    """SQL-выражение: текст колонки с «ё» → «е» — так же, как в запросе (`match_query`)."""
+    """SQL expression: column text with «ё» → «е», same as in the query (`match_query`)."""
     return f"replace(replace({column}, 'ё', 'е'), 'Ё', 'Е')"
 
 
 CREATE_SOURCE = (
     f"CREATE VIEW {FTS_SOURCE} AS SELECT id, {_fold('name')} AS name, {_fold('description')} AS description FROM services"
 )
-# unicode61 приводит к нижнему регистру и кириллицу; remove_diacritics 2 — «preț» находится по «pret»
+# unicode61 lowercases Cyrillic too; remove_diacritics 2 makes «pret» find «preț»
 CREATE_TABLE = (
     f"CREATE VIRTUAL TABLE {FTS_TABLE} USING fts5("
     f"name, description, content='{FTS_SOURCE}', content_rowid='id', tokenize='unicode61 remove_diacritics 2')"
@@ -54,19 +55,19 @@ DROP: tuple[str, ...] = (
     f"DROP VIEW IF EXISTS {FTS_SOURCE}",
 )
 
-# Сколько слов запроса учитывать: модель присылает ключевые слова, а не абзац
+# How many query words to use: the model sends keywords, not a paragraph
 MAX_TERMS = 8
-# Длиннее основа не бывает: «имплантация» → «имплан*» находит и «Имплант»
+# Maximum stem length: «имплантация» → «имплан*» also finds «Имплант»
 MAX_STEM = 6
 _WORD = re.compile(r"\w+")
 
 
 def _stem(word: str) -> str:
-    """Грубая основа слова — начало, общее для разных форм.
+    """Rough word stem: the beginning shared by different forms.
 
-    FTS5 не знает русских и румынских окончаний, поэтому ищем по началу слова: у коротких слов
-    отрезаем две последние буквы («зубов» → «зуб*» находит «зуба», «зубы»), у длинных — три
-    («удалить» → «удал*» находит «удаление», «чистку» → «чист*»). Числа — как есть.
+    FTS5 knows no Russian or Romanian endings, so we search by word prefix: short words lose
+    their last two letters («зубов» → «зуб*» finds «зуба», «зубы»), long words lose three
+    («удалить» → «удал*» finds «удаление», «чистку» → «чист*»). Numbers are kept as is.
     """
     if word.isdigit() or len(word) <= 3:
         return word
@@ -76,21 +77,21 @@ def _stem(word: str) -> str:
 
 
 def match_query(text: str) -> str | None:
-    """Строка для `MATCH` из запроса модели или None, если искать не по чему.
+    """`MATCH` string built from the model's query, or None if there is nothing to search for.
 
-    Каждое слово — отдельный префиксный термин в кавычках, поэтому синтаксис FTS5 (AND, NEAR, «*», «:»)
-    из запроса не исполняется. Термины через OR: позицию находит любое слово, а порядок задаёт bm25.
+    Each word is a separate quoted prefix term, so FTS5 syntax (AND, NEAR, «*», «:») in the query
+    is not executed. Terms are joined with OR: any word finds an item, and bm25 sets the order.
     """
     found: list[str] = _WORD.findall(text.lower().replace("ё", "е"))
     words = [word for word in found if len(word) >= 3 or word.isdigit()]
     stems = list(dict.fromkeys(_stem(word) for word in words))[:MAX_TERMS]
     if not stems:
         return None
-    # Число ищем целиком: «500» не должно находить «5000»
+    # Numbers are matched whole: «500» must not find «5000»
     return " OR ".join(f'"{stem}"' if stem.isdigit() else f'"{stem}"*' for stem in stems)
 
 
 def include_name(name: str | None, type_: str, _parent_names: object) -> bool:
-    """Фильтр для сравнения схемы в Alembic: индекс FTS, его служебные таблицы и представление-источник
-    не описаны в моделях."""
+    """Filter for Alembic schema comparison: the FTS index, its shadow tables and the source view
+    are not described in the models."""
     return not (type_ == "table" and name is not None and name.startswith(FTS_TABLE))

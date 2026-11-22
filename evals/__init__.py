@@ -1,1 +1,1 @@
-"""Наборы оценки качества ответов бота. Запускаются вручную: каждый прогон вызывает Claude API за деньги."""
+"""Answer-quality evals for the bot. Run manually: every run calls the Claude API and costs money."""

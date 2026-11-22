@@ -1,7 +1,7 @@
-"""Проверка ключей без запуска бота: python -m medllmbot.check_config
+"""Check the keys without starting the bot: python -m medllmbot.check_config
 
-Читает переменные окружения и .env так же, как бот и админка, и сообщает, чего не хватает.
-Значения секретов не выводит — команду можно запускать в CI с ключами из GitHub Environment.
+Reads environment variables and .env the same way the bot and the admin panel do, and reports what is missing.
+Never prints secret values, so the command can run in CI with keys from a GitHub Environment.
 """
 
 import sys
@@ -12,7 +12,7 @@ from medllmbot.config import AdminSettings, AppSettings, BotSettings, describe_s
 
 
 def find_problems() -> list[str]:
-    """Описания ошибок настроек бота и админки; пустой список — всё задано верно."""
+    """Descriptions of bot and admin settings errors; an empty list means everything is set correctly."""
     problems: list[str] = []
     settings_classes: tuple[type[AppSettings], ...] = (BotSettings, AdminSettings)
     for settings in settings_classes:
@@ -26,4 +26,4 @@ def find_problems() -> list[str]:
 if __name__ == "__main__":
     if problems := find_problems():
         sys.exit("\n\n".join(problems))
-    print("Ключи на месте: настройки бота и админки проходят проверку")
+    print("Keys are in place: bot and admin settings pass the check")

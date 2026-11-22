@@ -1,4 +1,4 @@
-"""Инструменты модели: поиск по каталогу, когда он не помещается в промпт, и статус заказа магазина."""
+"""Model tools: catalog search when the catalog does not fit in the prompt, and the shop order status."""
 
 import logging
 from collections.abc import Sequence
@@ -17,17 +17,17 @@ from medllmbot.prompts import service_line
 
 log = logging.getLogger(__name__)
 
-SEARCH_LIMIT = 10  # позиций в одном ответе инструмента: больше клиенту в чате всё равно не перечислить
-MAX_PRICE = 10**9  # верхняя граница фильтра цены: защита от переполнения в SQLite
+SEARCH_LIMIT = 10  # items per tool result: more could not be listed to a client in a chat anyway
+MAX_PRICE = 10**9  # upper bound of the price filter: guards against overflow in SQLite
 
 SEARCH_CATALOG_NAME = "search_catalog"
-# Итог поиска в журнале: «search_catalog «чистка» → найдено 2». По нему аналитика находит пустые поиски
+# Search result in the audit log: «search_catalog «чистка» → найдено 2». Analytics uses it to find empty searches
 FOUND = "→ найдено"
 
 
 @cache
 def search_catalog_tool(kind: BusinessProfile) -> ToolParam:
-    """Описание инструмента для API. Примеры запросов — из профиля: модель ищет словами каталога."""
+    """Tool definition for the API. Example queries come from the profile so the model searches in catalog words."""
     examples = PROFILES[kind].search_examples
     return {
         "name": SEARCH_CATALOG_NAME,
@@ -56,14 +56,14 @@ def search_catalog_tool(kind: BusinessProfile) -> ToolParam:
 
 
 class CatalogQuery(BaseModel):
-    """Параметры search_catalog. Модель может прислать что угодно, поэтому всё проверяется."""
+    """search_catalog parameters. The model may send anything, so everything is validated."""
 
     query: str = Field(default="", max_length=200)
     min_price: int | None = Field(default=None, ge=0, le=MAX_PRICE)
     max_price: int | None = Field(default=None, ge=0, le=MAX_PRICE)
 
     def describe(self) -> str:
-        """Запрос для журнала: «чистка», 500–1000 лей. Одной строкой: в журнале строка на вызов."""
+        """Query for the audit log: «чистка», 500–1000 лей. A single line: the log has one line per call."""
         text = f"«{' '.join(self.query.split())}»"
         if self.min_price is not None or self.max_price is not None:
             low = self.min_price if self.min_price is not None else 0
@@ -72,7 +72,7 @@ class CatalogQuery(BaseModel):
 
 
 def render_page(page: CatalogPage) -> str:
-    """Результат поиска для модели."""
+    """Search result for the model."""
     if not page.services:
         return "Ничего не нашлось. Попробуй другие слова, синоним или пустой запрос — весь каталог."
     shown = len(page.services)
@@ -81,7 +81,7 @@ def render_page(page: CatalogPage) -> str:
 
 
 class CatalogTools:
-    """Инструменты для `ClinicLLM.ask`: модель ищет в каталоге сама."""
+    """Tools for `ClinicLLM.ask`: the model searches the catalog itself."""
 
     repo: Repository
     kind: BusinessProfile
@@ -95,7 +95,7 @@ class CatalogTools:
         return (search_catalog_tool(self.kind),)
 
     async def run(self, name: str, tool_input: dict[str, object]) -> ToolOutput:
-        """Выполняет вызов модели. Ошибки возвращаются модели текстом: она ответит клиенту сама."""
+        """Runs a model tool call. Errors go back to the model as text: it will answer the client itself."""
         if name != SEARCH_CATALOG_NAME:
             return ToolOutput(f"Инструмента {name} нет.", f"{name}: неизвестный инструмент", is_error=True)
         try:
@@ -108,12 +108,12 @@ class CatalogTools:
                 params.query, min_price=params.min_price, max_price=params.max_price, limit=SEARCH_LIMIT
             )
         except SQLAlchemyError:
-            log.exception("Поиск по каталогу не удался")
+            log.exception("Catalog search failed")
             return ToolOutput("Поиск временно недоступен.", f"{name} {params.describe()}: ошибка БД", is_error=True)
         return ToolOutput(render_page(page), f"{name} {params.describe()} {FOUND} {page.total}")
 
 
-# ---------- Статус заказа ----------
+# ---------- Order status ----------
 
 ORDER_STATUS_NAME = "order_status"
 ORDER_STATUS: ToolParam = {
@@ -140,7 +140,7 @@ ORDER_STATUS: ToolParam = {
         "additionalProperties": False,
     },
 }
-# Один ответ на неверный номер и неверный телефон: по ответу нельзя узнать, что заказ существует
+# The same reply for a wrong number and a wrong phone: the reply must not reveal that the order exists
 ORDER_NOT_FOUND = (
     "Заказ не найден: номер или последние 4 цифры телефона не совпадают. Попроси клиента проверить их. "
     "Не говори, что именно не совпало."
@@ -158,7 +158,7 @@ class OrderQuery(BaseModel):
 
 
 def render_order(order: OrderInfo) -> str:
-    """Заказ для модели. Телефон не передаётся: модели он не нужен."""
+    """Order for the model. The phone is not passed: the model does not need it."""
     date_line = (
         f"Ожидаемая дата доставки или выдачи: {order.delivery_date:%d.%m.%Y}." if order.delivery_date is not None else NO_DATE
     )
@@ -168,7 +168,7 @@ def render_order(order: OrderInfo) -> str:
 
 
 class OrderTools:
-    """Инструмент order_status для одного чата: проверяет владельца заказа и ограничивает перебор."""
+    """order_status tool for one chat: verifies the order owner and limits brute force."""
 
     backend: OrderBackend
     chat_id: int
@@ -193,12 +193,12 @@ class OrderTools:
             return ToolOutput(f"Неверные параметры: {fields}.", f"{name}: неверные параметры ({fields})", is_error=True)
         number = normalize_number(params.order_number)
         if number is None:
-            # В систему магазина такой номер не уходит, поэтому и попыткой не считается
+            # Such a number never reaches the shop system, so it does not count as an attempt
             return ToolOutput(ORDER_NOT_FOUND, f"{name} {params.order_number!r} → не похоже на номер заказа")
 
         key = order_key(number)
         by_chat, by_order = self.limits.by_chat, self.limits.by_order
-        # Попытки занимаются до запроса к магазину: параллельные сообщения не проскочат лимит
+        # Attempts are reserved before the shop request so parallel messages cannot slip past the limit
         if not by_chat.try_begin(self.chat_id):
             return ToolOutput(ORDER_LOCKED, f"{name}: попытки этого чата исчерпаны", is_error=True)
         if not by_order.try_begin(key):
@@ -207,7 +207,7 @@ class OrderTools:
         try:
             order = await self.backend.find(number)
         except BaseException:
-            # Сбой системы магазина — не ошибка клиента: попытки возвращаются
+            # A shop system failure is not the client's fault: the attempts are released
             by_chat.succeeded(self.chat_id)
             by_order.succeeded(key)
             raise
@@ -221,7 +221,7 @@ class OrderTools:
 
 
 class Toolbox:
-    """Несколько наборов инструментов как один: описания подряд, вызов — тому, чьё это имя."""
+    """Several tool sets as one: definitions in sequence, a call goes to the set that owns the name."""
 
     runners: tuple[ToolRunner, ...]
 
