@@ -8,7 +8,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from medllmbot.admin.i18n import gettext, lazy_gettext, ngettext
-from medllmbot.admin.views import CLIENTS, COSTS
+from medllmbot.admin.views import CLIENTS, CLIENTS_ICON, COSTS, COSTS_ICON
 from medllmbot.analytics import PERIODS, collect, parse_period
 from medllmbot.costs import build_report
 from medllmbot.db.repository import Repository
@@ -24,6 +24,7 @@ def make_cost_report_view(repo: Repository) -> type[BaseView]:
         name = lazy_gettext("Monthly report")
         icon = "fa-solid fa-chart-column"
         category = COSTS
+        category_icon = COSTS_ICON
         identity = "costs"
 
         # In SQLAdmin the expose decorator and TemplateResponse are typed with Any and a bare dict;
@@ -54,6 +55,7 @@ def make_analytics_view(repo: Repository) -> type[BaseView]:
         name = lazy_gettext("Analytics")
         icon = "fa-solid fa-chart-pie"
         category = CLIENTS
+        category_icon = CLIENTS_ICON
         identity = "analytics"
 
         @expose("/analytics", methods=["GET"], identity="analytics")  # pyright: ignore[reportAny]

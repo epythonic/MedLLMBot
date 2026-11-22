@@ -1,7 +1,7 @@
-# Секреты
+# Secrets
 .env
 
-# Данные бота (история переписки и заявки с телефонами)
+# Bot data (chat history and leads with phone numbers)
 *.db
 *.db-journal
 *.db-wal
@@ -16,7 +16,10 @@ __pycache__/
 build/
 dist/
 
-# Инструменты
+# Compiled translations: the app compiles .po in memory, while Poedit writes a .mo next to the .po on save
+*.mo
+
+# Tools
 .pytest_cache/
 .ruff_cache/
 .coverage
@@ -28,9 +31,9 @@ htmlcov/
 .DS_Store
 .playwright-mcp/
 
-# Черновики и патчи вне проекта
+# Drafts and patches outside the project
 Claude outputs/
 
-# Инструкции для AI-агентов — только локально
+# Instructions for AI agents: local only
 CLAUDE.md
 .claude/

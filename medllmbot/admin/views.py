@@ -53,36 +53,49 @@ CLIENTS = lazy_gettext("Clients")
 KNOWLEDGE = lazy_gettext("Knowledge base")
 SECURITY = lazy_gettext("Security")
 COSTS = lazy_gettext("Costs")
+# Sidebar icons of the categories. SQLAdmin takes a category icon from its first view, so every view of a category
+# sets the same one
+CLIENTS_ICON = "fa-solid fa-users"
+KNOWLEDGE_ICON = "fa-solid fa-book-open"
+SECURITY_ICON = "fa-solid fa-shield-halved"
+COSTS_ICON = "fa-solid fa-coins"
 
 
-def _short(text: str | None, limit: int = 80) -> str:
-    text = text or ""
-    return text if len(text) <= limit else text[: limit - 1] + "…"
+# A long text in a list cell wraps (.cell-text in templates/sqladmin/layout.html). SQLAdmin's tables do not wrap,
+# so a text on one line pushed the last columns out of the card
+TEXT_CELL = Markup('<span class="cell-text">{}</span>')
+
+
+def _text_cell(text: str | None, limit: int = 80) -> Markup | str:
+    """A list cell with a long text, cut to `limit` characters. An empty text stays empty and takes no width."""
+    if not text:
+        return ""
+    return TEXT_CELL.format(text if len(text) <= limit else text[: limit - 1] + "…")
 
 
 # List column formatters: (model, attribute name) -> displayed text
-def _lead_message(model: Lead, _attr: object) -> str:
-    return _short(model.message)
+def _lead_message(model: Lead, _attr: object) -> Markup | str:
+    return _text_cell(model.message)
 
 
-def _chat_content(model: ChatMessage, _attr: object) -> str:
-    return _short(model.content, 120)
+def _chat_content(model: ChatMessage, _attr: object) -> Markup | str:
+    return _text_cell(model.content, 120)
 
 
-def _faq_answer(model: FaqItem, _attr: object) -> str:
-    return _short(model.answer)
+def _faq_answer(model: FaqItem, _attr: object) -> Markup | str:
+    return _text_cell(model.answer)
 
 
-def _section_content(model: InfoSection, _attr: object) -> str:
-    return _short(model.content)
+def _section_content(model: InfoSection, _attr: object) -> Markup | str:
+    return _text_cell(model.content)
 
 
-def _audit_text(model: AuditEvent, _attr: object) -> str:
-    return _short(model.user_text)
+def _audit_text(model: AuditEvent, _attr: object) -> Markup | str:
+    return _text_cell(model.user_text)
 
 
-def _audit_answer(model: AuditEvent, _attr: object) -> str:
-    return _short(model.final_answer)
+def _audit_answer(model: AuditEvent, _attr: object) -> Markup | str:
+    return _text_cell(model.final_answer)
 
 
 def _audit_cost(model: AuditEvent, _attr: object) -> str:
@@ -104,6 +117,10 @@ def _audit_outcome(model: AuditEvent, _attr: object) -> str:
 
 def _audit_flags(model: AuditEvent, _attr: object) -> str:
     return ", ".join(gettext(FLAG_LABELS.get(code, code)) for code in model.flags.split(",") if code)
+
+
+def _audit_flags_cell(model: AuditEvent, attr: object) -> Markup | str:
+    return _text_cell(_audit_flags(model, attr), 200)
 
 
 # A yellow badge instead of a check mark and cross: a red cross on ordinary messages looked like an alarm
@@ -218,6 +235,7 @@ class LeadAdmin(AdminView, model=Lead):
     name_plural = lazy_gettext("Leads")
     icon = "fa-solid fa-phone"
     category = CLIENTS
+    category_icon = CLIENTS_ICON
 
     can_create = False  # leads are created by the bot
     # The list checks for new leads itself (HTMX); the status changes right in the row
@@ -267,6 +285,7 @@ class ClientAdmin(AdminView, model=Client):
     name_plural = lazy_gettext("Clients")
     icon = "fa-solid fa-user"
     category = CLIENTS
+    category_icon = CLIENTS_ICON
 
     can_create = False  # clients appear when they message the bot
     can_delete = False  # deleting would erase the history and leads
@@ -331,6 +350,7 @@ class OrderAdmin(AdminView, model=Order):
     name_plural = lazy_gettext("Orders")
     icon = "fa-solid fa-box"
     category = CLIENTS
+    category_icon = CLIENTS_ICON
     integrity_error = lazy_gettext("An order with this number already exists: open it and edit it instead.")
 
     column_list = [
@@ -424,6 +444,7 @@ class ChatMessageAdmin(AdminView, model=ChatMessage):
     name_plural = lazy_gettext("Chat history")
     icon = "fa-solid fa-comments"
     category = CLIENTS
+    category_icon = CLIENTS_ICON
 
     # The history is a log; it is read-only
     can_create = False
@@ -473,6 +494,7 @@ class ServiceAdmin(AdminView, model=Service):
     name_plural = lazy_gettext("Catalog and prices")
     icon = "fa-solid fa-list"
     category = KNOWLEDGE
+    category_icon = KNOWLEDGE_ICON
 
     column_list = [Service.sort_order, Service.name, Service.price, Service.is_active]
     column_default_sort = [(Service.sort_order, False)]
@@ -509,6 +531,7 @@ class FaqAdmin(AdminView, model=FaqItem):
     name_plural = lazy_gettext("FAQ")
     icon = "fa-solid fa-circle-question"
     category = KNOWLEDGE
+    category_icon = KNOWLEDGE_ICON
 
     column_list = [FaqItem.sort_order, FaqItem.question, FaqItem.answer, FaqItem.is_active]
     column_default_sort = [(FaqItem.sort_order, False)]
@@ -533,6 +556,7 @@ class InfoSectionAdmin(AdminView, model=InfoSection):
     name_plural = lazy_gettext("About the business")
     icon = "fa-solid fa-building"
     category = KNOWLEDGE
+    category_icon = KNOWLEDGE_ICON
 
     column_list = [
         InfoSection.sort_order,
@@ -569,8 +593,9 @@ OUTCOME_CHOICES: list[tuple[str, str]] = [(outcome.name, lazy_gettext(outcome.va
 class AuditEventAdmin(AdminView, model=AuditEvent):
     name = lazy_gettext("Event")
     name_plural = lazy_gettext("Log")
-    icon = "fa-solid fa-shield-halved"
+    icon = "fa-solid fa-clipboard-list"
     category = SECURITY
+    category_icon = SECURITY_ICON
 
     # The audit log is read-only; the bot deletes old records per the retention period
     can_create = False
@@ -600,7 +625,7 @@ class AuditEventAdmin(AdminView, model=AuditEvent):
     column_formatters = {
         AuditEvent.user_text: _audit_text,
         AuditEvent.final_answer: _audit_answer,
-        AuditEvent.flags: _audit_flags,
+        AuditEvent.flags: _audit_flags_cell,
         AuditEvent.cost_micro_usd: _audit_cost,
         AuditEvent.outcome: _audit_outcome,
         AuditEvent.is_suspicious: _audit_suspicious,
@@ -649,6 +674,7 @@ class ModelPriceAdmin(AdminView, model=ModelPrice):
     name_plural = lazy_gettext("Model prices")
     icon = "fa-solid fa-tags"
     category = COSTS
+    category_icon = COSTS_ICON
     integrity_error = lazy_gettext(
         "This model already has a rate with this «From prompt length» value: edit the existing row."
     )
@@ -704,6 +730,7 @@ class UsageDailyAdmin(AdminView, model=UsageDaily):
     name_plural = lazy_gettext("Daily spend")
     icon = "fa-solid fa-calendar-day"
     category = COSTS
+    category_icon = COSTS_ICON
 
     # The bot writes the totals; they are not edited by hand
     can_create = False

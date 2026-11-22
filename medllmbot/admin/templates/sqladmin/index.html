@@ -54,7 +54,10 @@
     </div>
   </div>
 </div>
-{% for view in admin.views %}
+{# Cards follow the sidebar: a category's sections in its order, then the items outside categories #}
+{% for item in admin._menu.items %}
+{% for entry in (item.children if item.type_ == "Category" else [item]) %}
+{% set view = entry.view %}
 {% set topic = help_topic(view.identity) %}
 {% if topic %}
 <div class="col-md-6 col-xl-4">
@@ -69,5 +72,6 @@
   </div>
 </div>
 {% endif %}
+{% endfor %}
 {% endfor %}
 {% endblock %}
