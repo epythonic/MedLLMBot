@@ -1,0 +1,19 @@
+{% from "help/_macros.html" import note, section_link with context %}
+<h3 id="{{ topic.anchor('chto') }}">What is here</h3>
+<p>One row is one day and one model. The bot adds every Claude request to the row of its day
+at the same time as it writes the record to {{ section_link('audit-event') }}, so the totals always match the log.</p>
+<ul>
+  <li>Days are counted in UTC, as in Anthropic's invoices.</li>
+  <li>The rows contain no personal data and are not deleted together with old log records:
+    from them you can calculate costs for any period.</li>
+  <li>The section is read-only — the totals are written by the bot.</li>
+</ul>
+
+<h3 id="{{ topic.anchor('bez-ceny') }}">The “Unpriced” column</h3>
+<p>How many requests that day were made with a model that has no price in {{ section_link('model-price') }}.
+The cost of such requests is not counted, so the day's total is understated. Add a price — the following requests will be counted,
+the past ones will remain without a cost.</p>
+
+{% call note("success", "Monthly totals") %}
+Totals by month and the forecast for the current month are in {{ section_link('costs') }}.
+{% endcall %}

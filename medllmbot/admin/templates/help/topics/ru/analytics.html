@@ -34,7 +34,7 @@
 <p>Темы зависят от профиля бизнеса:</p>
 <ul>
   {% for kind, topics in analytics_topics.items() %}
-  <li><b>{{ kind.value }}:</b> {{ topics | map(attribute="name") | join(", ") }}.</li>
+  <li><b>{{ _(kind.value) }}:</b> {% for item in topics %}{{ _(item.name) }}{% if not loop.last %}, {% endif %}{% endfor %}.</li>
   {% endfor %}
 </ul>
 {% call note("info", "Свои темы") %}
@@ -50,7 +50,7 @@
 <table class="table table-sm">
   <tbody>
     {% for reason, text in gap_help.items() %}
-    <tr><td>{{ reason.value }}</td><td>{{ text }}</td></tr>
+    <tr><td>{{ _(reason.value) }}</td><td>{{ text }}</td></tr>
     {% endfor %}
   </tbody>
 </table>

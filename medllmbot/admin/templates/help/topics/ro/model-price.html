@@ -1,0 +1,39 @@
+{% from "help/_macros.html" import note, section_link with context %}
+<h3 id="{{ topic.anchor('raschet') }}">Cum se calculează costul unui răspuns</h3>
+<p>Claude API raportează câte tokenuri s-au consumat pentru fiecare răspuns. Botul le înmulțește cu prețurile din
+această secțiune:</p>
+<ul>
+  <li>tokenurile de intrare × prețul <b>Intrare</b>;</li>
+  <li>tokenurile răspunsului × prețul <b>Ieșire</b>;</li>
+  <li>tokenurile scrise în cache × prețul <b>Scriere în cache</b>;</li>
+  <li>tokenurile citite din cache × prețul <b>Citire din cache</b>.</li>
+</ul>
+<p>Toate prețurile sunt în dolari SUA pentru un milion de tokenuri, ca pe pagina de prețuri Anthropic. Partea zecimală
+poate fi separată cu punct sau cu virgulă: 0.15 și 0,15 înseamnă același lucru. Prețul este între 0 și 1000: mai mare
+nu există, iar o astfel de valoare este aproape sigur o greșeală de tastare. Suma se salvează în înregistrarea din
+{{ section_link('audit-event') }} și în totalurile din {{ section_link('usage-daily') }}.</p>
+
+<h3 id="{{ topic.anchor('tarify') }}">Tarife în funcție de lungimea solicitării</h3>
+<p>La unele modele, solicitările lungi sunt mai scumpe. De exemplu, claude-haiku-5-5 are două rânduri: cu
+<b>De la lungimea promptului</b> = 0 și = 100001. Botul alege rândul cu cel mai mare prag care nu depășește lungimea
+solicitării. Majoritatea modelelor au un singur rând, cu pragul 0.</p>
+
+<h3 id="{{ topic.anchor('kogda') }}">Când trebuie modificate prețurile</h3>
+<ol>
+  <li><b>Înainte de schimbarea modelului</b> în {{ section_link('bot-config') }}: verificați dacă noul model are un rând
+    cu pragul 0 și, dacă nu are, adăugați-l cu butonul <b>+ Adaugă: Prețul modelului</b>.</li>
+  <li><b>Anthropic și-a schimbat prețurile:</b> actualizați rândul modelului cu pictograma creion.</li>
+</ol>
+<p>Prețurile actuale sunt pe <a href="https://platform.claude.com/docs/en/about-claude/pricing" target="_blank"
+  rel="noopener">pagina de prețuri Anthropic</a>. Prețurile inițiale din baza de date au fost preluate de acolo
+la 10.11.2026.</p>
+
+{% call note("warning", "Fără preț, cheltuielile sunt subestimate") %}
+Prețul unui snapshot datat (claude-haiku-4-5-20251001) se ia din rândul fără dată (claude-haiku-4-5), dar o altă
+versiune a modelului (claude-sonnet-5-6) nu moștenește prețul lui claude-sonnet-5. Dacă pentru un model nu există
+un rând, solicitările se execută oricum, dar costul lor nu se calculează: ele ajung în coloana „Fără preț” din
+{{ section_link('usage-daily') }} și în avertismentul din {{ section_link('costs') }}.
+{% endcall %}
+{% call note("info", "Solicitările anterioare nu se recalculează") %}
+Costul se fixează în momentul răspunsului. Noul preț se aplică doar solicitărilor următoare.
+{% endcall %}

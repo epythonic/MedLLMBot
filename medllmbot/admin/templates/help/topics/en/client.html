@@ -1,0 +1,59 @@
+{% from "help/_macros.html" import note, section_link with context %}
+<h3 id="{{ topic.anchor('otkuda') }}">Where clients come from</h3>
+<p>A client appears here as soon as they first write to the bot. With every next message the bot updates
+their name, username and <b>Last message</b> time. You cannot add or delete a client by hand:
+their conversation and leads would disappear with them.</p>
+
+<h3 id="{{ topic.anchor('blokirovka') }}">How to block a client</h3>
+<ol>
+  <li>Find the client: the search box searches by <b>Chat ID</b>, username and name. The Chat ID is easy to copy
+    from {{ section_link('audit-event') }} or from a lead.</li>
+  <li>Click the pencil icon in the client's row.</li>
+  <li>Tick <b>Blocked</b> and click <b>Save</b>.</li>
+</ol>
+<p>A faster way is right from {{ section_link('audit-event') }}: on a record's page, next to the Chat ID, there is a
+<b>Block client</b> button. To unblock, untick the box here or click <b>Unblock</b>
+on the log record's page. The change applies from the client's next message; there is no need to restart the bot.</p>
+
+<h3 id="{{ topic.anchor('chto-proishodit') }}">What happens to a blocked client</h3>
+<ul>
+  <li>The bot silently stops replying. The client gets no message about the block.</li>
+  <li>Claude is not called, so a blocked client's messages cost nothing.</li>
+  <li>No leads are created from their messages.</li>
+  <li>Each message still goes to {{ section_link('audit-event') }} with the outcome “Client blocked” —
+    you can see whether they keep writing.</li>
+</ul>
+
+<h3 id="{{ topic.anchor('kogda') }}">When to block</h3>
+<p>Spam, insults, repeated attempts to hack the bot (many log records marked
+<b>Suspicious</b>). The <b>Blocked</b> filter on the right shows all blocked clients.</p>
+{% call note("warning", "One suspicious phrase is not a reason") %}
+The attack detector sometimes makes mistakes. Before blocking, open the client's log and make sure
+it is not an ordinary question phrased in an unusual way.
+{% endcall %}
+
+<h3 id="{{ topic.anchor('operator') }}">Live operator</h3>
+<p>A client can ask for a person instead of the bot: “I want to talk to a human”, «позовите менеджера», “vreau să vorbesc
+cu un om” or the /operator command. Then:</p>
+<ol>
+  <li>The bot tells the client it has passed the question on, and you get a Telegram notification with the latest messages
+    of the dialog and a <b>Вернуть бота</b> (“Return the bot”) button.</li>
+  <li>While you have the dialog, the bot stays silent in this chat: the client's messages, including photos and voice messages, come to you,
+    and Claude is not called. The <b>With operator until</b> column shows until when.</li>
+  <li>To answer, reply in Telegram (swipe or “Reply”) to the bot's message about this client: the notification,
+    a forwarded message or the notification about their lead. Your text, photo or file goes to the client, and 👍 appears
+    on your message. Each reply extends the period; replying to an old notification turns operator mode on again.</li>
+  <li>When you are done, click <b>Вернуть бота</b>: the client gets a message that the bot is answering again. If
+    you do not reply at all, the bot comes back on its own after the period set in {{ section_link('bot-config') }}. The client can also
+    return to the bot on their own with the /start command; you will get a message about it.</li>
+</ol>
+{% call note("info", "Conversation with the operator") %}
+The client's messages and your replies are saved in {{ section_link('chat-message') }}: once back, the bot knows what the conversation
+was about. In {{ section_link('audit-event') }} they appear with the outcomes “Asked for operator”, “Sent to operator” and “Operator
+reply”. Edits the client makes to messages already sent are not forwarded.
+{% endcall %}
+{% call note("warning", "Only the administrator's private chat") %}
+Only the administrator from the <code>ADMIN_ID</code> setting can reply to clients, by replying from their private chat
+with the bot. If a group is set there, the bot treats a request for a person as an ordinary question. Your own
+messages to the bot that are not replies to a notification are treated as client questions — a handy way to test the bot.
+{% endcall %}

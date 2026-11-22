@@ -1,0 +1,63 @@
+{% from "help/_macros.html" import note, section_link with context %}
+<h3 id="{{ topic.anchor('chto') }}">Ce se înregistrează</h3>
+<p>Fiecare mesaj primit, inclusiv cele respinse: ce a scris clientul, ce a răspuns modelul, ce a primit în final
+clientul, cât a costat și dacă au existat semne de atac. Jurnalul este doar pentru citire.</p>
+
+<h3 id="{{ topic.anchor('itogi') }}">Rezultatele procesării</h3>
+<table class="table table-sm">
+  <tbody>
+    {% for outcome, text in outcome_help.items() %}
+    <tr><td>{{ _(outcome.value) }}</td><td>{{ text }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h3 id="{{ topic.anchor('priznaki') }}">Semne de atac</h3>
+<p>Detectorul caută în mesajul clientului procedeele tipice prin care se încearcă preluarea controlului asupra botului,
+iar în răspunsul modelului — fragmente din regulile sale. Semnele declanșate se văd în coloana <b>Semne de atac</b>.</p>
+<table class="table table-sm">
+  <tbody>
+    {% for flag in flag_help %}
+    <tr><td>{{ _(flag.label) }}</td><td>{{ flag.example }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h3 id="{{ topic.anchor('podozritelnoe') }}">Ce se întâmplă cu un mesaj suspect</h3>
+<ul>
+  <li>Clientul primește răspunsul obișnuit al modelului: de spargere botul este protejat de regulile sale și de
+    verificările răspunsului, nu de detector. Excepție face răspunsul cu fragmente din reguli: acesta este înlocuit
+    cu o frază neutră.</li>
+  <li>Mesajul și răspunsul nu se salvează în {{ section_link('chat-message') }}, așa că atacul nu se acumulează
+    în memoria botului.</li>
+  <li>Administratorul primește în Telegram o notificare în limba rusă, «Внимание: подозрительное сообщение…»
+    („Atenție: mesaj suspect…”), cel mult o dată la 15 minute pentru un client, ca atacatorul să nu-l copleșească
+    cu mesaje.</li>
+</ul>
+
+<h3 id="{{ topic.anchor('rassledovanie') }}">Cum analizați un mesaj suspect</h3>
+<ol>
+  <li>În blocul <b>Filtre</b>, alegeți <b>Suspect → Da</b>.</li>
+  <li>Deschideți înregistrarea cu pictograma ochi. Comparați <b>Răspunsul modelului</b> și <b>Trimis clientului</b>:
+    dacă diferă, botul a înlocuit un răspuns periculos.</li>
+  <li>Vedeți celelalte mesaje ale clientului: filtrul <b>Chat ID</b> aici sau în {{ section_link('chat-message') }}.</li>
+  <li>Dacă încercările se repetă, apăsați <b>Blocați clientul</b> lângă Chat ID pe pagina înregistrării
+    și confirmați. Tot acolo clientul poate fi deblocat.</li>
+</ol>
+
+<h3 id="{{ topic.anchor('novye') }}">Evenimente noi fără reîncărcarea paginii</h3>
+<p>Cât timp jurnalul este deschis, acesta verifică o dată la 15 secunde dacă există înregistrări noi. Deasupra tabelului
+apare mesajul „Evenimente noi în jurnal: N”; dacă printre ele sunt și suspecte, mesajul devine galben și arată câte sunt.
+Apăsați <b>Afișați</b> pentru a actualiza lista.</p>
+
+{% call note("warning", "Detectorul este un semnal, nu o protecție") %}
+Detectorul funcționează pe baza unor tipare de fraze: atacatorul poate reformula, iar un client obișnuit poate scrie
+întâmplător ceva ce seamănă cu un atac. Nu blocați pe nimeni doar din cauza unui singur semn. Tiparele încorporate sunt
+stabilite de dezvoltator; dacă ați observat un procedeu nou pe care detectorul nu îl prinde, transmiteți exemplul
+dezvoltatorului.
+{% endcall %}
+
+<h3 id="{{ topic.anchor('hranenie') }}">Cât timp se păstrează jurnalul</h3>
+<p>Atâtea zile câte sunt indicate în {{ section_link('bot-config') }} → <b>Păstrarea jurnalului, zile</b>
+(implicit 90). Botul șterge înregistrările vechi la pornire și apoi la fiecare 6 ore. Cheltuielile nu se pierd:
+totalurile pe zile rămân în {{ section_link('usage-daily') }}.</p>

@@ -15,7 +15,8 @@ panel starts, and every schema change ships as an Alembic migration.
   The language switcher in the menu overrides it and remembers the choice. Several other texts follow the language
   too:
   - lead and order statuses, log outcomes, analytics topics and attack signs;
-  - form errors.
+  - form errors;
+  - the «?» help: every section's text and every field hint exist in all three languages.
 
   Translations live in gettext catalogs (`medllmbot/locales`), and a test fails when a UI string has no Russian or
   Romanian translation.

@@ -1,0 +1,67 @@
+{% from "help/_macros.html" import note, section_link with context %}
+<h3 id="{{ topic.anchor('otkuda') }}">Where the data comes from</h3>
+<p>The page is computed when you open it, from {{ section_link('audit-event') }} and {{ section_link('lead') }} for the selected
+period: 7, 30 or 90 days, in UTC. Claude is not called for the analysis: analytics costs nothing, and client conversations
+are not sent anywhere else.</p>
+<ul>
+  <li><b>Question</b> — a client's text message that reached the bot. Not counted: the greeting (/start), photos
+    and voice messages, messages skipped by the rate limit or because the client is blocked, messages with attack signs (those
+    are reviewed in {{ section_link('audit-event') }}), and the conversation with the live operator: a person handles it, not the bot.</li>
+  <li><b>Asked for an operator</b> — how many times clients asked for a live person. If it grows, the bot is missing
+    something: look at “Unanswered questions” and at {{ section_link('client') }}.</li>
+  <li>The log is kept for as many days as set in {{ section_link('bot-config') }}. If the period is longer,
+    analytics covers only the retention period.</li>
+</ul>
+
+<h3 id="{{ topic.anchor('dialogi') }}">Dialogs and leads</h3>
+<ul>
+  <li><b>Dialog</b> — one client's messages without a break longer than a day. A client who comes back a week later starts a new
+    dialog.</li>
+  <li><b>Dialog with a lead</b> — the client left a phone number in it, and a lead appeared in {{ section_link('lead') }}.
+    The share of such dialogs shows how often a conversation with the bot leads to a call.</li>
+</ul>
+
+<h3 id="{{ topic.anchor('temy') }}">How topics are determined</h3>
+<p>A topic is found by keywords in the question, in Russian and Romanian (and some English): «цена», “preț” and “price”
+all mean “Prices”. A question can fall into several topics: “How much does a cleaning cost?” is both “Prices”
+and “Hygiene and whitening”.</p>
+<ul>
+  <li><b>Left a phone number</b> — messages with no known words but with a phone number: this is usually how a client answers
+    the bot's request to leave contact details.</li>
+  <li><b>Other</b> — everything else, including short replies like “Thanks”. The examples under the name hint at
+    which topic is missing.</li>
+  <li>Under each topic there are up to three latest questions. Messages with a phone number are not shown as examples.</li>
+</ul>
+<p>Topics depend on the business profile:</p>
+<ul>
+  {% for kind, topics in analytics_topics.items() %}
+  <li><b>{{ _(kind.value) }}:</b> {% for item in topics %}{{ _(item.name) }}{% if not loop.last %}, {% endif %}{% endfor %}.</li>
+  {% endfor %}
+</ul>
+{% call note("info", "Your own topics") %}
+Topic dictionaries are set in the code (<code>medllmbot/analytics.py</code>), not in the admin panel: a developer tunes
+them for your business. New words apply to past questions right away — nothing has to be recalculated by hand.
+{% endcall %}
+
+<h3 id="{{ topic.anchor('bez-otveta') }}">Unanswered questions</h3>
+<p>This is a hint at what to add to the knowledge base. Identical questions are grouped into one row, the most frequent at the top,
+up to 50 rows per page. Technical failures — a Claude API error, the spending limit, a message that is too long — are not listed
+here: they are not a gap in the knowledge base, and you can see them in {{ section_link('audit-event') }}.</p>
+<h4>Reasons</h4>
+<table class="table table-sm">
+  <tbody>
+    {% for reason, text in gap_help.items() %}
+    <tr><td>{{ _(reason.value) }}</td><td>{{ text }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h3 id="{{ topic.anchor('chto-delat') }}">What to do with an unanswered question</h3>
+<ol>
+  <li>Click the question: the log record opens with the model's answer and what the client received.</li>
+  <li>If the question is asked often, add an answer: a typical question to {{ section_link('faq-item') }}, information about the business
+    to {{ section_link('info-section') }}, a service or product to {{ section_link('service') }}.</li>
+  <li>The bot sees the changes from the next message. Once it answers the same question, the row disappears
+    from the list; otherwise it drops off when it falls outside the period. The “Unanswered” card at the top counts all unanswered
+    questions for the period, including those the bot answered later.</li>
+</ol>

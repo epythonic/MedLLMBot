@@ -1,0 +1,38 @@
+{% from "help/_macros.html" import note, section_link with context %}
+<h3 id="{{ topic.anchor('raschet') }}">How the cost of an answer is calculated</h3>
+<p>The Claude API reports how many tokens each answer used. The bot multiplies them by the prices in this section:</p>
+<ul>
+  <li>input tokens × the <b>Input</b> price;</li>
+  <li>answer tokens × the <b>Output</b> price;</li>
+  <li>cache write tokens × the <b>Writing to cache</b> price;</li>
+  <li>cache read tokens × the <b>Reading from cache</b> price.</li>
+</ul>
+<p>All prices are in US dollars per million tokens, as on the Anthropic pricing page. The decimal part can be
+separated with a dot or a comma: 0.15 and 0,15 are the same. A price is from 0 to 1000: there are no higher prices, so
+such a value is almost certainly a typo. The amount is saved in the {{ section_link('audit-event') }} record and in the
+{{ section_link('usage-daily') }} totals.</p>
+
+<h3 id="{{ topic.anchor('tarify') }}">Rates by request length</h3>
+<p>For some models, long requests cost more. For example, claude-haiku-5-5 has two rows: with <b>From prompt length</b>
+= 0 and = 100001. The bot picks the row with the highest threshold that does not exceed the request length. Most
+models have a single row with threshold 0.</p>
+
+<h3 id="{{ topic.anchor('kogda') }}">When to edit prices</h3>
+<ol>
+  <li><b>Before changing the model</b> in {{ section_link('bot-config') }}: check that the new model has a row
+    with threshold 0, and add one with the <b>+ New Model price</b> button if it does not.</li>
+  <li><b>Anthropic changed its prices:</b> update the model's row with the pencil icon.</li>
+</ol>
+<p>Current prices are on the <a href="https://platform.claude.com/docs/en/about-claude/pricing" target="_blank"
+  rel="noopener">Anthropic pricing page</a>. The starting prices in the database were taken from there on
+November 10, 2026.</p>
+
+{% call note("warning", "No price means understated costs") %}
+The price of a dated snapshot (claude-haiku-4-5-20251001) is taken from the row without the date (claude-haiku-4-5),
+but a different model version (claude-sonnet-5-6) does not inherit the price of claude-sonnet-5. If a model has no row,
+requests still go through, but their cost is not counted: they land in the “Unpriced” column in
+{{ section_link('usage-daily') }} and in the warning in {{ section_link('costs') }}.
+{% endcall %}
+{% call note("info", "Past requests are not recalculated") %}
+The cost is fixed at the moment of the answer. A new price applies only to subsequent requests.
+{% endcall %}

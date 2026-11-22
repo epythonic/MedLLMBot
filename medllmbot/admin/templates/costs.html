@@ -35,7 +35,7 @@
         <tbody>
           {% for row in month.rows + [month.total] %}
           <tr{% if loop.last %} class="fw-bold"{% endif %}>
-            <td>{{ row.model }}</td>
+            <td>{{ _(row.model) if loop.last else row.model }}</td>
             <td class="text-end">{{ "{:,}".format(row.requests) }}</td>
             <td class="text-end">{{ "{:,}".format(row.input_tokens) }}</td>
             <td class="text-end">{{ "{:,}".format(row.output_tokens) }}</td>

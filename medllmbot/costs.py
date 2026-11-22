@@ -11,6 +11,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date
 
+from medllmbot.i18n import N_
+
 
 @dataclass(frozen=True)
 class TokenUsage:
@@ -132,10 +134,14 @@ class MonthReport:
     forecast_micro_usd: int | None
 
 
+# The label of the sum row; a msgid, the admin translates it
+TOTAL = N_("Total")
+
+
 def _total(month: str, rows: list[UsageRow]) -> UsageRow:
     return UsageRow(
         month=month,
-        model="Итого",
+        model=TOTAL,
         requests=sum(r.requests for r in rows),
         input_tokens=sum(r.input_tokens for r in rows),
         output_tokens=sum(r.output_tokens for r in rows),

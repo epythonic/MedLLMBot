@@ -1,0 +1,59 @@
+{% from "help/_macros.html" import note, section_link with context %}
+<h3 id="{{ topic.anchor('otkuda') }}">De unde apar clienții</h3>
+<p>Clientul apare aici imediat ce îi scrie botului prima dată. La fiecare mesaj următor botul îi actualizează
+numele, username-ul și ora din <b>Ultimul mesaj</b>. Nu puteți adăuga sau șterge manual un client:
+odată cu el ar dispărea conversațiile și cererile.</p>
+
+<h3 id="{{ topic.anchor('blokirovka') }}">Cum blocați un client</h3>
+<ol>
+  <li>Găsiți clientul: bara de căutare caută după <b>Chat ID</b>, username și nume. Chat ID-ul se copiază ușor
+    din {{ section_link('audit-event') }} sau din cerere.</li>
+  <li>Apăsați pictograma creion din rândul clientului.</li>
+  <li>Bifați <b>Blocat</b> și apăsați <b>Salvează</b>.</li>
+</ol>
+<p>Mai rapid — direct din {{ section_link('audit-event') }}: pe pagina înregistrării, lângă Chat ID, există butonul
+<b>Blocați clientul</b>. Pentru a debloca, debifați caseta aici sau apăsați <b>Deblocați</b>
+pe pagina înregistrării din jurnal. Modificarea se aplică de la următorul mesaj al clientului, nu trebuie să reporniți botul.</p>
+
+<h3 id="{{ topic.anchor('chto-proishodit') }}">Ce se întâmplă cu un client blocat</h3>
+<ul>
+  <li>Botul încetează în tăcere să răspundă. Clientul nu primește niciun mesaj despre blocare.</li>
+  <li>Claude nu este apelat, așa că mesajele clientului blocat nu costă nimic.</li>
+  <li>Din mesajele lui nu se creează cereri.</li>
+  <li>Fiecare mesaj ajunge totuși în {{ section_link('audit-event') }} cu rezultatul „Client blocat” —
+    se vede dacă el continuă să scrie.</li>
+</ul>
+
+<h3 id="{{ topic.anchor('kogda') }}">Când să blocați</h3>
+<p>Spam, insulte, încercări repetate de a sparge botul (în jurnal sunt multe înregistrări marcate
+<b>Suspect</b>). Filtrul <b>Blocat</b> din dreapta arată toți clienții blocați.</p>
+{% call note("warning", "O singură frază suspectă nu este un motiv") %}
+Detectorul de atacuri greșește uneori. Înainte de a bloca, deschideți jurnalul clientului și asigurați-vă
+că nu este o întrebare obișnuită, formulată neobișnuit.
+{% endcall %}
+
+<h3 id="{{ topic.anchor('operator') }}">Operator</h3>
+<p>Clientul poate cere un om în locul botului: „vreau să vorbesc cu un om”, „chemați un operator”, «позовите менеджера»
+sau comanda /operator. Atunci:</p>
+<ol>
+  <li>Botul îi răspunde clientului că a transmis întrebarea, iar dvs. primiți în Telegram o notificare cu ultimele mesaje
+    din dialog și butonul <b>Вернуть бота</b> („Readuceți botul”).</li>
+  <li>Cât timp dialogul este la dvs., botul tace în acest chat: mesajele clientului, inclusiv fotografiile și mesajele vocale, vă sunt
+    trimise dvs., iar Claude nu este apelat. Coloana <b>Cu operatorul până la</b> arată până când.</li>
+  <li>Pentru a răspunde, răspundeți în Telegram (glisați sau „Răspunde”) la mesajul botului despre acest client: notificarea,
+    mesajul redirecționat sau notificarea despre cererea lui. Textul, fotografia sau fișierul ajunge la client, iar pe mesajul dvs.
+    apare 👍. Fiecare răspuns prelungește perioada; un răspuns la o notificare veche activează din nou modul operator.</li>
+  <li>Când ați terminat, apăsați <b>Вернуть бота</b>: clientul va primi un mesaj că de acum îi răspunde din nou botul. Dacă
+    nu răspundeți deloc, botul revine singur după perioada din {{ section_link('bot-config') }}. Clientul poate reveni
+    la bot și singur, cu comanda /start; veți primi un mesaj despre aceasta.</li>
+</ol>
+{% call note("info", "Conversația cu operatorul") %}
+Mesajele clientului și răspunsurile dvs. se salvează în {{ section_link('chat-message') }}: când revine, botul știe despre ce
+a fost vorba. În {{ section_link('audit-event') }} ele apar cu rezultatele „A cerut operatorul”, „Trimis operatorului” și „Răspunsul
+operatorului”. Corecturile pe care clientul le face în mesajele deja trimise nu sunt redirecționate.
+{% endcall %}
+{% call note("warning", "Doar chatul privat al administratorului") %}
+Doar administratorul din setarea <code>ADMIN_ID</code> poate răspunde clienților — printr-un răspuns din chatul său privat
+cu botul. Dacă acolo este indicat un grup, botul tratează cererea de a vorbi cu un om ca pe o întrebare obișnuită. Mesajele dvs.
+către bot care nu sunt răspunsuri la o notificare sunt tratate de bot ca întrebări ale clientului — așa îl puteți verifica ușor.
+{% endcall %}

@@ -1,0 +1,27 @@
+{% from "help/_macros.html" import note, section_link with context %}
+<h3 id="{{ topic.anchor('kak-ispolzuet') }}">How the bot uses the FAQ</h3>
+<p>All enabled questions and answers are part of the bot's knowledge base. The bot does not copy an answer word for word: it answers
+in its own words and in the client's language, Russian or Romanian. An edit takes effect from the next message.</p>
+
+<h3 id="{{ topic.anchor('sovety') }}">How to write good answers</h3>
+<ul>
+  <li>One question, one record. Phrase the question the way clients ask it: “Does dental treatment hurt?”</li>
+  <li>Keep the answer short and factual: what, how much, when. The bot will shorten a long text anyway.</li>
+  <li>Do not promise what the clinic does not do: the bot will repeat the promise to the client.</li>
+  <li>Prices are easier to keep in {{ section_link('service') }}. If an answer does contain a price, the bot treats it as current.</li>
+</ul>
+
+<h3 id="{{ topic.anchor('kak') }}">How to work with questions</h3>
+<ul>
+  <li><b>Add:</b> the <b>+ New Question</b> button above the table → question and answer → <b>Save</b>.</li>
+  <li><b>Edit:</b> the pencil icon in the row.</li>
+  <li><b>Disable temporarily:</b> untick <b>Enabled</b>.</li>
+  <li><b>Change the order:</b> drag a row by the handle in the <b>Sort order</b> column — the new order
+    is saved right away, and the bot sees it from the next question. Dragging works when the list has no search
+    or filters. You can also set it by hand: the <b>Sort order</b> number in the form, the smaller the number, the higher the row.</li>
+</ul>
+
+{% call note("success", "Where to find new questions") %}
+If the bot finds no answer in the knowledge base, it says that the administrator will answer during business hours.
+Look through {{ section_link('audit-event') }}: questions the bot answers this way are candidates for the FAQ.
+{% endcall %}

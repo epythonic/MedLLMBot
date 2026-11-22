@@ -1,0 +1,32 @@
+{% from "help/_macros.html" import note, section_link with context %}
+<h3 id="{{ topic.anchor('kak') }}">How the bot answers about an order</h3>
+<p>A customer asks “where is my order?”. The bot asks for the order number and the last 4 digits of the phone number the order
+was placed with, and looks the order up here. If the number and the digits match, the client learns the status, items, total and expected
+date. If not, the bot replies that the order was not found and does not say what exactly did not match.</p>
+<ul>
+  <li>For the check the bot asks only for 4 digits, not the whole phone number, so a question about an order does not turn into a lead.
+    A lead appears if the client writes the full number themselves.</li>
+  <li>Brute-force protection: after 5 failed checks in an hour from one chat, or 10 for one order from all chats,
+    the bot stops checking and offers to leave a phone number so that a manager calls back. The counters are kept in the bot's
+    memory and reset when it is restarted or updated.</li>
+  <li>A mistyped number that does not look like an order number is not sent to the system and does not count as an attempt.</li>
+  <li>What the bot checked and with what result is shown in {{ section_link('audit-event') }}, in the
+    <b>What the bot searched for</b> field: «order_status DE-10023 → Передан в доставку» (“handed over for delivery”) or «→ телефон не совпал» (“phone did not match”).</li>
+  <li>The section works in the “Electronics store” profile. The dental clinic has no orders, and the bot does not look them up.</li>
+</ul>
+
+<h3 id="{{ topic.anchor('rabota') }}">How to manage orders</h3>
+<ul>
+  <li><b>Change the status:</b> the pencil icon in the order row → <b>Status</b> → <b>Save</b>. The bot gives
+    the new status from the next question.</li>
+  <li><b>Add an order:</b> the <b>+ New Order</b> button. The number must be unique.</li>
+  <li><b>Delivery date</b> — the expected date. If it has moved, correct it: the client hears what is written here.
+    An empty date means the bot will say that a manager will confirm it.</li>
+  <li><b>Items</b> — without prices: the bot names the order total, and the price of an individual item that is not in the catalog
+    is replaced by the price check with “I'll check the price”.</li>
+</ul>
+
+{% call note("info", "In a project for a shop, orders will come from its own system") %}
+In the demo, orders are stored in this table. For a real shop the bot takes them from its accounting system (CMS, 1C)
+through the same <code>OrderBackend</code> interface — there is no need to manage orders in the admin panel.
+{% endcall %}

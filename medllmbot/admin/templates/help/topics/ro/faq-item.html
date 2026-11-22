@@ -1,0 +1,27 @@
+{% from "help/_macros.html" import note, section_link with context %}
+<h3 id="{{ topic.anchor('kak-ispolzuet') }}">Cum folosește botul întrebările frecvente</h3>
+<p>Toate întrebările și răspunsurile active intră în baza de cunoștințe a botului. Botul nu copiază răspunsul cuvânt cu cuvânt: răspunde
+cu propriile cuvinte și în limba clientului — rusă sau română. Modificarea se vede de la următorul mesaj.</p>
+
+<h3 id="{{ topic.anchor('sovety') }}">Cum scrieți răspunsuri bune</h3>
+<ul>
+  <li>O întrebare — o înregistrare. Formulați întrebarea așa cum o pun clienții: „Doare tratamentul dentar?”.</li>
+  <li>Răspunsul — scurt și la obiect: ce, cât, când. Un text lung botul îl va scurta oricum.</li>
+  <li>Nu promiteți ceea ce clinica nu face: botul îi va repeta promisiunea clientului.</li>
+  <li>Prețurile este mai comod să le țineți în {{ section_link('service') }}. Dacă totuși prețul apare în răspuns, botul îl consideră valabil.</li>
+</ul>
+
+<h3 id="{{ topic.anchor('kak') }}">Cum lucrați cu întrebările</h3>
+<ul>
+  <li><b>Adăugare:</b> butonul <b>+ Adaugă: Întrebare</b> de deasupra tabelului → întrebarea și răspunsul → <b>Salvează</b>.</li>
+  <li><b>Modificare:</b> pictograma creion din rând.</li>
+  <li><b>Dezactivare temporară:</b> debifați <b>Activă</b>.</li>
+  <li><b>Schimbarea ordinii:</b> trageți rândul de pictograma din coloana <b>Ordine</b> — noua ordine
+    se salvează imediat, iar botul o vede de la următoarea întrebare. Tragerea funcționează când lista nu are căutare
+    sau filtre. Se poate și manual: numărul <b>Ordine</b> din formular — cu cât este mai mic, cu atât rândul este mai sus.</li>
+</ul>
+
+{% call note("success", "De unde luați întrebări noi") %}
+Dacă botul nu găsește răspunsul în baza de cunoștințe, spune că administratorul vă va răspunde în timpul programului de lucru.
+Consultați {{ section_link('audit-event') }}: întrebările la care botul răspunde astfel sunt candidate pentru întrebările frecvente.
+{% endcall %}

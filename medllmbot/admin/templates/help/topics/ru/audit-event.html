@@ -7,7 +7,7 @@
 <table class="table table-sm">
   <tbody>
     {% for outcome, text in outcome_help.items() %}
-    <tr><td>{{ outcome.value }}</td><td>{{ text }}</td></tr>
+    <tr><td>{{ _(outcome.value) }}</td><td>{{ text }}</td></tr>
     {% endfor %}
   </tbody>
 </table>

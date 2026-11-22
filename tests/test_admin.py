@@ -752,6 +752,7 @@ class TestAnalytics:
 PAGE_IDS = re.compile(r'\bid="([^"]+)"')
 
 
+@pytest.mark.usefixtures("russian_admin")  # the expected help texts are translated strings, compared in Russian
 class TestHelp:
     @pytest.mark.parametrize("view", VIEWS, ids=_view_id)
     def test_section_page_has_help_panel(self, admin: TestClient, view: type[ModelView]) -> None:
@@ -810,9 +811,10 @@ class TestHelp:
         for text in GAP_HELP.values():
             assert str(escape(text)) in page
         # Help lists the topics of both profiles from the code dictionaries, so it does not drift from them
+        ru = translation("ru").gettext  # profile and topic names are English msgids, the page is Russian
         for kind, topics in ANALYTICS_TOPICS.items():
-            names = ", ".join(topic.name for topic in topics)
-            assert f"<li><b>{kind.value}:</b> {escape(names)}.</li>" in page
+            names = ", ".join(ru(topic.name) for topic in topics)
+            assert f"<li><b>{ru(kind.value)}:</b> {escape(names)}.</li>" in page
 
     def test_journal_help_lists_outcomes_and_attack_flags(self, admin: TestClient) -> None:
         page = admin.get("/admin/audit-event/list").text

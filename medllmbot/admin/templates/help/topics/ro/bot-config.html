@@ -1,0 +1,91 @@
+{% from "help/_macros.html" import note, section_link with context %}
+<h3 id="{{ topic.anchor('kak') }}">Cum modificați setările</h3>
+<p>Setările sunt un singur rând. Apăsați pictograma creion, modificați câmpurile și apăsați <b>Salvează</b>. Botul aplică
+modificările de la următorul mesaj al clientului, nu trebuie repornit.</p>
+
+<h3 id="{{ topic.anchor('profile') }}">Profilul afacerii</h3>
+<p>Profilul stabilește cum se prezintă botul și ce reguli ale domeniului respectă:</p>
+<ul>
+  <li><b>Clinică stomatologică</b> — nu pune diagnostice, în caz de durere acută sfătuiește pacientul să vină la consultație, face programări.</li>
+  <li><b>Magazin de electronice</b> — ajută la alegerea tehnicii după buget și nevoi, nu promite disponibilitatea și termenele
+    de livrare care nu sunt în baza de cunoștințe, plasează comanda prin manager.</li>
+</ul>
+<p>Regulile de securitate sunt aceleași pentru ambele profiluri. Profilul se schimbă împreună cu baza de cunoștințe printr-o comandă
+pe server, de aceea nu apare în formular:</p>
+<pre><code>docker compose run --rm migrate python -m medllmbot.db.seed --reset --profile shop</code></pre>
+{% call note("warning", "Resetarea șterge datele demo") %}
+Comanda șterge clienții, conversațiile, cererile și jurnalul și înlocuiește baza de cunoștințe cu datele demo ale profilului.
+Totalurile cheltuielilor și limita zilnică rămân. Pentru a reveni la clinica stomatologică — <code>--profile clinic</code>.
+{% endcall %}
+
+<h3 id="{{ topic.anchor('model') }}">Cum schimbați modelul Claude</h3>
+<ol>
+  <li>Adăugați prețul noului model în {{ section_link('model-price') }}: fără el setările nu se salvează —
+    astfel panoul de administrare prinde și greșelile de tipar din ID-ul modelului.</li>
+  <li>Introduceți ID-ul modelului în câmpul <b>Model</b>, de exemplu <code>claude-haiku-5-5</code>, și salvați.</li>
+  <li>Trimiteți botului o întrebare de test.</li>
+  <li>Deschideți {{ section_link('audit-event') }}: ultima înregistrare trebuie să aibă rezultatul „Răspuns”, iar costul să nu fie „—”.</li>
+</ol>
+{% call note("danger", "O greșeală în ID-ul modelului oprește răspunsurile") %}
+Dacă în jurnal rezultatul este „Eroare API”, modelul este indicat greșit (de exemplu, are preț, dar Anthropic nu are
+un astfel de model): clienții primesc scuze în loc de răspuns.
+Restabiliți imediat valoarea anterioară.
+{% endcall %}
+
+<h3 id="{{ topic.anchor('limity') }}">Limite</h3>
+<ul>
+  <li><b>Limita de tokenuri a răspunsului</b> limitează lungimea răspunsului botului, nu a întrebării clientului. Răspunsurile botului
+    sunt scurte, 1024 ajung din plin.
+    Dacă răspunsul nu încape în limită, botul nu trimite clientului un fragment trunchiat, ci răspunde „Voi verifica cu administratorul”
+    și scrie în jurnal rezultatul „Răspuns trunchiat”. Dacă vedeți astfel de înregistrări, măriți limita.</li>
+  <li><b>Lungimea max. a mesajului clientului</b> — în caractere. Mesajele mai lungi sunt respinse înainte de apelarea
+    lui Claude: este o protecție împotriva spamului și a cheltuielilor inutile. Clientul primește un răspuns cu cifre: „Mesajul este prea lung:
+    1350 de caractere, iar limita este de 1024 de caractere. Vă rog să scrieți întrebarea mai pe scurt.” Dacă în mesaj
+    este un număr de telefon, cererea se creează oricum, iar clientul află că numărul a fost salvat.</li>
+  <li><b>Adâncimea istoricului</b> — câte mesaje recente din dialog vede modelul. 0 — botul nu ține minte conversația;
+    8 — ajung pentru o programare obișnuită la consultație. Mai multe — fiecare răspuns costă mai mult.</li>
+  <li><b>Mesaje pe fereastră</b> și <b>Fereastra rate-limit</b>: implicit cel mult 10 mesaje în 60 de secunde de la un
+    client. Mesajele în plus botul le omite fără să răspundă și le marchează în jurnal cu rezultatul „Limită de mesaje”.</li>
+</ul>
+<p>Răspunsurile gata făcute fără Claude — „Voi verifica cu administratorul”, „Mesajul este prea lung”, scuzele pentru o eroare și altele —
+botul le scrie în limba mesajului clientului: în rusă sau în română. Dacă limba nu se poate deduce din text (o comandă pentru bot, numărul
+unei comenzi, o fotografie fără descriere), botul ia limba din setările Telegram ale clientului. Saluturi sunt două — despre ele mai jos.</p>
+
+<h3 id="{{ topic.anchor('budget') }}">Limita de cheltuieli pe zi</h3>
+<p>Botul este deschis oricărui utilizator Telegram. Limita de mesaje se aplică fiecărui client separat,
+iar <b>Limita de cheltuieli pe zi</b> — tuturor împreună: când cheltuielile pentru Claude din ziua curentă (UTC) ating
+limita, până la miezul nopții UTC botul răspunde „Administratorul vă va răspunde în timpul programului de lucru”, fără să apeleze modelul.
+Cererile cu telefon se salvează ca de obicei, primiți o notificare în Telegram (cel mult o dată la 6 ore),
+iar în {{ section_link('audit-event') }} apare rezultatul „Limită de cheltuieli”.</p>
+<ul>
+  <li><b>0</b> — fără limită.</li>
+  <li>Pentru demo ajung 1–2 dolari: un răspuns claude-haiku-5-5 costă o fracțiune de cent.</li>
+  <li>Se iau în calcul doar solicitările către modelele cu preț în {{ section_link('model-price') }}: un model fără preț nu consumă limita.</li>
+</ul>
+
+<h3 id="{{ topic.anchor('catalog') }}">Catalogul în prompt</h3>
+<p>Cât timp în {{ section_link('service') }} nu sunt mai multe servicii active decât acest număr, botul îi transmite lui Claude toată lista
+de prețuri la fiecare întrebare. Dacă serviciile sunt mai multe, botul nu transmite toată lista de prețuri, ci caută în ea pozițiile potrivite.
+Detalii — în ajutorul secțiunii {{ section_link('service') }}.</p>
+<ul>
+  <li><b>50</b> (implicit) se potrivește pentru o clinică: toată lista de prețuri în solicitare dă cel mai rapid și mai ieftin răspuns.
+    În demo-ul magazinului sunt 64 de poziții, de aceea acolo botul caută în catalog.</li>
+  <li><b>0</b> — botul caută întotdeauna. Așa puteți demonstra căutarea pe un catalog mic.</li>
+  <li>Verificarea prețurilor funcționează în ambele moduri: botul nu va numi un preț care nu este în catalog.</li>
+</ul>
+
+<h3 id="{{ topic.anchor('prochee') }}">Salutul și jurnalul</h3>
+<ul>
+  <li><b>Salut (/start)</b> — primul lucru pe care îl vede clientul. Pe scurt: cine sunteți, cu ce ajută botul,
+    cum se face o programare.</li>
+  <li><b>Salut în română</b> — același lucru pentru clienții cu Telegram în română. În „/start” nu există text
+    după care să se înțeleagă limba, de aceea botul se uită la limba Telegram: în rusă — salutul în rusă,
+    în română — cel în română, în orice altă limbă — ambele, unul după altul (mulți scriu în română din Telegram în engleză).
+    Lăsați câmpul gol dacă primul salut conține deja ambele limbi: atunci îl primesc toți.</li>
+  <li><b>Păstrarea jurnalului, zile</b> — cât timp se păstrează înregistrările din {{ section_link('audit-event') }}. Înregistrările mai vechi
+    se șterg automat, totalurile cheltuielilor rămân.</li>
+</ul>
+{% call note("info", "Ce nu găsiți aici") %}
+Tokenul botului Telegram, cheia Anthropic API și ID-ul Telegram al administratorului sunt păstrate în setările serverului:
+le modifică dezvoltatorul, iar după modificare botul trebuie repornit.
+{% endcall %}

@@ -1,0 +1,39 @@
+{% from "help/_macros.html" import note, section_link with context %}
+<h3 id="{{ topic.anchor('chto') }}">What this section is</h3>
+<p>General information about the clinic or shop for the bot. Each section is a title and text; the bot sees them
+together with {{ section_link('service') }} and {{ section_link('faq-item') }}. If none of these sections has the answer
+to a question, the bot says that the administrator (in the shop, the manager) will answer during business hours.</p>
+
+<h3 id="{{ topic.anchor('chto-pisat') }}">What to write here</h3>
+<ul>
+  <li>Address, landmarks, how to get there, parking.</li>
+  <li>Phone numbers and opening hours — without them the bot cannot tell the client when they will be called back.</li>
+  <li>For a shop — delivery, pickup, warranty and returns.</li>
+  <li>Payment methods, installments, guarantees.</li>
+  <li>General rules: how to prepare for an appointment, what to bring, conditions for children.</li>
+</ul>
+
+<h3 id="{{ topic.anchor('ne-pisat') }}">What not to write here</h3>
+<ul>
+  <li>Commands to the bot (“always offer a discount”, “answer only in Romanian”). Write facts.</li>
+  <li>Personal data of doctors and patients, internal phone numbers.</li>
+  <li>Information you are not sure about: the bot will repeat it to the client as a fact.</li>
+</ul>
+
+{% call note("info", "The bot's rules of behavior are set by the developer") %}
+The bot answers only about its own company, does not change its role and does not name prices that are not in the
+knowledge base. Domain rules depend on the profile: the dental clinic does not make diagnoses, the shop does not promise
+availability (see {{ section_link('bot-config') }} → “Business profile”). These rules are built into the code and take
+priority over the knowledge base text — they cannot be changed here.
+{% endcall %}
+
+<h3 id="{{ topic.anchor('poryadok') }}">Order of sections</h3>
+<ul>
+  <li><b>Change the order:</b> drag the row by the handle in the <b>Sort order</b> column — the new order
+    is saved right away, and the bot sees it from the next question. Dragging works when the list has no search
+    or filters. You can also do it by hand: the <b>Sort order</b> number in the form, lower means higher up.</li>
+</ul>
+
+{% call note("success", "Temporarily hide a section") %}
+Clear the <b>Enabled</b> checkbox — for example, for the “New Year schedule” section after the holidays.
+{% endcall %}

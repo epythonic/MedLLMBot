@@ -1,18 +1,22 @@
 """Admin help is checked against the code: new sections, columns and totals do not go unexplained."""
 
+import re
 from collections.abc import Iterable
+from pathlib import Path
 
 import pytest
 from sqladmin import ModelView
 
-from medllmbot.admin.help import FLAG_HELP, GAP_HELP, HELP, OUTCOME_HELP, TOPICS, help_topic
+from medllmbot.admin.help import FLAG_HELP, GAP_HELP, HELP, OUTCOME_HELP, TOPICS, HelpTopic, help_topic
 from medllmbot.admin.views import VIEWS
 from medllmbot.analytics import GapReason
 from medllmbot.db.models import AuditOutcome
+from medllmbot.i18n import LOCALES
 from medllmbot.security import FLAG_LABELS
 
-# Custom admin pages without a model: «Расходы → Отчёт по месяцам» and «Клиенты → Аналитика»
+# Custom admin pages without a model: Costs → Monthly report and Clients → Analytics
 CUSTOM_PAGES = {"costs", "analytics"}
+TEMPLATES = Path(__file__).parent.parent / "medllmbot" / "admin" / "templates"
 
 
 def _names(attrs: Iterable[object]) -> set[str]:
@@ -85,7 +89,31 @@ def test_anchors() -> None:
     assert topic.anchor() == "help-lead"
     assert topic.anchor("statusy") == "help-lead-statusy"
     assert topic.field_anchor("phone") == "help-lead-field-phone"
-    assert topic.template == "help/topics/lead.html"
+    assert topic.template_for("ro") == "help/topics/ro/lead.html"
+    assert topic.template == "help/topics/en/lead.html"  # outside a request the language is the default, English
+
+
+def _topic_id(topic: HelpTopic) -> str:
+    return topic.identity
+
+
+@pytest.mark.parametrize("locale", LOCALES)
+@pytest.mark.parametrize("topic", TOPICS, ids=_topic_id)
+def test_every_topic_has_text_in_every_language(topic: HelpTopic, locale: str) -> None:
+    assert (TEMPLATES / topic.template_for(locale)).is_file()
+
+
+def _references(topic: HelpTopic, locale: str) -> tuple[list[str], list[str]]:
+    text = (TEMPLATES / topic.template_for(locale)).read_text()
+    return sorted(re.findall(r"topic\.anchor\('([^']*)'\)", text)), sorted(re.findall(r"section_link\('([^']*)'\)", text))
+
+
+@pytest.mark.parametrize("locale", [locale for locale in LOCALES if locale != "ru"])
+@pytest.mark.parametrize("topic", TOPICS, ids=_topic_id)
+def test_translation_keeps_anchors_and_links(topic: HelpTopic, locale: str) -> None:
+    # Anchors and links between sections are shared by all languages: a translation that drops or renames one
+    # breaks the links to it from the «?» hints and other sections
+    assert _references(topic, locale) == _references(topic, "ru")
 
 
 def test_help_topic_lookup() -> None:

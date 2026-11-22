@@ -1,0 +1,55 @@
+{% from "help/_macros.html" import note, section_link with context %}
+<h3 id="{{ topic.anchor('kak-ispolzuet') }}">How the bot uses the price list</h3>
+<p>The catalog is the clinic's services or the shop's products. With every client question, the bot reads the active
+items and passes Claude lines of the form “Name — price lei (description)”. An edit is visible from the next message,
+no restart is needed. When answering about a price, the bot adds that the administrator will confirm the exact cost.</p>
+
+<h3 id="{{ topic.anchor('poisk') }}">Large catalog: search instead of the whole price list</h3>
+<p>As long as there are no more active services than the <b>Catalog in prompt, up to items</b> threshold in
+{{ section_link('bot-config') }} (50 by default), Claude gets the whole price list with every question — this is faster
+and cheaper. If there are more services, the whole price list does not fit in the request, and the bot searches the
+catalog for what it needs: the model picks the words itself (“teeth cleaning”, “implant”), gets up to 10 matching items
+with prices and answers based on them.</p>
+<ul>
+  <li>The search covers the name and description and understands different word forms: “cleanings” finds “Cleaning”.</li>
+  <li>What the bot searched for and how much it found is shown in {{ section_link('audit-event') }}, in the
+    <b>What the bot searched for</b> field. If a client asked about a service and the search did not find it, add the
+    words clients use for it to its name or description.</li>
+  <li>An answer with search takes two to four calls to Claude instead of one, so it costs a little more and takes
+    longer.</li>
+</ul>
+
+<h3 id="{{ topic.anchor('proverka-cen') }}">Protection against made-up prices</h3>
+<p>If the model names an amount in lei that is not in the knowledge base, the client will not see it: they will get
+“I'll check the price with the administrator and get back to you”, and a record with the outcome “Price replaced” will
+appear in {{ section_link('audit-event') }}. If there are many such records, check that all prices are in the price
+list.</p>
+
+<h3 id="{{ topic.anchor('kak') }}">How to work with services</h3>
+<ul>
+  <li><b>Add:</b> the <b>+ New Item</b> button above the table → fill in the name and price → <b>Save</b>.</li>
+  <li><b>Change a price:</b> the pencil icon in the service's row → <b>Price, lei</b> → <b>Save</b>.</li>
+  <li><b>Remove temporarily</b> (the service is not offered right now): clear the <b>Active</b> checkbox. The bot will
+    stop offering it, but the record stays — later you only need to switch it back on.</li>
+  <li><b>Delete permanently:</b> the trash icon in the row. Deletion cannot be undone.</li>
+  <li><b>Change the order:</b> drag the row by the handle in the <b>Sort order</b> column — the new order
+    is saved right away, and the bot sees it from the next question. Dragging works when the list has no search
+    or filters. You can also do it by hand: the <b>Sort order</b> number in the form, lower means higher up.</li>
+</ul>
+
+<h3 id="{{ topic.anchor('sovety') }}">How to fill it in</h3>
+<ul>
+  <li>One service — one row with one price. The price is a whole number in lei.</li>
+  <li>If the price depends on the case, enter the minimum and write in the description “price from; the doctor gives
+    the exact price after an examination”.</li>
+  <li>The description is for facts: duration, what the price includes. Do not write instructions for the bot in it.</li>
+  <li>The bot does not make up promotions. If there really is a promotion, add it to the service description.</li>
+</ul>
+{% call note("warning", "Changing a price? Check the FAQ") %}
+The bot also treats prices from {{ section_link('faq-item') }} and {{ section_link('info-section') }} as current.
+If the old price is mentioned there, the bot may name it.
+{% endcall %}
+{% call note("info", "Editing the knowledge base slightly resets the cache") %}
+Every edit changes the text of the request to Claude, so the first answer after it costs a little more: the cache is
+written again. The difference is fractions of a cent, so edit freely.
+{% endcall %}

@@ -1,0 +1,56 @@
+{% from "help/_macros.html" import note, section_link with context %}
+<h3 id="{{ topic.anchor('otkuda') }}">Where leads come from</h3>
+<p>Leads are created by the bot; they are not added manually. When a client sends a message with a phone number,
+for example <code>+373 60 000 000</code> or <code>060000000</code>, the bot:</p>
+<ul>
+  <li>saves a lead with the status <b>New</b>;</li>
+  <li>sends the administrator a Telegram notification “New lead #N” with the name, phone number and message text;</li>
+  <li>replies to the client as usual.</li>
+</ul>
+<p>The lead is created even if Claude is unavailable at that moment or the message is longer than the limit in
+{{ section_link('bot-config') }}: the bot will ask the client to write more briefly, but will save the number and tell the client so.
+There will be no lead only if the client is blocked or writes too often. The Telegram notification contains the first
+500 characters of the message; the full text is in the <b>Message</b> column.</p>
+
+<h3 id="{{ topic.anchor('kak') }}">How to handle a lead</h3>
+<ol>
+  <li>Open the section — new leads are at the top. To see only unprocessed ones, in the <b>Filters</b> block
+    choose <b>Status → New</b>.</li>
+  <li>Call the client at the number in the <b>Phone</b> column. The <b>Message</b> column often already has
+    the service or product they need and a convenient time.</li>
+  <li>Change the status right in the list: the <b>Status</b> column has a drop-down list, and the choice is saved at once —
+    the frame lights up green for a second. You can change the status as many times as needed: “In progress” → “Done”.</li>
+  <li>To record what you agreed on, click the pencil icon and fill in <b>Administrator note</b>,
+    then click <b>Save</b>.</li>
+</ol>
+
+<h3 id="{{ topic.anchor('novye') }}">New leads without reloading</h3>
+<p>While the section is open, it checks every 15 seconds whether new leads have appeared. If they have, a banner
+“New leads: N” appears above the table — click <b>Show</b> to refresh the list. The Telegram notification
+still arrives as usual.</p>
+
+<h3 id="{{ topic.anchor('statusy') }}">Statuses</h3>
+<table class="table table-sm">
+  <tbody>
+    <tr><td>New</td><td>The bot created the lead; no one has contacted the client yet.</td></tr>
+    <tr><td>In progress</td><td>You have contacted the client or are waiting for their reply.</td></tr>
+    <tr><td>Done</td><td>The client is booked for an appointment or the order is placed — the lead is closed successfully.</td></tr>
+    <tr><td>Rejected</td><td>The client changed their mind, does not answer the phone, or this is not a lead.</td></tr>
+  </tbody>
+</table>
+
+<h3 id="{{ topic.anchor('poisk') }}">Search</h3>
+<p>The search box above the table searches by client name, phone number and message text. The client's whole conversation
+can be read in {{ section_link('chat-message') }}: filter it by <b>Chat ID</b> from the lead page.</p>
+
+{% call note("warning", "The bot does not book appointments or place orders itself") %}
+The bot does not see the doctors' schedule or the stock and does not set times. It only collects contacts — the appointment time
+or the order is agreed by a staff member over the phone.
+{% endcall %}
+{% call note("info", "Not everything that looks like a phone number is a lead") %}
+The bot looks for a long sequence of digits in the text. Occasionally it turns out to be a contract or insurance policy number —
+move such a lead to “Rejected”.
+{% endcall %}
+{% call note("success", "Do not delete leads") %}
+Deletion cannot be undone. Move a lead that is no longer relevant to “Rejected” — the history of your work with clients is kept.
+{% endcall %}
