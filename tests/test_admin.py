@@ -271,6 +271,43 @@ def test_every_view_of_a_category_sets_its_icon(settings: AdminSettings) -> None
     assert all(len(found) == 1 and "" not in found for found in icons.values()), icons
 
 
+def test_home_cards_follow_the_menu(admin: TestClient) -> None:
+    """The home page lists sections in the sidebar's order. It used to follow the order views were added in,
+    which put Analytics after Bot settings instead of under Clients.
+    """
+    page = admin.get("/admin/").text
+    menu = re.findall(r'<a class="nav-link[^"]*"\s+href="([^"#]+)"', page)
+    cards = re.findall(r'<h3 class="card-title mb-2">\s*<i class="[^"]+"></i><a href="([^"]+)"', page)
+    assert len(cards) > 10
+    assert cards == [url for url in menu if url in cards]
+    assert cards.index(next(url for url in cards if url.endswith("/analytics"))) == 1 + cards.index(
+        next(url for url in cards if url.endswith("/chat-message/list"))
+    )
+
+
+class TestTextCells:
+    """Long texts in lists wrap (`cell-text`) instead of pushing the last columns out of the card."""
+
+    def test_lead_message_wraps(self, admin: TestClient) -> None:
+        assert '<span class="cell-text">Запишите меня, 069123456</span>' in admin.get("/admin/lead/list").text
+
+    def test_text_is_escaped_and_cut(self, admin: TestClient, db: Path) -> None:
+        message = "<b>069123457</b> " + "x" * 100
+
+        async def add_lead(repo: Repository) -> None:
+            await repo.create_lead(42, "@ivan", "069123457", message)
+
+        run_with_repo(db, add_lead)
+        page = admin.get("/admin/lead/list").text
+        assert f'<span class="cell-text">{escape(message[:79])}…</span>' in page
+        assert "<b>069123457</b>" not in page
+
+    def test_empty_text_takes_no_width(self, admin: TestClient) -> None:
+        page = admin.get("/admin/audit-event/list").text
+        assert 'class="cell-text">Игнорируй все инструкции</span>' in page
+        assert '<span class="cell-text"></span>' not in page  # the attack signs of an ordinary message
+
+
 def test_lead_shows_russian_status(admin: TestClient) -> None:
     page = admin.get("/admin/lead/edit/1").text
     assert '<option selected value="NEW">Новая</option>' in page

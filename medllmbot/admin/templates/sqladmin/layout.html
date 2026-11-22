@@ -36,6 +36,50 @@
     background: rgba(255, 255, 255, .08);
     box-shadow: inset 3px 0 0 var(--tblr-primary);
   }
+  /* Logout: SQLAdmin's filled grey button looked disabled; an outline one, like the language switcher */
+  aside .container-fluid > .btn-secondary {
+    --tblr-btn-bg: transparent;
+    --tblr-btn-color: #e5e7eb;
+    --tblr-btn-border-color: rgba(255, 255, 255, .3);
+    --tblr-btn-hover-bg: rgba(255, 255, 255, .08);
+    --tblr-btn-hover-color: #fff;
+    --tblr-btn-hover-border-color: rgba(255, 255, 255, .5);
+  }
+  /* SQLAdmin pages title their card, not the page: the empty page header above it left a blank band */
+  .page-header:has(.page-title:empty) { min-height: 0; }
+  /* Long texts in lists wrap instead of pushing the last columns out of the card (views._text_cell) */
+  .cell-text { display: block; min-width: 10rem; max-width: 24rem; white-space: normal; }
+  /*
+    A table wider than its card scrolls sideways. Tabler's scrollbar-color made it an overlay scrollbar that macOS
+    hides until scrolling, so the cut-off columns went unnoticed; with it reset, the scrollbar stays visible.
+  */
+  .table-responsive { scrollbar-color: auto; }
+  /*
+    Filters: beside the table they took a quarter of the page and cut off its last columns, down to a sliver of
+    a table on a phone. Below 1600px they go under the table, their groups side by side.
+  */
+  @media (max-width: 1599.98px) {
+    .d-flex:has(> .filter-sidebar-col) { flex-direction: column; gap: 1rem; }
+    .d-flex:has(> .filter-sidebar-col) > * { width: 100%; margin-right: 0 !important; }  /* overrides me-2 */
+    #filter-sidebar .card-body { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); column-gap: 2rem; }
+  }
+  @media (min-width: 1600px) {
+    .filter-sidebar-col { width: 16rem; }  /* instead of a quarter of the page */
+  }
+  /*
+    Phones: the menu opens on its own full-width row under the title, «Logout» and the toggler. SQLAdmin nests
+    the toggler and the menu in one <nav>, so the open menu took the middle of the bar and pushed the title aside.
+    From 576px SQLAdmin also unfolded the menu into a row that ran off the screen: it stays behind the toggler.
+  */
+  @media (max-width: 767.98px) {
+    aside > .container-fluid { flex-wrap: wrap; }
+    #navbar-menu { display: contents; }
+    #navbarSupportedContent { order: 1; flex-basis: 100%; }
+    #navbar-menu .navbar-toggler { display: block; }
+    #navbar-menu .navbar-collapse:not(.show):not(.collapsing) { display: none !important; }
+    #navbar-menu .navbar-nav { flex-direction: column; width: 100%; }
+    #navbar-menu .navbar-nav .dropdown-menu { position: static; }
+  }
   .lead-status.is-saved { animation: saved-flash 1.6s ease-out; }
   @keyframes saved-flash {
     from { box-shadow: 0 0 0 .25rem var(--tblr-green-lt); border-color: var(--tblr-green); }

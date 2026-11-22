@@ -23,6 +23,15 @@ panel starts, and every schema change ships as an Alembic migration.
   the same indent, so an opened category looked as if its sections had moved left, and “Bot settings” and “Help” read
   as part of “Costs”. The open section is highlighted, not only shown in a brighter text. The “Log” icon changed,
   since the shield now marks the “Security” category.
+- Lists no longer cut off their last columns. Long texts (a lead's message, a chat message, log texts and attack
+  signs, FAQ answers) wrap within the cell instead of running on one line. Below 1600 px the filters go under the
+  table instead of taking a quarter of the page. A table that is still wider than its card, like the log, shows its
+  scrollbar. Before, macOS hid it until scrolling, so nothing showed that columns were missing.
+- On a phone, lists are readable: the filters had squeezed the table to a few pixels. The open menu takes its own
+  full-width row instead of pushing the title aside. Between 576 and 767 px it no longer unfolds into a row that ran
+  off the screen.
+- The “Logout” button no longer looks disabled, and the blank band above the tables and forms is gone.
+- The home page lists the sections in the sidebar's order: “Analytics” used to come after “Bot settings”.
 
 ## [0.3.0] - 2026-11-22
 

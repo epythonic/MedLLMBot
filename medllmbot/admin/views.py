@@ -61,34 +61,41 @@ SECURITY_ICON = "fa-solid fa-shield-halved"
 COSTS_ICON = "fa-solid fa-coins"
 
 
-def _short(text: str | None, limit: int = 80) -> str:
-    text = text or ""
-    return text if len(text) <= limit else text[: limit - 1] + "…"
+# A long text in a list cell wraps (.cell-text in templates/sqladmin/layout.html). SQLAdmin's tables do not wrap,
+# so a text on one line pushed the last columns out of the card
+TEXT_CELL = Markup('<span class="cell-text">{}</span>')
+
+
+def _text_cell(text: str | None, limit: int = 80) -> Markup | str:
+    """A list cell with a long text, cut to `limit` characters. An empty text stays empty and takes no width."""
+    if not text:
+        return ""
+    return TEXT_CELL.format(text if len(text) <= limit else text[: limit - 1] + "…")
 
 
 # List column formatters: (model, attribute name) -> displayed text
-def _lead_message(model: Lead, _attr: object) -> str:
-    return _short(model.message)
+def _lead_message(model: Lead, _attr: object) -> Markup | str:
+    return _text_cell(model.message)
 
 
-def _chat_content(model: ChatMessage, _attr: object) -> str:
-    return _short(model.content, 120)
+def _chat_content(model: ChatMessage, _attr: object) -> Markup | str:
+    return _text_cell(model.content, 120)
 
 
-def _faq_answer(model: FaqItem, _attr: object) -> str:
-    return _short(model.answer)
+def _faq_answer(model: FaqItem, _attr: object) -> Markup | str:
+    return _text_cell(model.answer)
 
 
-def _section_content(model: InfoSection, _attr: object) -> str:
-    return _short(model.content)
+def _section_content(model: InfoSection, _attr: object) -> Markup | str:
+    return _text_cell(model.content)
 
 
-def _audit_text(model: AuditEvent, _attr: object) -> str:
-    return _short(model.user_text)
+def _audit_text(model: AuditEvent, _attr: object) -> Markup | str:
+    return _text_cell(model.user_text)
 
 
-def _audit_answer(model: AuditEvent, _attr: object) -> str:
-    return _short(model.final_answer)
+def _audit_answer(model: AuditEvent, _attr: object) -> Markup | str:
+    return _text_cell(model.final_answer)
 
 
 def _audit_cost(model: AuditEvent, _attr: object) -> str:
@@ -110,6 +117,10 @@ def _audit_outcome(model: AuditEvent, _attr: object) -> str:
 
 def _audit_flags(model: AuditEvent, _attr: object) -> str:
     return ", ".join(gettext(FLAG_LABELS.get(code, code)) for code in model.flags.split(",") if code)
+
+
+def _audit_flags_cell(model: AuditEvent, attr: object) -> Markup | str:
+    return _text_cell(_audit_flags(model, attr), 200)
 
 
 # A yellow badge instead of a check mark and cross: a red cross on ordinary messages looked like an alarm
@@ -614,7 +625,7 @@ class AuditEventAdmin(AdminView, model=AuditEvent):
     column_formatters = {
         AuditEvent.user_text: _audit_text,
         AuditEvent.final_answer: _audit_answer,
-        AuditEvent.flags: _audit_flags,
+        AuditEvent.flags: _audit_flags_cell,
         AuditEvent.cost_micro_usd: _audit_cost,
         AuditEvent.outcome: _audit_outcome,
         AuditEvent.is_suspicious: _audit_suspicious,
