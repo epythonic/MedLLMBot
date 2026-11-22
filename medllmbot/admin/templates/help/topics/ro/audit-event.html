@@ -25,12 +25,12 @@ iar în răspunsul modelului — fragmente din regulile sale. Semnele declanșat
 
 <h3 id="{{ topic.anchor('podozritelnoe') }}">Ce se întâmplă cu un mesaj suspect</h3>
 <ul>
-  <li>Clientul primește răspunsul obișnuit al modelului: de spargere botul este protejat de regulile sale și de
+  <li>Clientul primește răspunsul obișnuit al modelului: botul este protejat împotriva spargerii de regulile sale și de
     verificările răspunsului, nu de detector. Excepție face răspunsul cu fragmente din reguli: acesta este înlocuit
     cu o frază neutră.</li>
   <li>Mesajul și răspunsul nu se salvează în {{ section_link('chat-message') }}, așa că atacul nu se acumulează
     în memoria botului.</li>
-  <li>Administratorul primește în Telegram notificarea „Atenție: mesaj suspect…”, cel mult o dată la 15 minute pentru un client, ca atacatorul să nu-l copleșească
+  <li>Administratorul primește în Telegram notificarea „Atenție: mesaj suspect…”, cel mult o dată la 15 minute pentru fiecare client, ca atacatorul să nu-l copleșească
     cu mesaje.</li>
 </ul>
 
@@ -46,7 +46,7 @@ iar în răspunsul modelului — fragmente din regulile sale. Semnele declanșat
 
 <h3 id="{{ topic.anchor('novye') }}">Evenimente noi fără reîncărcarea paginii</h3>
 <p>Cât timp jurnalul este deschis, acesta verifică o dată la 15 secunde dacă există înregistrări noi. Deasupra tabelului
-apare mesajul „Evenimente noi în jurnal: N”; dacă printre ele sunt și suspecte, mesajul devine galben și arată câte sunt.
+apare mesajul „Evenimente noi în jurnal: N”; dacă printre ele sunt și unele suspecte, mesajul devine galben și arată câte sunt.
 Apăsați <b>Afișați</b> pentru a actualiza lista.</p>
 
 {% call note("warning", "Detectorul este un semnal, nu o protecție") %}

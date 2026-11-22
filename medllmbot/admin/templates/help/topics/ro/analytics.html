@@ -21,25 +21,25 @@ nu sunt trimise nicăieri altundeva.</p>
     Ponderea acestor dialoguri arată cât de des conversația cu botul duce la un apel.</li>
 </ul>
 
-<h3 id="{{ topic.anchor('temy') }}">Cum se determină temele</h3>
-<p>Tema se determină după cuvintele-cheie din întrebare, în rusă și română: «цена», «сколько стоит», „preț” înseamnă „Prețuri”.
-O întrebare poate intra în mai multe teme: „Cât costă detartrajul?” intră și în „Prețuri”, și în „Igienă și albire”.</p>
+<h3 id="{{ topic.anchor('temy') }}">Cum se determină subiectele</h3>
+<p>Subiectul se determină după cuvintele-cheie din întrebare, în rusă și română: «цена», «сколько стоит», „preț” înseamnă „Prețuri”.
+O întrebare poate intra în mai multe subiecte: „Cât costă detartrajul?” intră și în „Prețuri”, și în „Igienă și albire”.</p>
 <ul>
   <li><b>Au lăsat numărul de telefon</b> — mesaje fără cuvinte cunoscute, dar cu un număr de telefon: de obicei așa răspunde clientul
     când botul îi cere datele de contact.</li>
   <li><b>Altele</b> — tot restul, inclusiv replicile scurte de tipul „Mulțumesc”. Exemplele de sub denumire vă sugerează
-    ce temă lipsește.</li>
-  <li>Sub fiecare temă apar până la trei întrebări recente. Mesajele cu număr de telefon nu apar în exemple.</li>
+    ce subiect lipsește.</li>
+  <li>Sub fiecare subiect apar până la trei întrebări recente. Mesajele cu număr de telefon nu apar în exemple.</li>
 </ul>
-<p>Temele depind de profilul afacerii:</p>
+<p>Subiectele depind de profilul afacerii:</p>
 <ul>
   {% for kind, topics in analytics_topics.items() %}
   <li><b>{{ _(kind.value) }}:</b> {% for item in topics %}{{ _(item.name) }}{% if not loop.last %}, {% endif %}{% endfor %}.</li>
   {% endfor %}
 </ul>
-{% call note("info", "Teme proprii") %}
-Dicționarele de teme se definesc în cod (<code>medllmbot/analytics.py</code>), nu în panoul de administrare: le adaptează
-pentru afacerea dvs. dezvoltatorul. Cuvintele noi se aplică imediat și întrebărilor anterioare — datele nu trebuie recalculate manual.
+{% call note("info", "Subiecte proprii") %}
+Dicționarele de subiecte se definesc în cod (<code>medllmbot/analytics.py</code>), nu în panoul de administrare: le adaptează
+dezvoltatorul pentru afacerea dvs. Cuvintele noi se aplică imediat și întrebărilor anterioare — datele nu trebuie recalculate manual.
 {% endcall %}
 
 <h3 id="{{ topic.anchor('bez-otveta') }}">Întrebări fără răspuns</h3>
