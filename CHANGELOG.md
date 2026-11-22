@@ -16,6 +16,14 @@ panel starts, and every schema change ships as an Alembic migration.
   translation. The wording customers see has not changed. The README has a “Translations” section on where each
   text lives and how to edit and check it.
 
+### Fixed
+
+- The admin sidebar shows which sections belong to which category. Categories have their own icons, and their
+  sections sit under the category title on a guide line. Before, the categories had no icon and their sections had
+  the same indent, so an opened category looked as if its sections had moved left, and “Bot settings” and “Help” read
+  as part of “Costs”. The open section is highlighted, not only shown in a brighter text. The “Log” icon changed,
+  since the shield now marks the “Security” category.
+
 ## [0.3.0] - 2026-11-22
 
 This release makes the project usable in three languages. The admin panel, its help and the documentation are in

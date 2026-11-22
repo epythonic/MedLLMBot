@@ -10,13 +10,14 @@ import pytest
 from fastapi.testclient import TestClient
 from markupsafe import escape
 from pydantic import SecretStr, ValidationError
-from sqladmin import ModelView
+from sqladmin import BaseView, ModelView
 from sqlalchemy import delete
 
 from medllmbot.admin.app import create_app
 from medllmbot.admin.auth import LoginThrottle
 from medllmbot.admin.forms import AdminForm
 from medllmbot.admin.help import FLAG_HELP, GAP_HELP, HELP, OUTCOME_HELP, TOPICS
+from medllmbot.admin.reports import make_analytics_view, make_cost_report_view
 from medllmbot.admin.views import VIEWS
 from medllmbot.analytics import TOPICS as ANALYTICS_TOPICS
 from medllmbot.config import AdminSettings
@@ -241,6 +242,33 @@ def test_forms_render(admin: TestClient, view: type[ModelView]) -> None:
         edit_link = re.search(rf"/admin/{view.identity}/edit/[^\"?]+", admin.get(f"/admin/{view.identity}/list").text)
         assert edit_link is not None, "no record in the test DB, the edit form cannot be checked"
         assert admin.get(edit_link.group()).status_code == 200
+
+
+def test_menu_categories_have_icons(admin: TestClient) -> None:
+    """Every sidebar category shows an icon. Without one, its sections' icons stood left of the category title,
+    and an opened category looked as if its sections had moved left.
+    """
+    page = admin.get("/admin/").text
+    categories = re.findall(
+        r'data-sqladmin-menu-category="([^"]+)">\s*<a [^>]*>\s*<span class="nav-link-icon[^"]*">\s*(<i class="[^"]+">)?',
+        page,
+    )
+    assert len(categories) == 4
+    assert all(icon for _, icon in categories), categories
+
+
+def test_every_view_of_a_category_sets_its_icon(settings: AdminSettings) -> None:
+    """SQLAdmin takes a category's icon from the category's first view. Every view sets the same one,
+    so the order of views does not decide which icon the sidebar shows.
+    """
+    repo = Repository(create_sessionmaker(create_engine(settings.db_path)))
+    views: list[type[BaseView]] = [*VIEWS, make_analytics_view(repo), make_cost_report_view(repo)]
+    icons: dict[str, set[str]] = {}
+    for view in views:
+        if view.category:
+            icons.setdefault(str(view.category), set()).add(view.category_icon)
+    assert len(icons) == 4
+    assert all(len(found) == 1 and "" not in found for found in icons.values()), icons
 
 
 def test_lead_shows_russian_status(admin: TestClient) -> None:
