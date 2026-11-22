@@ -1,5 +1,5 @@
 {#
-  Copy of sqladmin/filters/operation_filter.html (SQLAdmin 0.32) with Russian labels:
+  Copy of sqladmin/filters/operation_filter.html (SQLAdmin 0.32) with translatable labels:
   in the original «Select operation…», «Enter value», «Current» and «Clear» are not translated.
 #}
 {% extends "sqladmin/filters/base_filter.html" %}
@@ -11,8 +11,8 @@
 
   {% if current_filter %}
   <div class="mb-2 text-muted small">
-    Сейчас: {{ dict(operations).get(current_op, current_op) }} {{ current_filter }}
-    <a href="{{ request.url.remove_query_params(filter.parameter_name).remove_query_params(filter.parameter_name + '_op') }}" class="text-decoration-none">[сбросить]</a>
+    {{ _("Current: %(operation)s %(value)s", operation=dict(operations).get(current_op, current_op), value=current_filter) }}
+    <a href="{{ request.url.remove_query_params(filter.parameter_name).remove_query_params(filter.parameter_name + '_op') }}" class="text-decoration-none">[{{ _("clear") }}]</a>
   </div>
   {% endif %}
 
@@ -24,7 +24,7 @@
     {% endfor %}
 
     <select name="{{ filter.parameter_name }}_op" class="form-select form-select-sm" required>
-      <option value="">Условие…</option>
+      <option value="">{{ _("Condition…") }}</option>
       {% for op_value, op_label in operations %}
       <option value="{{ op_value }}" {% if current_op == op_value %}selected{% endif %}>{{ op_label }}</option>
       {% endfor %}
@@ -33,7 +33,7 @@
     <input
       type="text"
       name="{{ filter.parameter_name }}"
-      placeholder="Значение"
+      placeholder="{{ _('Value') }}"
       class="form-control form-control-sm"
       value="{{ current_filter }}"
       required>

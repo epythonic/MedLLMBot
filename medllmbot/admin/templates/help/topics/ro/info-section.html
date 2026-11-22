@@ -1,0 +1,40 @@
+{% from "help/_macros.html" import note, section_link with context %}
+<h3 id="{{ topic.anchor('chto') }}">Ce este această secțiune</h3>
+<p>Informații generale despre clinică sau magazin pentru bot. Fiecare secțiune are un titlu și un text; botul le vede
+împreună cu {{ section_link('service') }} și {{ section_link('faq-item') }}. Dacă răspunsul la o întrebare nu se află
+în niciuna dintre aceste secțiuni, botul spune că administratorul (în magazin — managerul) va răspunde în timpul
+programului de lucru.</p>
+
+<h3 id="{{ topic.anchor('chto-pisat') }}">Ce să scrieți aici</h3>
+<ul>
+  <li>Adresa, repere, cum se ajunge, parcarea.</li>
+  <li>Telefoanele și programul de lucru — fără ele botul nu poate spune clientului când va fi sunat înapoi.</li>
+  <li>Pentru magazin — livrarea, ridicarea personală, garanția și returul.</li>
+  <li>Metodele de plată, plata în rate, garanțiile.</li>
+  <li>Reguli generale: pregătirea pentru vizită, ce trebuie luat cu sine, condițiile pentru copii.</li>
+</ul>
+
+<h3 id="{{ topic.anchor('ne-pisat') }}">Ce să nu scrieți aici</h3>
+<ul>
+  <li>Comenzi pentru bot („propune mereu o reducere”, „răspunde doar în română”). Scrieți fapte.</li>
+  <li>Datele personale ale medicilor și pacienților, telefoanele interne.</li>
+  <li>Informații de care nu sunteți siguri: botul le va repeta clientului ca pe un fapt.</li>
+</ul>
+
+{% call note("info", "Regulile de comportament ale botului sunt stabilite de dezvoltator") %}
+Botul răspunde doar despre compania sa, nu își schimbă rolul și nu numește prețuri care nu sunt în baza de cunoștințe.
+Regulile de domeniu depind de profil: clinica stomatologică nu pune diagnostice, magazinul nu promite disponibilitatea
+produselor (vedeți {{ section_link('bot-config') }} → „Profilul afacerii”). Aceste reguli sunt scrise în cod și au
+prioritate față de textul bazei de cunoștințe — ele nu pot fi modificate aici.
+{% endcall %}
+
+<h3 id="{{ topic.anchor('poryadok') }}">Ordinea secțiunilor</h3>
+<ul>
+  <li><b>Schimbarea ordinii:</b> trageți rândul de pictograma din coloana <b>Ordine</b> — noua ordine
+    se salvează imediat, iar botul o vede de la următoarea întrebare. Tragerea funcționează când lista nu are căutare
+    sau filtre. Se poate și manual: numărul <b>Ordine</b> din formular, mai mic — mai sus.</li>
+</ul>
+
+{% call note("success", "Ascundeți temporar o secțiune") %}
+Debifați <b>Activă</b> — de exemplu, la secțiunea „Programul de Anul Nou” după sărbători.
+{% endcall %}

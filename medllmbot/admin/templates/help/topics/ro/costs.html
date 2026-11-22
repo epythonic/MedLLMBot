@@ -1,0 +1,28 @@
+{% from "help/_macros.html" import note, section_link with context %}
+<h3 id="{{ topic.anchor('kak-chitat') }}">Cum citiți raportul</h3>
+<ul>
+  <li>Un card — o lună, cele mai noi sus. În antetul cardului — suma pe lună.</li>
+  <li>Rândurile sunt modele, cele mai scumpe sus. Ultimul rând, „Total”, este suma pentru toate modelele.</li>
+  <li>Pentru luna curentă, lângă sumă este afișată <b>prognoza pe lună</b>: suma cheltuită se împarte la zilele trecute
+    și se înmulțește cu numărul de zile din lună. În primele zile ale lunii prognoza este aproximativă.</li>
+  <li>Lunile se calculează după UTC, ca în facturile Anthropic.</li>
+</ul>
+
+<h3 id="{{ topic.anchor('ocenka') }}">Este o estimare, nu o factură</h3>
+<p>Raportul se calculează după tokenurile din răspunsurile lui Claude și prețurile din {{ section_link('model-price') }}.
+Taxele, reducerile contractuale și solicitările către API făcute ocolind botul nu sunt luate în calcul. Suma exactă
+o găsiți în Anthropic Console, în secțiunea Usage / Cost.</p>
+{% call note("warning", "Avertismentul despre solicitările fără preț") %}
+Dacă sub tabelul lunii există un avertisment despre solicitări fără preț, totalul este subestimat: adăugați modelul
+în {{ section_link('model-price') }}.
+{% endcall %}
+
+<h3 id="{{ topic.anchor('ekonomiya') }}">Cum reduceți cheltuielile</h3>
+<ul>
+  <li><b>Modelul.</b> Haiku este de câteva ori mai ieftin decât Sonnet și Opus și se descurcă bine cu întrebările
+    din baza de cunoștințe.</li>
+  <li><b>Adâncimea istoricului</b> din {{ section_link('bot-config') }}: fiecare mesaj din istoric adaugă tokenuri
+    la fiecare întrebare a clientului.</li>
+  <li><b>Dimensiunea bazei de cunoștințe.</b> Ea se trimite cu fiecare întrebare. Cache-ul ieftinește repetările, dar
+    secțiunile inutile și serviciile inactive este mai bine să le dezactivați.</li>
+</ul>

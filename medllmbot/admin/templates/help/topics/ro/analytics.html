@@ -1,0 +1,66 @@
+{% from "help/_macros.html" import note, section_link with context %}
+<h3 id="{{ topic.anchor('otkuda') }}">De unde provin datele</h3>
+<p>Pagina se calculează la deschidere din {{ section_link('audit-event') }} și {{ section_link('lead') }} pentru perioada
+aleasă: 7, 30 sau 90 de zile, în UTC. Claude nu este apelat pentru analiză — analiza nu costă nimic, iar conversațiile clienților
+nu sunt trimise nicăieri altundeva.</p>
+<ul>
+  <li><b>Întrebare</b> — un mesaj text al clientului care a ajuns la bot. Nu se numără: salutul (/start), fotografiile
+    și mesajele vocale, mesajele omise din cauza limitei de mesaje sau a blocării, mesajele cu semne de atac — acestea
+    se analizează în {{ section_link('audit-event') }} — și conversația cu operatorul: o poartă un om, nu botul.</li>
+  <li><b>Au cerut un operator</b> — de câte ori clienții au cerut un om. Dacă cifra crește, botului îi lipsește ceva:
+    consultați „Întrebări fără răspuns” și {{ section_link('client') }}.</li>
+  <li>Jurnalul se păstrează atâtea zile câte sunt indicate în {{ section_link('bot-config') }}. Dacă perioada este mai lungă,
+    analiza cuprinde doar perioada de păstrare.</li>
+</ul>
+
+<h3 id="{{ topic.anchor('dialogi') }}">Dialoguri și cereri</h3>
+<ul>
+  <li><b>Dialog</b> — mesajele unui client fără o pauză mai lungă de o zi. Dacă clientul revine după o săptămână, începe un dialog
+    nou.</li>
+  <li><b>Dialog cu cerere</b> — clientul a lăsat în el numărul de telefon, iar în {{ section_link('lead') }} a apărut o cerere.
+    Ponderea acestor dialoguri arată cât de des conversația cu botul duce la un apel.</li>
+</ul>
+
+<h3 id="{{ topic.anchor('temy') }}">Cum se determină temele</h3>
+<p>Tema se determină după cuvintele-cheie din întrebare, în rusă și română: «цена», «сколько стоит», „preț” înseamnă „Prețuri”.
+O întrebare poate intra în mai multe teme: „Cât costă detartrajul?” intră și în „Prețuri”, și în „Igienă și albire”.</p>
+<ul>
+  <li><b>Au lăsat numărul de telefon</b> — mesaje fără cuvinte cunoscute, dar cu un număr de telefon: de obicei așa răspunde clientul
+    când botul îi cere datele de contact.</li>
+  <li><b>Altele</b> — tot restul, inclusiv replicile scurte de tipul „Mulțumesc”. Exemplele de sub denumire vă sugerează
+    ce temă lipsește.</li>
+  <li>Sub fiecare temă apar până la trei întrebări recente. Mesajele cu număr de telefon nu apar în exemple.</li>
+</ul>
+<p>Temele depind de profilul afacerii:</p>
+<ul>
+  {% for kind, topics in analytics_topics.items() %}
+  <li><b>{{ _(kind.value) }}:</b> {% for item in topics %}{{ _(item.name) }}{% if not loop.last %}, {% endif %}{% endfor %}.</li>
+  {% endfor %}
+</ul>
+{% call note("info", "Teme proprii") %}
+Dicționarele de teme se definesc în cod (<code>medllmbot/analytics.py</code>), nu în panoul de administrare: le adaptează
+pentru afacerea dvs. dezvoltatorul. Cuvintele noi se aplică imediat și întrebărilor anterioare — datele nu trebuie recalculate manual.
+{% endcall %}
+
+<h3 id="{{ topic.anchor('bez-otveta') }}">Întrebări fără răspuns</h3>
+<p>Este o sugestie despre ce să adăugați în baza de cunoștințe. Întrebările identice sunt grupate într-un singur rând, cele mai frecvente
+sunt sus, pe pagină apar până la 50 de rânduri. Erorile tehnice — o eroare Claude API, limita de cheltuieli, un mesaj prea lung — nu
+ajung aici: nu sunt lacune în baza de cunoștințe, le vedeți în {{ section_link('audit-event') }}.</p>
+<h4>Motive</h4>
+<table class="table table-sm">
+  <tbody>
+    {% for reason, text in gap_help.items() %}
+    <tr><td>{{ _(reason.value) }}</td><td>{{ text }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h3 id="{{ topic.anchor('chto-delat') }}">Ce faceți cu o întrebare fără răspuns</h3>
+<ol>
+  <li>Faceți clic pe întrebare — se deschide înregistrarea din jurnal cu răspunsul modelului și cu ceea ce a primit clientul.</li>
+  <li>Dacă întrebarea apare des, adăugați răspunsul: o întrebare tipică — în {{ section_link('faq-item') }}, informațiile despre companie
+    — în {{ section_link('info-section') }}, un serviciu sau un produs — în {{ section_link('service') }}.</li>
+  <li>Botul vede modificările de la următorul mesaj. Când va răspunde la aceeași întrebare, rândul dispare
+    din listă; altfel dispare când iese din perioadă. Cardul „Fără răspuns” de sus numără toate întrebările
+    fără răspuns din perioadă, inclusiv cele la care botul a răspuns mai târziu.</li>
+</ol>

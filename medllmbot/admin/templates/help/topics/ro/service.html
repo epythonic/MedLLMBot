@@ -1,0 +1,58 @@
+{% from "help/_macros.html" import note, section_link with context %}
+<h3 id="{{ topic.anchor('kak-ispolzuet') }}">Cum folosește botul lista de prețuri</h3>
+<p>Catalogul cuprinde serviciile clinicii sau produsele magazinului. La fiecare întrebare a clientului, botul citește
+pozițiile active și îi transmite lui Claude rânduri de forma „Denumire — preț lei (descriere)”. Modificarea se vede de
+la următorul mesaj, nu este nevoie de repornire. Când răspunde despre preț, botul adaugă că prețul exact îl va confirma
+administratorul.</p>
+
+<h3 id="{{ topic.anchor('poisk') }}">Catalog mare: căutare în loc de toată lista de prețuri</h3>
+<p>Cât timp serviciile active nu depășesc pragul <b>Catalog în prompt, până la poziții</b> din
+{{ section_link('bot-config') }} (implicit 50), Claude primește toată lista de prețuri la fiecare întrebare — așa este
+mai rapid și mai ieftin. Dacă serviciile sunt mai multe, toată lista nu încape în solicitare, iar botul caută în catalog
+ce îi trebuie: modelul alege singur cuvintele („igienizare dentară”, „implant”), primește până la 10 poziții potrivite
+cu prețuri și răspunde pe baza lor.</p>
+<ul>
+  <li>Căutarea se face după denumire și descriere și înțelege diferite forme ale cuvântului: „igienizarea” găsește
+    „Igienizare”.</li>
+  <li>Ce a căutat botul și câte poziții a găsit se vede în {{ section_link('audit-event') }}, în câmpul
+    <b>Ce a căutat botul</b>. Dacă clientul a întrebat de un serviciu, iar căutarea nu l-a găsit, adăugați în denumire
+    sau în descriere cuvintele cu care îl numesc clienții.</li>
+  <li>Un răspuns cu căutare înseamnă două–patru apeluri la Claude în loc de unul, de aceea este puțin mai scump și durează
+    mai mult.</li>
+</ul>
+
+<h3 id="{{ topic.anchor('proverka-cen') }}">Protecție împotriva prețurilor inventate</h3>
+<p>Dacă modelul numește o sumă în lei care nu există în baza de cunoștințe, clientul nu o va vedea: va primi
+„Voi verifica prețul cu administratorul și revin cu un răspuns”, iar în {{ section_link('audit-event') }} va apărea
+o înregistrare cu rezultatul „Preț înlocuit”. Dacă astfel de înregistrări sunt multe, verificați dacă toate prețurile
+sunt în lista de prețuri.</p>
+
+<h3 id="{{ topic.anchor('kak') }}">Cum lucrați cu serviciile</h3>
+<ul>
+  <li><b>Adăugare:</b> butonul <b>+ Adaugă: Poziție</b> deasupra tabelului → completați denumirea și prețul →
+    <b>Salvează</b>.</li>
+  <li><b>Schimbarea prețului:</b> pictograma creion din rândul serviciului → <b>Preț, lei</b> → <b>Salvează</b>.</li>
+  <li><b>Eliminare temporară</b> (serviciul nu se prestează acum): debifați <b>Activă</b>. Botul nu îl va mai propune,
+    iar înregistrarea rămâne — mai târziu este suficient să o activați din nou.</li>
+  <li><b>Ștergere definitivă:</b> pictograma coș din rând. Ștergerea este ireversibilă.</li>
+  <li><b>Schimbarea ordinii:</b> trageți rândul de pictograma din coloana <b>Ordine</b> — noua ordine
+    se salvează imediat, iar botul o vede de la următoarea întrebare. Tragerea funcționează când lista nu are căutare
+    sau filtre. Se poate și manual: numărul <b>Ordine</b> din formular, mai mic — mai sus.</li>
+</ul>
+
+<h3 id="{{ topic.anchor('sovety') }}">Cum completați</h3>
+<ul>
+  <li>Un serviciu — un rând cu un singur preț. Prețul este un număr întreg în lei.</li>
+  <li>Dacă prețul depinde de caz, indicați prețul minim și scrieți în descriere „preț de la; prețul exact îl spune
+    medicul după consultație”.</li>
+  <li>În descriere — fapte: durata, ce include prețul. Nu scrieți în ea instrucțiuni pentru bot.</li>
+  <li>Botul nu inventează promoții. Dacă o promoție există cu adevărat, treceți-o în descrierea serviciului.</li>
+</ul>
+{% call note("warning", "Schimbați un preț? Verificați întrebările frecvente") %}
+Botul consideră valabile și prețurile din {{ section_link('faq-item') }} și {{ section_link('info-section') }}.
+Dacă acolo este menționat prețul vechi, botul îl poate numi.
+{% endcall %}
+{% call note("info", "Modificarea bazei de cunoștințe resetează puțin cache-ul") %}
+Fiecare modificare schimbă textul solicitării către Claude, de aceea primul răspuns după ea este puțin mai scump:
+cache-ul se scrie din nou. Diferența este de fracțiuni de cent, modificați liniștit.
+{% endcall %}

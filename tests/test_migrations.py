@@ -2,10 +2,12 @@
 
 from pathlib import Path
 
+import pytest
 import sqlalchemy as sa
 from alembic import command
 from alembic.autogenerate import compare_metadata
 from alembic.runtime.migration import MigrationContext
+from sqlalchemy.exc import IntegrityError
 
 from medllmbot.db.fts import include_name
 from medllmbot.db.migrate import alembic_config, upgrade_db
@@ -167,6 +169,27 @@ def test_operator_handoff_keeps_client_data(tmp_path: Path) -> None:
     assert counts == [1, 1, 1]
     assert until is None  # existing clients stay with the bot
     assert hours == 12
+
+
+def test_existing_settings_keep_russian_for_the_admin(tmp_path: Path) -> None:
+    # Before the setting, messages to the administrator were Russian only
+    db = tmp_path / "bot.db"
+    command.upgrade(alembic_config(db), "e3174a6cc260")
+    engine = sa.create_engine(f"sqlite:///{db}")
+    with engine.begin() as conn:
+        conn.execute(
+            sa.text(
+                "INSERT INTO bot_config (id, model, max_tokens, max_len, history_limit, rate_limit, "
+                "rate_window, greeting) VALUES (1, 'claude-haiku-5-5', 1024, 1024, 8, 10, 60, 'Привет')"
+            )
+        )
+    upgrade_db(db)
+    with engine.connect() as conn:
+        language = conn.execute(sa.text("SELECT admin_language FROM bot_config")).scalar_one()
+        with pytest.raises(IntegrityError):  # only the admin languages are accepted
+            conn.execute(sa.text("UPDATE bot_config SET admin_language = 'de'"))
+    engine.dispose()
+    assert language == "ru"
 
 
 def test_existing_greeting_stays_for_everyone(tmp_path: Path) -> None:

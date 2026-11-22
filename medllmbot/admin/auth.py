@@ -11,12 +11,11 @@ from sqladmin.authentication import AuthenticationBackend
 from starlette.requests import Request
 from starlette.responses import Response
 
+from medllmbot.admin.i18n import gettext
 from medllmbot.config import AdminSettings
 
 # The session lasts a working day, not Starlette's default 14 days
 SESSION_MAX_AGE = 8 * 3600
-LOCKED_OUT = "Слишком много неудачных попыток входа. Попробуйте через 15 минут."
-WRONG_CREDENTIALS = "Неверный логин или пароль."
 
 
 @final
@@ -79,7 +78,10 @@ class AdminAuth(AuthenticationBackend):
     async def login(self, request: Request) -> bool:
         client = request.client.host if request.client else "unknown"
         if self.throttle.blocked(client):
-            request.state.login_error = LOCKED_OUT
+            # The login page shows the error as is, so it is translated here, in the request's language
+            request.state.login_error = " ".join(
+                (gettext("Too many failed login attempts."), gettext("Try again in 15 minutes."))
+            )
             return False
         form = await request.form()
         username = str(form.get("username", ""))
@@ -93,7 +95,7 @@ class AdminAuth(AuthenticationBackend):
             request.session.update({"admin": self._session_token})
         else:
             self.throttle.failed(client)
-            request.state.login_error = WRONG_CREDENTIALS
+            request.state.login_error = gettext("Wrong username or password.")
         return ok
 
     @override

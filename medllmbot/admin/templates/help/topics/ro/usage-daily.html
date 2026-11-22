@@ -1,0 +1,19 @@
+{% from "help/_macros.html" import note, section_link with context %}
+<h3 id="{{ topic.anchor('chto') }}">Ce găsiți aici</h3>
+<p>Un rând înseamnă o zi și un model. Fiecare solicitare către Claude botul o adaugă în rândul zilei respective
+în același timp cu înregistrarea în {{ section_link('audit-event') }}, de aceea totalurile coincid întotdeauna cu jurnalul.</p>
+<ul>
+  <li>Zilele se socotesc după UTC, ca în facturile Anthropic.</li>
+  <li>Rândurile nu conțin date personale și nu se șterg împreună cu înregistrările vechi din jurnal:
+    după ele puteți calcula cheltuielile pentru orice perioadă.</li>
+  <li>Secțiunea este doar pentru citire — totalurile le scrie botul.</li>
+</ul>
+
+<h3 id="{{ topic.anchor('bez-ceny') }}">Coloana „Fără preț”</h3>
+<p>Câte solicitări din ziua respectivă au fost făcute cu un model care nu are preț în {{ section_link('model-price') }}.
+Costul acestor solicitări nu este luat în calcul, deci totalul zilei este mai mic decât în realitate. Adăugați prețul — solicitările
+următoare vor fi calculate, cele anterioare vor rămâne fără cost.</p>
+
+{% call note("success", "Totaluri pe luni") %}
+Sumele pe luni și prognoza pentru luna curentă sunt în {{ section_link('costs') }}.
+{% endcall %}

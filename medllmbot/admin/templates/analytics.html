@@ -3,15 +3,19 @@
 {% from "help/_macros.html" import section_link with context %}
 {% block content %}
 <div class="col-12 d-block">
-  <div class="btn-group" role="group" aria-label="Период">
+  <div class="btn-group" role="group" aria-label="{{ _('Period') }}">
     {% for period in periods %}
     <a class="btn{% if period == days %} btn-primary{% endif %}" href="{{ url_for('admin:view-analytics') }}?days={{ period }}"
-       {% if period == days %}aria-current="page"{% endif %}>{{ period }} дней</a>
+       {% if period == days %}aria-current="page"{% endif %}>{{ ngettext("%(num)s day", "%(num)s days", period) }}</a>
     {% endfor %}
   </div>
   {% if retention_days < days %}
   <div class="text-warning mt-2">
-    Срок хранения журнала — {{ retention_days }} дн. ({{ section_link('bot-config') }}), поэтому аналитика — только за них.
+    {% trans trimmed count=retention_days, settings=section_link('bot-config') %}
+      The log is kept for {{ count }} day ({{ settings }}), so analytics covers only that period.
+    {% pluralize %}
+      The log is kept for {{ count }} days ({{ settings }}), so analytics covers only that period.
+    {% endtrans %}
   </div>
   {% endif %}
 </div>
@@ -19,7 +23,7 @@
 {% if not report.questions %}
 <div class="col-12">
   <div class="card">
-    <div class="card-body">За этот период вопросов не было. Напишите боту — вопрос появится здесь.</div>
+    <div class="card-body">{{ _("There were no questions in this period.") }} {{ _("Write to the bot and the question will appear here.") }}</div>
   </div>
 </div>
 {% else %}
@@ -34,36 +38,36 @@
   </div>
 </div>
 {%- endmacro %}
-{{ kpi("Вопросы", report.questions) }}
-{{ kpi("Клиенты", report.clients) }}
-{{ kpi("Диалоги", report.dialogs, "пауза больше суток — новый диалог") }}
-{{ kpi("С заявкой", report.dialogs_with_lead, "%d%% диалогов" % report.lead_percent) }}
-{{ kpi("Без ответа", report.unanswered, "%d%% вопросов" % report.unanswered_percent) }}
-{{ kpi("Позвали оператора", report.handoffs, "просили живого человека") }}
+{{ kpi(_("Questions"), report.questions) }}
+{{ kpi(_("Clients"), report.clients) }}
+{{ kpi(_("Dialogs"), report.dialogs, _("a pause of more than a day starts a new dialog")) }}
+{{ kpi(_("With a lead"), report.dialogs_with_lead, _("%(percent)s%% of dialogs", percent=report.lead_percent)) }}
+{{ kpi(_("Unanswered"), report.unanswered, _("%(percent)s%% of questions", percent=report.unanswered_percent)) }}
+{{ kpi(_("Asked for an operator"), report.handoffs, _("asked for a live person")) }}
 
 <div class="col-12">
   <div class="card">
     <div class="card-header">
-      <h3 class="card-title">Частые темы</h3>
-      <div class="card-actions text-secondary">профиль «{{ profile.value }}»</div>
+      <h3 class="card-title">{{ _("Common topics") }}</h3>
+      <div class="card-actions text-secondary">{{ _("profile “%(profile)s”", profile=_(profile.value)) }}</div>
     </div>
     <div class="table-responsive">
       <table class="table card-table table-vcenter">
         <thead>
           <tr>
-            <th>Тема</th>
-            <th class="text-end">Вопросов</th>
-            <th class="w-25">Доля</th>
-            <th class="text-end text-nowrap">Диалогов с заявкой</th>
+            <th>{{ _("Topic") }}</th>
+            <th class="text-end">{{ _("Questions asked") }}</th>
+            <th class="w-25">{{ _("Share") }}</th>
+            <th class="text-end text-nowrap">{{ _("Dialogs with a lead") }}</th>
           </tr>
         </thead>
         <tbody>
           {% for topic in report.topics %}
           <tr>
             <td>
-              <div>{{ topic.name }}</div>
+              <div>{{ _(topic.name) }}</div>
               <div class="text-secondary small">
-                {%- for example in topic.examples %}«{{ example | truncate(70, true, "…", 0) }}»{% if not loop.last %} · {% endif %}{% endfor -%}
+                {%- for example in topic.examples %}{{ _("“%(question)s”", question=example | truncate(70, true, "…", 0)) }}{% if not loop.last %} · {% endif %}{% endfor -%}
               </div>
             </td>
             <td class="text-end">{{ topic.questions }}</td>
@@ -73,12 +77,12 @@
                 <div class="progress progress-sm flex-fill">
                   <div class="progress-bar" style="width: {{ [topic.share, 100] | min }}%" role="progressbar"
                        aria-valuenow="{{ topic.share }}" aria-valuemin="0" aria-valuemax="100"
-                       aria-label="{{ topic.share_text }} вопросов"></div>
+                       aria-label="{{ _('%(share)s of questions', share=topic.share_text) }}"></div>
                 </div>
               </div>
             </td>
             <td class="text-end text-nowrap">
-              {{ topic.dialogs_with_lead }} из {{ topic.dialogs }}
+              {{ _("%(leads)s of %(dialogs)s", leads=topic.dialogs_with_lead, dialogs=topic.dialogs) }}
               {%- if topic.lead_percent is not none %} ({{ topic.lead_percent }}%){% endif %}
             </td>
           </tr>
@@ -92,10 +96,11 @@
 <div class="col-12">
   <div class="card">
     <div class="card-header">
-      <h3 class="card-title">Вопросы без ответа</h3>
+      <h3 class="card-title">{{ _("Unanswered questions") }}</h3>
       <div class="card-actions text-secondary">
-        Ответы добавляют в {{ section_link('faq-item') }}, {{ section_link('info-section') }}
-        или {{ section_link('service') }}
+        {% trans trimmed faq=section_link('faq-item'), about=section_link('info-section'), catalog=section_link('service') %}
+          Add answers to {{ faq }}, {{ about }} or {{ catalog }}
+        {% endtrans %}
       </div>
     </div>
     {% if report.gaps %}
@@ -103,11 +108,11 @@
       <table class="table card-table table-vcenter">
         <thead>
           <tr>
-            <th>Вопрос</th>
-            <th class="text-end">Раз</th>
-            <th>Причина</th>
-            <th>Ответ бота</th>
-            <th class="text-nowrap">Последний раз</th>
+            <th>{{ _("Question") }}</th>
+            <th class="text-end">{{ _("Times") }}</th>
+            <th>{{ _("Reason") }}</th>
+            <th>{{ _("Bot answer") }}</th>
+            <th class="text-nowrap">{{ _("Last time") }}</th>
           </tr>
         </thead>
         <tbody>
@@ -119,7 +124,7 @@
               </a>
             </td>
             <td class="text-end">{{ gap.count }}</td>
-            <td class="text-nowrap"><span class="badge bg-orange-lt">{{ gap.reason }}</span></td>
+            <td class="text-nowrap"><span class="badge bg-orange-lt">{{ _(gap.reason.value) }}</span></td>
             <td class="text-secondary">{{ (gap.answer or "—") | truncate(120, true, "…", 0) }}</td>
             <td class="text-nowrap">{{ gap.last_at.strftime("%d.%m.%Y %H:%M") }}</td>
           </tr>
@@ -129,11 +134,11 @@
     </div>
     {% if report.gap_groups > report.gaps | length %}
     <div class="card-footer text-secondary">
-      Показаны {{ report.gaps | length }} самых частых из {{ report.gap_groups }}.
+      {{ _("Showing the %(shown)s most frequent of %(total)s.", shown=report.gaps | length, total=report.gap_groups) }}
     </div>
     {% endif %}
     {% else %}
-    <div class="card-body">Бот ответил на все вопросы за этот период.</div>
+    <div class="card-body">{{ _("The bot answered every question in this period.") }}</div>
     {% endif %}
   </div>
 </div>

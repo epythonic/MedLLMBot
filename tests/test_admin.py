@@ -35,6 +35,7 @@ from medllmbot.db.models import (
 )
 from medllmbot.db.repository import Repository
 from medllmbot.db.seed import DEMO_SERVICES, seed_demo
+from medllmbot.i18n import translation
 
 PASSWORD = "secret-pass"
 
@@ -85,7 +86,8 @@ def db(settings: AdminSettings) -> Path:
 
 @pytest.fixture
 def client(settings: AdminSettings, db: Path) -> Iterator[TestClient]:
-    with TestClient(create_app(settings, engine=create_engine(db))) as c:
+    # These tests read the Russian UI; the other languages and how one is picked are tested in TestLanguages
+    with TestClient(create_app(settings, engine=create_engine(db)), headers={"Accept-Language": "ru"}) as c:
         yield c
 
 
@@ -426,6 +428,15 @@ class TestBotConfigForm:
         assert admin.post("/admin/bot-config/edit/1", data=form).status_code == 400
         assert load_config(db).operator_hours == 12
 
+    def test_admin_language(self, admin: TestClient, db: Path) -> None:
+        assert load_config(db).admin_language == "ru"  # messages to the administrator were Russian before
+        form = BOT_CONFIG_FORM | {"admin_language": "ro"}
+        assert admin.post("/admin/bot-config/edit/1", data=form, follow_redirects=False).status_code == 302
+        assert load_config(db).admin_language == "ro"
+        assert "Română" in admin.get("/admin/bot-config/list").text  # languages by their own names
+        assert admin.post("/admin/bot-config/edit/1", data=BOT_CONFIG_FORM | {"admin_language": "de"}).status_code == 400
+        assert load_config(db).admin_language == "ro"
+
     def test_operator_hours_saved(self, admin: TestClient, db: Path) -> None:
         form = BOT_CONFIG_FORM | {"operator_hours": "24"}
         assert admin.post("/admin/bot-config/edit/1", data=form, follow_redirects=False).status_code == 302
@@ -750,6 +761,7 @@ class TestAnalytics:
 PAGE_IDS = re.compile(r'\bid="([^"]+)"')
 
 
+@pytest.mark.usefixtures("russian_admin")  # the expected help texts are translated strings, compared in Russian
 class TestHelp:
     @pytest.mark.parametrize("view", VIEWS, ids=_view_id)
     def test_section_page_has_help_panel(self, admin: TestClient, view: type[ModelView]) -> None:
@@ -808,16 +820,18 @@ class TestHelp:
         for text in GAP_HELP.values():
             assert str(escape(text)) in page
         # Help lists the topics of both profiles from the code dictionaries, so it does not drift from them
+        ru = translation("ru").gettext  # profile and topic names are English msgids, the page is Russian
         for kind, topics in ANALYTICS_TOPICS.items():
-            names = ", ".join(topic.name for topic in topics)
-            assert f"<li><b>{kind.value}:</b> {escape(names)}.</li>" in page
+            names = ", ".join(ru(topic.name) for topic in topics)
+            assert f"<li><b>{ru(kind.value)}:</b> {escape(names)}.</li>" in page
 
     def test_journal_help_lists_outcomes_and_attack_flags(self, admin: TestClient) -> None:
         page = admin.get("/admin/audit-event/list").text
         for text in OUTCOME_HELP.values():
             assert str(escape(text)) in page
         for flag in FLAG_HELP:
-            assert str(escape(flag.label)) in page
+            # Labels are English msgids; the Russian page shows their translation
+            assert str(escape(translation("ru").gettext(flag.label))) in page
         assert "выдаёт себя за владельца или разработчика бота" in page
 
     def test_help_page_contains_every_section(self, admin: TestClient) -> None:

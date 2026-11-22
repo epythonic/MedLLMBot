@@ -13,6 +13,7 @@ from medllmbot.db.repository import Repository
 from medllmbot.db.seed import reset_demo, seed_demo
 from medllmbot.llm import ClinicLLM, ToolOutput
 from medllmbot.orders import (
+    STATUS_TEXT,
     DatabaseOrders,
     FailedLookups,
     LookupLimits,
@@ -387,3 +388,8 @@ class TestDemoOrders:
         await reset_demo(sessions, BusinessProfile.SHOP)
         await reset_demo(sessions, BusinessProfile.CLINIC)
         assert await DatabaseOrders(repo).find("DE-10022") is None
+
+
+def test_every_status_has_model_wording() -> None:
+    # The model reads Russian statuses; the enum values are the admin's English labels
+    assert set(STATUS_TEXT) == set(OrderStatus)

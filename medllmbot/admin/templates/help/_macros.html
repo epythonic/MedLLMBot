@@ -10,9 +10,11 @@
 {%- set found = namespace(view=none) -%}
 {%- for view in admin.views if view.identity == identity %}{% set found.view = view %}{% endfor -%}
 {%- if found.view -%}
-<a href="{{ section_url(found.view) }}">«{{ help_topic(identity).title if help_topic(identity) else found.view.name }}»</a>
+<a href="{{ section_url(found.view) }}">
+  {{- _("“%(section)s”", section=help_topic(identity).title if help_topic(identity) else found.view.name) -}}
+</a>
 {%- else -%}
-<span class="text-danger">[нет раздела {{ identity }}]</span>
+<span class="text-danger">{{ _("[no section %(identity)s]", identity=identity) }}</span>
 {%- endif -%}
 {%- endmacro %}
 

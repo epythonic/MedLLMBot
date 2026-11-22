@@ -3,7 +3,7 @@
 {% if not months %}
 <div class="col-12">
   <div class="card">
-    <div class="card-body">Запросов к модели ещё не было.</div>
+    <div class="card-body">{{ _("There have been no model requests yet.") }}</div>
   </div>
 </div>
 {% endif %}
@@ -15,7 +15,7 @@
       <div class="card-actions">
         <strong>{{ month.total.cost_micro_usd | usd }}</strong>
         {% if month.forecast_micro_usd is not none %}
-        <span class="text-secondary ms-3">прогноз на месяц: {{ month.forecast_micro_usd | usd }}</span>
+        <span class="text-secondary ms-3">{{ _("month forecast: %(cost)s", cost=month.forecast_micro_usd | usd) }}</span>
         {% endif %}
       </div>
     </div>
@@ -23,19 +23,19 @@
       <table class="table card-table table-vcenter text-nowrap">
         <thead>
           <tr>
-            <th>Модель</th>
-            <th class="text-end">Запросов</th>
-            <th class="text-end">Вход</th>
-            <th class="text-end">Выход</th>
-            <th class="text-end">Из кэша</th>
-            <th class="text-end">В кэш</th>
-            <th class="text-end">Стоимость</th>
+            <th>{{ _("Model") }}</th>
+            <th class="text-end">{{ _("Requests") }}</th>
+            <th class="text-end">{{ _("Input") }}</th>
+            <th class="text-end">{{ _("Output") }}</th>
+            <th class="text-end">{{ _("Cache read") }}</th>
+            <th class="text-end">{{ _("Cache write") }}</th>
+            <th class="text-end">{{ _("Cost") }}</th>
           </tr>
         </thead>
         <tbody>
           {% for row in month.rows + [month.total] %}
           <tr{% if loop.last %} class="fw-bold"{% endif %}>
-            <td>{{ row.model }}</td>
+            <td>{{ _(row.model) if loop.last else row.model }}</td>
             <td class="text-end">{{ "{:,}".format(row.requests) }}</td>
             <td class="text-end">{{ "{:,}".format(row.input_tokens) }}</td>
             <td class="text-end">{{ "{:,}".format(row.output_tokens) }}</td>
@@ -49,8 +49,11 @@
     </div>
     {% if month.total.unpriced_requests %}
     <div class="card-footer text-warning">
-      {{ month.total.unpriced_requests }} запрос(ов) без цены — добавьте модель в «Цены моделей»,
-      иначе итог занижен.
+      {{ ngettext(
+        "%(num)s request has no price: add its model to “Model prices”, otherwise the total is too low.",
+        "%(num)s requests have no price: add their models to “Model prices”, otherwise the total is too low.",
+        month.total.unpriced_requests,
+      ) }}
     </div>
     {% endif %}
   </div>

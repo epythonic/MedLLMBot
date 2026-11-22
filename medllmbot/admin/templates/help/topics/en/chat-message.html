@@ -1,0 +1,34 @@
+{% from "help/_macros.html" import note, section_link with context %}
+<h3 id="{{ topic.anchor('chto') }}">What this section is</h3>
+<p>This is the bot's memory. Every ordinary “client question — bot answer” exchange is saved here. With the next
+question the bot passes this client's latest messages to Claude, and the model remembers what the conversation was about.
+How many messages are passed is set by <b>History depth</b> in {{ section_link('bot-config') }}.</p>
+
+<h3 id="{{ topic.anchor('ne-popadaet') }}">What is not saved here</h3>
+<ul>
+  <li>Suspicious messages and answers in which the model tried to reveal its rules, so that an attack
+    does not build up in the bot's memory.</li>
+  <li>Messages that are too long, messages from blocked clients and messages skipped because the client wrote too often.</li>
+  <li>Questions Claude did not answer because of an error.</li>
+</ul>
+<p>All of this is in {{ section_link('audit-event') }}: every incoming message is recorded there.</p>
+
+<h3 id="{{ topic.anchor('dialog') }}">How to read one client's dialog</h3>
+<ol>
+  <li>Find the client's <b>Chat ID</b>: it is in {{ section_link('client') }}, in the lead and in the log.</li>
+  <li>In the <b>Filters</b> panel, choose the <b>Equals</b> condition for <b>Chat ID</b>, enter the number and click <b>Apply Filter</b>.</li>
+  <li>Messages are listed newest first. <b>user</b> is the client, <b>assistant</b> is the bot.</li>
+</ol>
+
+<h3 id="{{ topic.anchor('otlichie') }}">How chat history differs from the log</h3>
+<table class="table table-sm">
+  <tbody>
+    <tr><td>Chat history</td><td>The bot's memory for Claude. Only messages that passed the checks, and only what
+      the client received. Kept indefinitely.</td></tr>
+    <tr><td>Log</td><td>All incoming messages: processing outcome, the model's original answer, tokens and cost.
+      Kept for as many days as set in the settings.</td></tr>
+  </tbody>
+</table>
+{% call note("info", "Read-only") %}
+Chat history cannot be edited or deleted from the admin panel: it is the source data the bot relies on.
+{% endcall %}

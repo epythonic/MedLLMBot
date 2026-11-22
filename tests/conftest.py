@@ -1,4 +1,4 @@
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
@@ -7,9 +7,11 @@ from typing import cast
 import pytest
 from anthropic import AsyncAnthropic
 from anthropic.types import MessageParam, TextBlockParam, ToolChoiceParam, ToolParam
+from sqladmin.i18n import set_locale
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from medllmbot.admin import i18n
 from medllmbot.db.engine import create_engine, create_sessionmaker
 from medllmbot.db.models import AuditEvent, Base, BusinessProfile, FaqItem, InfoSection, Service
 from medllmbot.db.repository import Knowledge, Repository
@@ -177,3 +179,12 @@ async def load_audit(sessions: Sessions) -> list[AuditEvent]:
     """All audit log records in order."""
     async with sessions() as s:
         return list((await s.scalars(select(AuditEvent).order_by(AuditEvent.id))).all())
+
+
+@pytest.fixture
+def russian_admin() -> Iterator[None]:
+    """Admin code called outside a request: the language is set the way LocaleMiddleware sets it per request."""
+    i18n.install()
+    set_locale("ru")
+    yield
+    set_locale(i18n.DEFAULT_LOCALE)

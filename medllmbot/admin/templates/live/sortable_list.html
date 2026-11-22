@@ -14,12 +14,12 @@
     <i class="fa-solid fa-grip-vertical"></i>
     {% if reorder_enabled %}
     <span id="reorder-status" role="status" aria-live="polite">
-      Чтобы поменять порядок, перетащите строку за значок в колонке «Порядок» — он сохранится сразу.
+      {{ _("To change the order, drag a row by the handle in the “Order” column; the order is saved right away.") }}
     </span>
     {% else %}
     <span>
-      Перетаскивание работает, когда в списке нет поиска и фильтров и все записи на одной странице.
-      <a href="{{ url_for('admin:list', identity=model_view.identity) }}">Показать весь список</a>
+      {{ _("Dragging works when the list has no search or filters and all records are on one page.") }}
+      <a href="{{ url_for('admin:list', identity=model_view.identity) }}">{{ _("Show the whole list") }}</a>
     </span>
     {% endif %}
   </div>
@@ -42,7 +42,7 @@
     if (bar.dataset.enabled !== "true") {
       for (const handle of document.querySelectorAll(".drag-handle")) {
         handle.classList.add("disabled");
-        handle.title = "Сбросьте поиск и фильтры, чтобы менять порядок";
+        handle.title = {{ _("Clear the search and filters to change the order") | tojson }};
       }
       return;
     }

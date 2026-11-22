@@ -1,0 +1,29 @@
+{% from "help/_macros.html" import note, section_link with context %}
+<h3 id="{{ topic.anchor('kak-chitat') }}">How to read the report</h3>
+<ul>
+  <li>One card is one month, newest at the top. The card header shows the total for the month.</li>
+  <li>Rows are models, most expensive at the top. The last row, “Total”, is the sum across all models.</li>
+  <li>For the current month, a <b>month forecast</b> is shown next to the total: the amount spent is divided by the days
+    that have passed and multiplied by the number of days in the month. In the first days of the month the forecast is
+    rough.</li>
+  <li>Months are counted in UTC, as in Anthropic's invoices.</li>
+</ul>
+
+<h3 id="{{ topic.anchor('ocenka') }}">This is an estimate, not an invoice</h3>
+<p>The report is calculated from the tokens in Claude's answers and the prices in {{ section_link('model-price') }}.
+Taxes, contract discounts and API requests made outside the bot are not taken into account. For the exact amount, see
+the Anthropic Console, in the Usage / Cost section.</p>
+{% call note("warning", "The “no price” warning") %}
+If there is a warning about requests with no price under a month's table, the total is too low: add the model
+to {{ section_link('model-price') }}.
+{% endcall %}
+
+<h3 id="{{ topic.anchor('ekonomiya') }}">How to reduce costs</h3>
+<ul>
+  <li><b>Model.</b> Haiku is several times cheaper than Sonnet and Opus and handles questions about the knowledge base
+    well.</li>
+  <li><b>History depth</b> in {{ section_link('bot-config') }}: each history message adds tokens to every
+    client question.</li>
+  <li><b>Knowledge base size.</b> It is sent with every question. The cache makes repeats cheaper, but unnecessary
+    sections and inactive services are better switched off.</li>
+</ul>

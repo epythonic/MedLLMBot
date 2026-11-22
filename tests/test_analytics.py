@@ -69,39 +69,39 @@ def test_normalize_folds_case_yo_and_romanian_diacritics() -> None:
 @pytest.mark.parametrize(
     ("text", "expected"),
     [
-        ("Сколько стоит чистка зубов?", {"Цены", "Гигиена и отбеливание"}),
-        ("Хочу записаться на приём в субботу", {"Запись на приём", "Адрес и часы работы"}),
-        ("Болит зуб, щека опухла", {"Боль и срочная помощь"}),
-        ("Откололся кусочек зуба, нужно срочно", {"Боль и срочная помощь"}),
-        ("Сколько стоит удалить зуб мудрости?", {"Цены", "Лечение зубов"}),
-        ("Выпала пломба", {"Боль и срочная помощь", "Лечение зубов"}),
-        ("Ставите импланты? А коронки?", {"Имплантация и протезирование"}),
-        ("Нужны брекеты или каппа", {"Брекеты и прикус"}),
-        ("Лечите детей? Сыну 5 лет", {"Лечение зубов", "Детская стоматология"}),
-        ("Можно оплатить картой или в рассрочку?", {"Оплата и рассрочка"}),
-        ("Где вы находитесь и есть ли парковка?", {"Адрес и часы работы"}),
-        ("До скольки работаете?", {"Адрес и часы работы"}),
+        ("Сколько стоит чистка зубов?", {"Prices", "Hygiene and whitening"}),
+        ("Хочу записаться на приём в субботу", {"Appointments", "Address and opening hours"}),
+        ("Болит зуб, щека опухла", {"Pain and urgent care"}),
+        ("Откололся кусочек зуба, нужно срочно", {"Pain and urgent care"}),
+        ("Сколько стоит удалить зуб мудрости?", {"Prices", "Dental treatment"}),
+        ("Выпала пломба", {"Pain and urgent care", "Dental treatment"}),
+        ("Ставите импланты? А коронки?", {"Implants and prosthetics"}),
+        ("Нужны брекеты или каппа", {"Braces and bite"}),
+        ("Лечите детей? Сыну 5 лет", {"Dental treatment", "Children's dentistry"}),
+        ("Можно оплатить картой или в рассрочку?", {"Payment and installments"}),
+        ("Где вы находитесь и есть ли парковка?", {"Address and opening hours"}),
+        ("До скольки работаете?", {"Address and opening hours"}),
         # Romanian
-        ("Cât costă un implant?", {"Цены", "Имплантация и протезирование"}),
-        ("Mă doare măseaua", {"Боль и срочная помощь"}),
-        ("Vreau să mă programez", {"Запись на приём"}),
-        ("Cât costă albirea?", {"Цены", "Гигиена и отбеливание"}),
-        ("Tratați copiii?", {"Лечение зубов", "Детская стоматология"}),
-        ("Care este adresa și orarul?", {"Адрес и часы работы"}),
+        ("Cât costă un implant?", {"Prices", "Implants and prosthetics"}),
+        ("Mă doare măseaua", {"Pain and urgent care"}),
+        ("Vreau să mă programez", {"Appointments"}),
+        ("Cât costă albirea?", {"Prices", "Hygiene and whitening"}),
+        ("Tratați copiii?", {"Dental treatment", "Children's dentistry"}),
+        ("Care este adresa și orarul?", {"Address and opening hours"}),
         # Used to land in «Другое»: the topic lacked the Romanian for "where are you located"
-        ("Unde vă aflați?", {"Адрес и часы работы"}),
-        ("Unde se află clinica?", {"Адрес и часы работы"}),
-        ("Unde sunteți?", {"Адрес и часы работы"}),
-        ("Care este locația clinicii?", {"Адрес и часы работы"}),
-        ("Pot plăti cu cardul?", {"Оплата и рассрочка"}),
-        ("Почём чистка?", {"Цены", "Гигиена и отбеливание"}),
-        ("Это дорого, есть дешевле?", {"Цены"}),
+        ("Unde vă aflați?", {"Address and opening hours"}),
+        ("Unde se află clinica?", {"Address and opening hours"}),
+        ("Unde sunteți?", {"Address and opening hours"}),
+        ("Care este locația clinicii?", {"Address and opening hours"}),
+        ("Pot plăti cu cardul?", {"Payment and installments"}),
+        ("Почём чистка?", {"Prices", "Hygiene and whitening"}),
+        ("Это дорого, есть дешевле?", {"Prices"}),
         ("Добрый день", {OTHER}),
         ("Спасибо!", {OTHER}),
         # Only a name and a phone: a reply to the bot's request for contact details
         ("Иван, 069123456", {CONTACTS}),
         # There is a topic: the phone does not change it
-        ("Запишите меня, 069123456", {"Запись на приём"}),
+        ("Запишите меня, 069123456", {"Appointments"}),
     ],
 )
 def test_clinic_topics(text: str, expected: set[str]) -> None:
@@ -111,28 +111,28 @@ def test_clinic_topics(text: str, expected: set[str]) -> None:
 @pytest.mark.parametrize(
     ("text", "expected"),
     [
-        ("Где мой заказ DE-10023?", {"Статус заказа"}),
-        ("de10023, последние цифры 0103", {"Статус заказа"}),
-        ("DE-10023, 0103", {"Статус заказа"}),  # reply to the bot's request for the order number
-        ("DE–10023, 0103", {"Статус заказа"}),  # dash from autocorrect
-        ("ДЕ-10023, 0103", {"Статус заказа"}),  # number in Cyrillic
-        ("№ DE-10023", {"Статус заказа"}),
-        ("Где моя посылка?", {"Статус заказа"}),
-        ("Какой статус у заказа 10021?", {"Статус заказа"}),
-        ("Посоветуйте ноутбук до 15000", {"Подбор товара"}),
-        ("Какая разница между Kivora X5 и Nordwave Lite?", {"Подбор товара"}),
-        ("Есть в наличии робот-пылесос?", {"Наличие"}),
-        ("Сколько стоит доставка по Молдове?", {"Цены", "Доставка и самовывоз"}),
-        ("Есть самовывоз?", {"Доставка и самовывоз"}),
-        ("Хочу купить в рассрочку", {"Покупка и оформление", "Оплата и рассрочка"}),
-        ("Можно вернуть наушники?", {"Возврат и обмен"}),
-        ("Телефон сломался, это по гарантии?", {"Гарантия и ремонт"}),
-        ("Вы работаете в воскресенье?", {"Адрес и часы работы"}),
-        ("Livrare în Bălți?", {"Доставка и самовывоз"}),
-        ("Aveți în stoc aspiratorul?", {"Наличие"}),
-        ("Unde este comanda mea?", {"Статус заказа"}),
-        ("Unde vă aflați?", {"Адрес и часы работы"}),
-        ("Ce garanție are telefonul?", {"Гарантия и ремонт"}),
+        ("Где мой заказ DE-10023?", {"Order status"}),
+        ("de10023, последние цифры 0103", {"Order status"}),
+        ("DE-10023, 0103", {"Order status"}),  # reply to the bot's request for the order number
+        ("DE–10023, 0103", {"Order status"}),  # dash from autocorrect
+        ("ДЕ-10023, 0103", {"Order status"}),  # number in Cyrillic
+        ("№ DE-10023", {"Order status"}),
+        ("Где моя посылка?", {"Order status"}),
+        ("Какой статус у заказа 10021?", {"Order status"}),
+        ("Посоветуйте ноутбук до 15000", {"Product choice"}),
+        ("Какая разница между Kivora X5 и Nordwave Lite?", {"Product choice"}),
+        ("Есть в наличии робот-пылесос?", {"Availability"}),
+        ("Сколько стоит доставка по Молдове?", {"Prices", "Delivery and pickup"}),
+        ("Есть самовывоз?", {"Delivery and pickup"}),
+        ("Хочу купить в рассрочку", {"Purchase and checkout", "Payment and installments"}),
+        ("Можно вернуть наушники?", {"Returns and exchanges"}),
+        ("Телефон сломался, это по гарантии?", {"Warranty and repair"}),
+        ("Вы работаете в воскресенье?", {"Address and opening hours"}),
+        ("Livrare în Bălți?", {"Delivery and pickup"}),
+        ("Aveți în stoc aspiratorul?", {"Availability"}),
+        ("Unde este comanda mea?", {"Order status"}),
+        ("Unde vă aflați?", {"Address and opening hours"}),
+        ("Ce garanție are telefonul?", {"Warranty and repair"}),
     ],
 )
 def test_shop_topics(text: str, expected: set[str]) -> None:
@@ -143,13 +143,13 @@ def test_shop_topics(text: str, expected: set[str]) -> None:
     ("kind", "text", "expected"),
     [
         # «Скол» is a chipped tooth, not «сколько»
-        (BusinessProfile.CLINIC, "Сколько длится чистка?", {"Гигиена и отбеливание"}),
+        (BusinessProfile.CLINIC, "Сколько длится чистка?", {"Hygiene and whitening"}),
         # An open bite («открытый прикус») is not "open" hours
-        (BusinessProfile.CLINIC, "У меня открытый прикус", {"Брекеты и прикус"}),
+        (BusinessProfile.CLINIC, "У меня открытый прикус", {"Braces and bite"}),
         # «Больше» (more) is not «боль» (pain)
         (BusinessProfile.CLINIC, "Хочу зубы белее, больше ничего", {OTHER}),
         # «Наличными» (in cash) is payment, not «наличие» (availability)
-        (BusinessProfile.SHOP, "Можно оплатить наличными?", {"Оплата и рассрочка"}),
+        (BusinessProfile.SHOP, "Можно оплатить наличными?", {"Payment and installments"}),
         # Battery run time is not the shop's opening hours
         (BusinessProfile.SHOP, "Сколько часов работает аккумулятор наушников?", {OTHER}),
         (BusinessProfile.SHOP, "Какое время работы у пылесоса?", {OTHER}),
@@ -160,27 +160,27 @@ def test_shop_topics(text: str, expected: set[str]) -> None:
         # A price in the message is not an order number
         (BusinessProfile.SHOP, "Смартфон Kivora X5 за 4299 лей", {OTHER}),
         # «Почему» is not «почём», «центр» is not «цена», «стоит ли» is not a price, «дорогу» is not «дорого»
-        (BusinessProfile.CLINIC, "Почему болит зуб после пломбы?", {"Боль и срочная помощь", "Лечение зубов"}),
-        (BusinessProfile.CLINIC, "Вы находитесь в центре?", {"Адрес и часы работы"}),
-        (BusinessProfile.CLINIC, "Стоит ли ставить имплант?", {"Имплантация и протезирование"}),
+        (BusinessProfile.CLINIC, "Почему болит зуб после пломбы?", {"Pain and urgent care", "Dental treatment"}),
+        (BusinessProfile.CLINIC, "Вы находитесь в центре?", {"Address and opening hours"}),
+        (BusinessProfile.CLINIC, "Стоит ли ставить имплант?", {"Implants and prosthetics"}),
         (BusinessProfile.CLINIC, "Как найти дорогу к вам?", {OTHER}),
-        (BusinessProfile.SHOP, "Почему не заряжается?", {"Гарантия и ремонт"}),
-        (BusinessProfile.SHOP, "Где ваш сервисный центр?", {"Гарантия и ремонт"}),
+        (BusinessProfile.SHOP, "Почему не заряжается?", {"Warranty and repair"}),
+        (BusinessProfile.SHOP, "Где ваш сервисный центр?", {"Warranty and repair"}),
         # Payment, not opening hours
-        (BusinessProfile.CLINIC, "Работаете по страховке?", {"Оплата и рассрочка"}),
+        (BusinessProfile.CLINIC, "Работаете по страховке?", {"Payment and installments"}),
         # A model code in the question is not an order number; «заказать» (to order) is a purchase
         (BusinessProfile.SHOP, "Есть WH-1000XM5?", {OTHER}),
         (BusinessProfile.SHOP, "Есть видеокарта RTX-4060?", {OTHER}),
-        (BusinessProfile.SHOP, "Хочу заказать 100 штук", {"Покупка и оформление"}),
+        (BusinessProfile.SHOP, "Хочу заказать 100 штук", {"Purchase and checkout"}),
         # The warranty ran out, not a product; «ridicat» means "high", not pickup; «pretenție» is a complaint
-        (BusinessProfile.SHOP, "Гарантия закончилась", {"Гарантия и ремонт"}),
-        (BusinessProfile.SHOP, "Preț ridicat", {"Цены"}),
+        (BusinessProfile.SHOP, "Гарантия закончилась", {"Warranty and repair"}),
+        (BusinessProfile.SHOP, "Preț ridicat", {"Prices"}),
         (BusinessProfile.SHOP, "Am o pretenție", {OTHER}),
         (BusinessProfile.CLINIC, "Можно удаленно проконсультироваться?", {OTHER}),
         # «Afla» also means "find out": it is about a place only after «unde»
-        (BusinessProfile.CLINIC, "Unde pot afla prețul?", {"Цены"}),
-        (BusinessProfile.SHOP, "Cum pot afla statusul comenzii?", {"Статус заказа"}),
-        (BusinessProfile.CLINIC, "Vreau să aflu mai multe despre implant", {"Имплантация и протезирование"}),
+        (BusinessProfile.CLINIC, "Unde pot afla prețul?", {"Prices"}),
+        (BusinessProfile.SHOP, "Cum pot afla statusul comenzii?", {"Order status"}),
+        (BusinessProfile.CLINIC, "Vreau să aflu mai multe despre implant", {"Implants and prosthetics"}),
     ],
 )
 def test_no_false_topics(kind: BusinessProfile, text: str, expected: set[str]) -> None:
@@ -188,7 +188,7 @@ def test_no_false_topics(kind: BusinessProfile, text: str, expected: set[str]) -
 
 
 def test_topics_keep_dictionary_order() -> None:
-    assert topics_of("Чистка — сколько стоит?", CLINIC_TOPICS) == ("Цены", "Гигиена и отбеливание")
+    assert topics_of("Чистка — сколько стоит?", CLINIC_TOPICS) == ("Prices", "Hygiene and whitening")
 
 
 def test_every_profile_has_topics() -> None:
@@ -333,9 +333,9 @@ def test_percent() -> None:
 
 
 def test_rare_topic_share_is_not_zero() -> None:
-    rare = TopicStat("Цены", questions=1, share=percent(1, 250) or 0, dialogs=1, dialogs_with_lead=0, examples=())
+    rare = TopicStat("Prices", questions=1, share=percent(1, 250) or 0, dialogs=1, dialogs_with_lead=0, examples=())
     assert rare.share_text == "<1%"
-    assert TopicStat("Цены", 3, 12, 3, 1, ()).share_text == "12%"
+    assert TopicStat("Prices", 3, 12, 3, 1, ()).share_text == "12%"
 
 
 class TestDialogs:
@@ -387,15 +387,15 @@ class TestTopicStats:
         report = build_analytics(questions, [lead(chat_id=2)], BusinessProfile.CLINIC)
 
         rows = {topic.name: topic for topic in report.topics}
-        assert rows["Цены"].questions == 2
-        assert rows["Цены"].share == 50
-        assert (rows["Цены"].dialogs, rows["Цены"].dialogs_with_lead, rows["Цены"].lead_percent) == (2, 1, 50)
+        assert rows["Prices"].questions == 2
+        assert rows["Prices"].share == 50
+        assert (rows["Prices"].dialogs, rows["Prices"].dialogs_with_lead, rows["Prices"].lead_percent) == (2, 1, 50)
         # Most frequent first, ties in dictionary order, «Другое» last
         assert [topic.name for topic in report.topics] == [
-            "Цены",
-            "Адрес и часы работы",
-            "Имплантация и протезирование",
-            "Гигиена и отбеливание",
+            "Prices",
+            "Address and opening hours",
+            "Implants and prosthetics",
+            "Hygiene and whitening",
             OTHER,
         ]
 
@@ -404,7 +404,7 @@ class TestTopicStats:
         questions = [question(text, event_id=i) for i, text in enumerate(texts, start=1)]
         report = build_analytics(questions, [], BusinessProfile.CLINIC)
 
-        prices = next(topic for topic in report.topics if topic.name == "Цены")
+        prices = next(topic for topic in report.topics if topic.name == "Prices")
         assert len(prices.examples) == MAX_EXAMPLES
         assert prices.examples == ("Цена винира?", "Цена коронки?", "Цена чистки?")
 
@@ -418,17 +418,17 @@ class TestTopicStats:
         ]
         report = build_analytics(questions, [], BusinessProfile.CLINIC)
 
-        assert [topic.name for topic in report.topics] == ["Цены", "Гигиена и отбеливание", CONTACTS, OTHER]
+        assert [topic.name for topic in report.topics] == ["Prices", "Hygiene and whitening", CONTACTS, OTHER]
         rows = {topic.name: topic for topic in report.topics}
         assert rows[CONTACTS].questions == 3
         # Examples are visible on the page, so messages with a phone are left out
         assert rows[CONTACTS].examples == ()
-        assert rows["Цены"].examples == ()
+        assert rows["Prices"].examples == ()
         assert rows[OTHER].examples == ("Спасибо",)
 
     def test_shop_profile_uses_shop_topics(self) -> None:
         report = build_analytics([question("Где мой заказ DE-10023?")], [], BusinessProfile.SHOP)
-        assert [topic.name for topic in report.topics] == ["Статус заказа"]
+        assert [topic.name for topic in report.topics] == ["Order status"]
 
 
 class TestGaps:
@@ -575,4 +575,4 @@ async def test_collect_from_bot_conversation(fake_client: FakeClient, seeded_rep
         "Ставите брекеты?": GapReason.NOT_FOUND,
         "Есть ли у вас страховка для туристов?": GapReason.NO_INFO,
     }
-    assert {topic.name for topic in report.topics} >= {"Цены", "Гигиена и отбеливание", "Брекеты и прикус"}
+    assert {topic.name for topic in report.topics} >= {"Prices", "Hygiene and whitening", "Braces and bite"}

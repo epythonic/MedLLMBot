@@ -1,0 +1,56 @@
+{% from "help/_macros.html" import note, section_link with context %}
+<h3 id="{{ topic.anchor('otkuda') }}">De unde apar cererile</h3>
+<p>Cererile le creează botul, ele nu se adaugă manual. Când un client scrie un mesaj cu un număr de telefon,
+de exemplu <code>+373 60 000 000</code> sau <code>060000000</code>, botul:</p>
+<ul>
+  <li>salvează cererea cu statusul <b>Nouă</b>;</li>
+  <li>trimite administratorului în Telegram notificarea „Cerere nouă #N” cu numele, telefonul și textul mesajului;</li>
+  <li>îi răspunde clientului ca de obicei.</li>
+</ul>
+<p>Cererea se creează chiar dacă în acel moment Claude nu este disponibil sau mesajul depășește limita din
+{{ section_link('bot-config') }}: botul îi va cere clientului să scrie mai pe scurt, dar va salva numărul și îi va spune acest lucru.
+Cererea nu se creează doar dacă clientul este blocat sau scrie prea des. Notificarea din Telegram conține primele
+500 de caractere ale mesajului, textul complet este în coloana <b>Mesaj</b>.</p>
+
+<h3 id="{{ topic.anchor('kak') }}">Cum procesați o cerere</h3>
+<ol>
+  <li>Deschideți secțiunea — cererile noi sunt sus. Ca să vedeți doar cererile neprocesate, în blocul <b>Filtre</b>
+    alegeți <b>Status → Nouă</b>.</li>
+  <li>Sunați clientul la numărul din coloana <b>Telefon</b>. În coloana <b>Mesaj</b> sunt adesea deja
+    serviciul sau produsul dorit și ora convenabilă.</li>
+  <li>Schimbați statusul direct în listă: în coloana <b>Status</b> este o listă derulantă, alegerea se salvează imediat —
+    chenarul se evidențiază cu verde pentru o secundă. Statusul se poate schimba de câte ori este nevoie: „În lucru” → „Finalizată”.</li>
+  <li>Ca să notați ce ați convenit, apăsați pictograma creion și completați <b>Nota administratorului</b>,
+    apoi apăsați <b>Salvează</b>.</li>
+</ol>
+
+<h3 id="{{ topic.anchor('novye') }}">Cereri noi fără reîncărcarea paginii</h3>
+<p>Cât timp secțiunea este deschisă, ea verifică la fiecare 15 secunde dacă au apărut cereri noi. Dacă au apărut, deasupra
+tabelului apare mesajul „Cereri noi: N” — apăsați <b>Afișați</b> ca să actualizați lista. Notificarea
+în Telegram vine în continuare ca de obicei.</p>
+
+<h3 id="{{ topic.anchor('statusy') }}">Statusuri</h3>
+<table class="table table-sm">
+  <tbody>
+    <tr><td>Nouă</td><td>Botul a creat cererea, clientul încă nu a fost contactat.</td></tr>
+    <tr><td>În lucru</td><td>L-ați contactat pe client sau așteptați răspunsul lui.</td></tr>
+    <tr><td>Finalizată</td><td>Clientul este programat la consultație sau comanda este plasată — cererea este închisă cu succes.</td></tr>
+    <tr><td>Respinsă</td><td>Clientul s-a răzgândit, nu răspunde la telefon sau nu este o cerere.</td></tr>
+  </tbody>
+</table>
+
+<h3 id="{{ topic.anchor('poisk') }}">Căutare</h3>
+<p>Câmpul de căutare de deasupra tabelului caută după numele clientului, telefon și textul mesajului. Toată conversația
+clientului o puteți citi în {{ section_link('chat-message') }}: filtrați-o după <b>Chat ID</b> de pe pagina cererii.</p>
+
+{% call note("warning", "Botul nu face programări și nu plasează comenzi singur") %}
+Botul nu vede programul medicilor și stocul și nu stabilește ora. El doar colectează datele de contact — ora consultației
+sau comanda o stabilește un angajat la telefon.
+{% endcall %}
+{% call note("info", "Nu tot ce seamănă cu un telefon este o cerere") %}
+Botul caută în text o secvență lungă de cifre. Uneori aceasta se dovedește a fi numărul unui contract sau al unei polițe —
+o astfel de cerere treceți-o în „Respinsă”.
+{% endcall %}
+{% call note("success", "Nu ștergeți cererile") %}
+Ștergerea este ireversibilă. O cerere care nu mai este actuală treceți-o în „Respinsă” — istoricul lucrului cu clienții se păstrează.
+{% endcall %}

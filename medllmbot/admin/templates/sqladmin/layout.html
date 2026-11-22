@@ -25,7 +25,7 @@
     const { failed, xhr, requestConfig } = event.detail;
     const clientError = xhr && xhr.status >= 400 && xhr.status < 500;
     if (failed && requestConfig?.verb !== "get" && !clientError) {
-      window.alert("Не удалось сохранить изменения. Обновите страницу и попробуйте ещё раз.");
+      window.alert({{ _("Could not save the changes. Reload the page and try again.") | tojson }});
     }
   });
 </script>

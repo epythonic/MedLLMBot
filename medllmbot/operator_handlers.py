@@ -21,6 +21,7 @@ from medllmbot.db.models import AuditEvent, AuditOutcome, BotConfig
 from medllmbot.db.repository import Repository
 from medllmbot.guards import extract_phone
 from medllmbot.handlers import client_name, forward_lead, message_language, notify_admin, send, split_message, start
+from medllmbot.i18n import Gettext, gettext_for
 from medllmbot.middlewares import incoming_event
 from medllmbot.operator import (
     ALREADY_ENDED,
@@ -58,20 +59,20 @@ def content_of(msg: Message) -> str:
     return msg.text or msg.caption or f"[{ContentType(msg.content_type).value}]"
 
 
-def end_keyboard(chat_id: int) -> InlineKeyboardMarkup:
+def end_keyboard(chat_id: int, _: Gettext) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text=END_BUTTON, callback_data=end_button_data(chat_id))]]
+        inline_keyboard=[[InlineKeyboardButton(text=_(END_BUTTON), callback_data=end_button_data(chat_id))]]
     )
 
 
-async def relay_to_admin(bot: Bot, repo: Repository, admin_id: int, chat_id: int, text: str) -> bool:
+async def relay_to_admin(bot: Bot, repo: Repository, admin_id: int, chat_id: int, text: str, _: Gettext) -> bool:
     """Messages the administrator about a client and remembers the messages: a reply to any of them goes to the client.
 
-    A long text goes in parts, with the «Вернуть бота» button on the last one. False if the admin is unreachable.
+    A long text goes in parts, with the “Back to bot” button on the last one. False if the admin is unreachable.
     """
     parts = split_message(text)
     for i, part in enumerate(parts):
-        keyboard = end_keyboard(chat_id) if i == len(parts) - 1 else None
+        keyboard = end_keyboard(chat_id, _) if i == len(parts) - 1 else None
         sent = await notify_admin(bot, admin_id, part, keyboard)
         if sent is None:
             return False
@@ -127,7 +128,8 @@ async def operator_reply(msg: Message, bot: Bot, repo: Repository, config: BotCo
     except TelegramAPIError as error:
         log.exception("Failed to forward the operator reply to client %s", client_chat_id)
         await repo.log_event(event)
-        await send(msg, DELIVERY_FORBIDDEN if isinstance(error, TelegramForbiddenError) else DELIVERY_FAILED)
+        failure = DELIVERY_FORBIDDEN if isinstance(error, TelegramForbiddenError) else DELIVERY_FAILED
+        await send(msg, gettext_for(config.admin_language)(failure))
         return
     event.final_answer = content
     await repo.log_event(event)
@@ -143,7 +145,8 @@ async def operator_reply(msg: Message, bot: Bot, repo: Repository, config: BotCo
 async def leave_operator(msg: Message, bot: Bot, repo: Repository, settings: BotSettings, config: BotConfig) -> None:
     """/start during an operator dialog: the client changed their mind, the bot answers again, the admin is told."""
     if await repo.end_operator(msg.chat.id, utcnow()):
-        await notify_admin(bot, settings.admin_id, f"{client_label(client_name(msg), msg.chat.id)}: {CLIENT_LEFT}")
+        left = gettext_for(config.admin_language)(CLIENT_LEFT)
+        await notify_admin(bot, settings.admin_id, f"{client_label(client_name(msg), msg.chat.id)}: {left}")
     await start(msg, config, repo)
 
 
@@ -153,7 +156,8 @@ async def to_operator(msg: Message, bot: Bot, repo: Repository, settings: BotSet
     client = client_label(client_name(msg), msg.chat.id)
     # Photo, voice message, file: the caption comes with the copy, the header has only the type
     shown = msg.text if msg.text is not None else f"[{ContentType(msg.content_type).value}]"
-    delivered = await relay_to_admin(bot, repo, settings.admin_id, msg.chat.id, client_message_notice(client, shown))
+    _ = gettext_for(config.admin_language)
+    delivered = await relay_to_admin(bot, repo, settings.admin_id, msg.chat.id, client_message_notice(client, shown), _)
     if delivered and msg.text is None:
         try:
             copied = await bot.copy_message(chat_id=settings.admin_id, from_chat_id=msg.chat.id, message_id=msg.message_id)
@@ -174,7 +178,7 @@ async def to_operator(msg: Message, bot: Bot, repo: Repository, settings: BotSet
         await repo.save_message(msg.chat.id, "user", content)
 
     if phone := extract_phone(msg.text or msg.caption or ""):
-        await forward_lead(msg, bot, repo, settings.admin_id, phone)
+        await forward_lead(msg, bot, repo, settings.admin_id, phone, _)
 
 
 async def call_operator(msg: Message, bot: Bot, repo: Repository, settings: BotSettings, config: BotConfig) -> None:
@@ -186,12 +190,13 @@ async def call_operator(msg: Message, bot: Bot, repo: Repository, settings: BotS
     text = msg.text or ""
     replies = PROFILES[config.profile].replies_in(message_language(msg))
     history = await repo.load_history(msg.chat.id, limit=HISTORY_IN_NOTICE)
-    notice = handoff_notice(client_label(client_name(msg), msg.chat.id), text, history, config.operator_hours)
+    _ = gettext_for(config.admin_language)
+    notice = handoff_notice(client_label(client_name(msg), msg.chat.id), text, history, config.operator_hours, _)
     event = incoming_event(msg, AuditOutcome.HANDOFF)
     # Operator mode first, then the notification: the next client message that arrives while the notification
     # is being sent no longer goes to Claude
     await repo.start_operator(msg.chat.id, operator_deadline(utcnow(), config.operator_hours))
-    if await relay_to_admin(bot, repo, settings.admin_id, msg.chat.id, notice):
+    if await relay_to_admin(bot, repo, settings.admin_id, msg.chat.id, notice, _):
         answer = replies.operator_started
     else:
         # The administrator is unreachable, so do not promise a reply that will not come
@@ -204,13 +209,16 @@ async def call_operator(msg: Message, bot: Bot, repo: Repository, settings: BotS
         await repo.save_pair(msg.chat.id, text, answer)
 
     if phone := extract_phone(text):
-        await forward_lead(msg, bot, repo, settings.admin_id, phone)
+        await forward_lead(msg, bot, repo, settings.admin_id, phone, _)
 
 
 async def return_to_bot(callback: CallbackQuery, bot: Bot, repo: Repository, settings: BotSettings) -> None:
-    """The «Вернуть бота» button: the client talks to the bot again. Only the administrator can press it."""
+    """The “Back to bot” button: the client talks to the bot again. Only the administrator can press it."""
+    # Callback queries bypass the message middlewares, so the settings are read here
+    config = await repo.get_config()
+    _ = gettext_for(config.admin_language)
     if callback.from_user.id != settings.admin_id:
-        await callback.answer(NOT_ALLOWED)
+        await callback.answer(_(NOT_ALLOWED))
         return
     chat_id = parse_end_button(callback.data)
     if chat_id is None:
@@ -218,7 +226,6 @@ async def return_to_bot(callback: CallbackQuery, bot: Bot, repo: Repository, set
         return
     active = await repo.end_operator(chat_id, utcnow())
     if active:
-        config = await repo.get_config()
         text = PROFILES[config.profile].replies_in(await dialog_language(repo, chat_id)).operator_ended
         try:
             await bot.send_message(chat_id, text)
@@ -226,7 +233,7 @@ async def return_to_bot(callback: CallbackQuery, bot: Bot, repo: Repository, set
             log.exception("Failed to tell client %s that the dialog is back with the bot", chat_id)
         else:
             await repo.save_message(chat_id, "assistant", text)
-    await callback.answer(ENDED if active else ALREADY_ENDED)
+    await callback.answer(_(ENDED if active else ALREADY_ENDED))
 
 
 def create_router() -> Router:

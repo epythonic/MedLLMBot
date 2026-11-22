@@ -1,0 +1,91 @@
+{% from "help/_macros.html" import note, section_link with context %}
+<h3 id="{{ topic.anchor('kak') }}">How to change the settings</h3>
+<p>The settings are a single row. Click the pencil icon, change the fields and click <b>Save</b>. The bot applies
+the changes from the client's next message; there is no need to restart it.</p>
+
+<h3 id="{{ topic.anchor('profile') }}">Business profile</h3>
+<p>The profile defines who the bot introduces itself as and which domain rules it follows:</p>
+<ul>
+  <li><b>Dental clinic</b> — does not make diagnoses, advises coming in for a visit in case of acute pain, books appointments.</li>
+  <li><b>Electronics store</b> — helps choose equipment for the budget and needs, does not promise availability or delivery
+    times that are not in the knowledge base, places orders through a manager.</li>
+</ul>
+<p>The security rules are the same for both profiles. The profile is changed together with the knowledge base by a command
+on the server, so it is not in the form:</p>
+<pre><code>docker compose run --rm migrate python -m medllmbot.db.seed --reset --profile shop</code></pre>
+{% call note("warning", "The reset deletes the demo data") %}
+The command deletes clients, chat history, leads and the log and replaces the knowledge base with the profile's demo data.
+Cost totals and the daily limit remain. To switch back to the dental clinic, use <code>--profile clinic</code>.
+{% endcall %}
+
+<h3 id="{{ topic.anchor('model') }}">How to change the Claude model</h3>
+<ol>
+  <li>Add a price for the new model in {{ section_link('model-price') }}: without it the settings will not be saved —
+    this way the admin panel also catches typos in the model ID.</li>
+  <li>Enter the model ID in the <b>Model</b> field, for example <code>claude-haiku-5-5</code>, and save.</li>
+  <li>Send the bot a test question.</li>
+  <li>Open {{ section_link('audit-event') }}: the latest record should have the outcome “Answered”, and the cost should not be “—”.</li>
+</ol>
+{% call note("danger", "A wrong model ID stops the answers") %}
+If the log shows the outcome “API error”, the model is specified incorrectly (for example, it has a price, but Anthropic has
+no such model): clients get an apology instead of an answer.
+Restore the previous value right away.
+{% endcall %}
+
+<h3 id="{{ topic.anchor('limity') }}">Limits</h3>
+<ul>
+  <li><b>Answer token limit</b> caps the length of the bot's answer, not of the client's question. The bot's answers are short,
+    and 1024 is more than enough.
+    If an answer does not fit within the limit, the bot does not send the client a cut-off fragment: it replies “I'll check with the administrator”
+    and logs the outcome “Answer cut off”. If you see such records, increase the limit.</li>
+  <li><b>Max client message length</b> — in characters. Longer messages are turned away before Claude is called:
+    this protects against spam and unnecessary costs. The client gets a reply with the numbers: “The message is too long:
+    1350 characters, and no more than 1024 are allowed. Please write your question more briefly.” If the message
+    contains a phone number, the lead is still created, and the client is told that the number has been saved.</li>
+  <li><b>History depth</b> — how many recent messages of the dialog the model sees. 0 — the bot does not remember the conversation;
+    8 is enough for a typical appointment booking. More makes every answer more expensive.</li>
+  <li><b>Messages per window</b> and <b>Rate-limit window</b>: by default no more than 10 messages in 60 seconds from one
+    client. The bot silently skips extra messages and marks them in the log with the outcome “Rate limit”.</li>
+</ul>
+<p>Ready-made replies without Claude — “I'll check with the administrator”, “The message is too long”, an apology for an error and others —
+the bot writes in the language of the client's message: Russian or Romanian. If the language cannot be told from the text (a command, an order
+number, a photo without a caption), the bot takes the language from the client's Telegram settings. There are two greetings — see below.</p>
+
+<h3 id="{{ topic.anchor('budget') }}">Daily spend limit</h3>
+<p>The bot is open to any Telegram user. The message limit applies to each client separately,
+while the <b>Daily spend limit</b> applies to everyone together: when Claude costs for the current day (UTC) reach
+the limit, until midnight UTC the bot replies “The administrator will answer you during working hours” without calling the model.
+Leads with a phone number are saved as usual, you get a notification in Telegram (no more than once every 6 hours),
+and the outcome “Spend limit” appears in {{ section_link('audit-event') }}.</p>
+<ul>
+  <li><b>0</b> — no limit.</li>
+  <li>For a demo, 1–2 dollars is enough: one claude-haiku-5-5 answer costs a fraction of a cent.</li>
+  <li>Only requests with a price in {{ section_link('model-price') }} count: a model without a price does not use up the limit.</li>
+</ul>
+
+<h3 id="{{ topic.anchor('catalog') }}">Catalog in the prompt</h3>
+<p>As long as there are no more active services in {{ section_link('service') }} than this number, the bot passes the whole price list
+to Claude with every question. If there are more services, the bot does not pass the whole price list but searches it for the relevant items.
+More details are in the help for the {{ section_link('service') }} section.</p>
+<ul>
+  <li><b>50</b> (the default) suits a clinic: the whole price list in the request gives the fastest and cheapest answer.
+    The shop demo has 64 items, so there the bot searches the catalog.</li>
+  <li><b>0</b> — the bot always searches. This lets you show the search on a small catalog.</li>
+  <li>The price check works in both modes: the bot will not name a price that is not in the catalog.</li>
+</ul>
+
+<h3 id="{{ topic.anchor('prochee') }}">Greeting and log</h3>
+<ul>
+  <li><b>Greeting (/start)</b> — the first thing the client sees. Keep it short: who you are, how the bot can help,
+    how to book an appointment.</li>
+  <li><b>Greeting in Romanian</b> — the same for clients whose Telegram is in Romanian. “/start” has no text
+    to tell the language from, so the bot looks at the Telegram language: Russian gets the Russian greeting,
+    Romanian the Romanian one, any other language both one after the other (many people write in Romanian from Telegram set to English).
+    Leave the field empty if the first greeting already has both languages: then everyone gets it.</li>
+  <li><b>Keep log, days</b> — how long records are kept in {{ section_link('audit-event') }}. Older records are deleted
+    automatically; cost totals remain.</li>
+</ul>
+{% call note("info", "What is not here") %}
+The Telegram bot token, the Anthropic API key and the administrator's Telegram ID are stored in the server settings:
+the developer changes them, and after a change the bot has to be restarted.
+{% endcall %}

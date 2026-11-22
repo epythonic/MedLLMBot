@@ -1,0 +1,60 @@
+{% from "help/_macros.html" import note, section_link with context %}
+<h3 id="{{ topic.anchor('chto') }}">What is recorded</h3>
+<p>Every incoming message, including rejected ones: what the client wrote, what the model answered, what the client
+finally received, how much it cost and whether there were signs of an attack. The log is read-only.</p>
+
+<h3 id="{{ topic.anchor('itogi') }}">Processing outcomes</h3>
+<table class="table table-sm">
+  <tbody>
+    {% for outcome, text in outcome_help.items() %}
+    <tr><td>{{ _(outcome.value) }}</td><td>{{ text }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h3 id="{{ topic.anchor('priznaki') }}">Attack signs</h3>
+<p>The detector looks in the client's message for typical tricks used to take control of the bot,
+and in the model's answer for fragments of its rules. The signs that fired are shown in the <b>Attack signs</b> column.</p>
+<table class="table table-sm">
+  <tbody>
+    {% for flag in flag_help %}
+    <tr><td>{{ _(flag.label) }}</td><td>{{ flag.example }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h3 id="{{ topic.anchor('podozritelnoe') }}">What happens to a suspicious message</h3>
+<ul>
+  <li>The client gets the model's usual answer: the bot is protected from hacking by its rules and answer checks, not by
+    the detector. The exception is an answer with fragments of the rules: it is replaced with a neutral phrase.</li>
+  <li>The message and the answer are not saved in {{ section_link('chat-message') }}, so the attack does not build up
+    in the bot's memory.</li>
+  <li>The administrator gets a Telegram notification “Warning: suspicious message…”, at most once every
+    15 minutes per client, so an attacker cannot flood them with messages.</li>
+</ul>
+
+<h3 id="{{ topic.anchor('rassledovanie') }}">How to investigate a suspicious message</h3>
+<ol>
+  <li>In the <b>Filters</b> block, choose <b>Suspicious → Yes</b>.</li>
+  <li>Open the record with the eye icon. Compare <b>Model answer</b> and <b>Sent to client</b>: if they
+    differ, the bot replaced a dangerous answer.</li>
+  <li>Look at the client's other messages: the <b>Chat ID</b> filter here or in {{ section_link('chat-message') }}.</li>
+  <li>If the attempts repeat, click <b>Block client</b> next to the Chat ID on the record page
+    and confirm. The client can be unblocked there too.</li>
+</ol>
+
+<h3 id="{{ topic.anchor('novye') }}">New events without reloading</h3>
+<p>While the log is open, it checks for new records every 15 seconds. A banner “New log events: N” appears above
+the table; if some of them are suspicious, the banner turns yellow and shows how many. Click
+<b>Show</b> to refresh the list.</p>
+
+{% call note("warning", "The detector is a signal, not a defense") %}
+The detector works on phrase patterns: an attacker can rephrase, and an ordinary client can accidentally write something
+that looks like an attack. Do not block anyone because of a single flag. The built-in patterns are set by the developer;
+if you notice a new trick that the detector misses, pass the example on to the developer.
+{% endcall %}
+
+<h3 id="{{ topic.anchor('hranenie') }}">How long the log is kept</h3>
+<p>As many days as set in {{ section_link('bot-config') }} → <b>Keep log, days</b>
+(90 by default). The bot deletes old records at startup and then every 6 hours. Costs are not lost:
+the daily totals stay in {{ section_link('usage-daily') }}.</p>

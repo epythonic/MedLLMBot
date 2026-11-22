@@ -24,17 +24,20 @@
       <i class="fa-regular fa-circle-question me-2"></i>{{ topic.title }}
     </h2>
     <a class="btn btn-sm ms-auto me-2" href="{{ url_for('admin:view-help') }}#{{ topic.anchor() }}"
-       target="_blank" rel="noopener">Вся справка</a>
-    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Закрыть"></button>
+       target="_blank" rel="noopener">{{ _("All help") }}</a>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="{{ _('Close') }}"></button>
   </div>
   <div class="offcanvas-body help-doc">
     {% include "help/_topic.html" %}
-    <p class="text-secondary small mt-4 mb-0">F1 или «?» на клавиатуре — открыть и закрыть справку.</p>
+    <p class="text-secondary small mt-4 mb-0">{{ _("F1 or “?” on the keyboard opens and closes the help.") }}</p>
   </div>
 </div>
 
 <script>
   (() => {
+    // Translated texts; {text} is replaced in the script (gettext here would need a value for every placeholder)
+    const helpLabel = {{ _("Help: %(text)s", text="{text}") | tojson }};
+    const clickHint = {{ _("Click for detailed help.") | tojson }};
     const init = () => {
       // Bootstrap is bundled in tabler.min.js, which SQLAdmin loads at the end of the page
       const { Offcanvas, Tooltip } = window.tabler ?? {};
@@ -61,7 +64,7 @@
         const button = document.createElement("button");
         button.type = "button";
         button.className = `help-q ${extraClass}`;
-        button.setAttribute("aria-label", `Справка: ${text}`);
+        button.setAttribute("aria-label", helpLabel.replace("{text}", () => text));
         button.innerHTML = '<i class="fa-regular fa-circle-question"></i>';
         const tooltip = new Tooltip(button, { title: text, placement: "top", customClass: "help-tooltip" });
         button.addEventListener("click", (event) => {
@@ -78,7 +81,7 @@
       const title = [...document.querySelectorAll(".page-title, .card-header .card-title")].find(
         (el) => el.textContent.trim() && !panelEl.contains(el),
       );
-      title?.append(helpButton(`${panelEl.dataset.summary} Нажмите — подробная справка.`, null, "help-q--section"));
+      title?.append(helpButton(`${panelEl.dataset.summary} ${clickHint}`, null, "help-q--section"));
 
       // Field «?»: form labels, list column headers, rows on the record page
       const cells = [...document.querySelectorAll(".card-table thead th")];

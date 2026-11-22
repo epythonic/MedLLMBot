@@ -11,6 +11,7 @@ from typing import ClassVar, cast, final, override
 from markupsafe import Markup
 from sqladmin import ModelView
 from sqladmin.filters import BooleanFilter, OperationColumnFilter, StaticValuesFilter
+from sqladmin.i18n import get_locale_display_name
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -19,6 +20,7 @@ from wtforms import Field, Form, SelectField
 from wtforms.validators import DataRequired, Length, NumberRange, ValidationError
 
 from medllmbot.admin.forms import AdminForm, CommaFloatField
+from medllmbot.admin.i18n import LOCALES, gettext, lazy_gettext, lazy_text
 from medllmbot.admin.live import NEW_AUDIT_EVENTS, NEW_LEADS, audit_chat_id_cell, lead_status_cell, sort_handle_cell
 from medllmbot.costs import format_usd, match_model
 from medllmbot.db.models import (
@@ -41,10 +43,16 @@ from medllmbot.operator import with_operator
 from medllmbot.orders import normalize_number, order_key
 from medllmbot.security import FLAG_LABELS
 
-CLIENTS = "Клиенты"
-KNOWLEDGE = "База знаний"
-SECURITY = "Безопасность"
-COSTS = "Расходы"
+
+def _sentences(*sentences: str) -> str:
+    """A form hint of several sentences: each is its own msgid, joined in the request's language."""
+    return lazy_text(lambda: " ".join(map(str, sentences)))
+
+
+CLIENTS = lazy_gettext("Clients")
+KNOWLEDGE = lazy_gettext("Knowledge base")
+SECURITY = lazy_gettext("Security")
+COSTS = lazy_gettext("Costs")
 
 
 def _short(text: str | None, limit: int = 80) -> str:
@@ -85,25 +93,25 @@ def _daily_cost(model: UsageDaily, _attr: object) -> str:
     return format_usd(model.cost_micro_usd)
 
 
-# SQLAdmin shows an Enum's member name (NEW, ANSWERED); show the label instead, as in filters and help
+# SQLAdmin shows an Enum's member name (NEW, ANSWERED); show the translated label instead, as in filters and help
 def _lead_status(model: Lead, _attr: object) -> str:
-    return model.status.value
+    return gettext(model.status.value)
 
 
 def _audit_outcome(model: AuditEvent, _attr: object) -> str:
-    return model.outcome.value
+    return gettext(model.outcome.value)
 
 
 def _audit_flags(model: AuditEvent, _attr: object) -> str:
-    return ", ".join(FLAG_LABELS.get(code, code) for code in model.flags.split(",") if code)
+    return ", ".join(gettext(FLAG_LABELS.get(code, code)) for code in model.flags.split(",") if code)
 
 
 # A yellow badge instead of a check mark and cross: a red cross on ordinary messages looked like an alarm
-SUSPICIOUS_BADGE = Markup('<span class="badge bg-warning-lt">⚠ Да</span>')
+SUSPICIOUS_BADGE = Markup('<span class="badge bg-warning-lt">⚠ {}</span>')
 
 
 def _audit_suspicious(model: AuditEvent, _attr: object) -> Markup | str:
-    return SUSPICIOUS_BADGE if model.is_suspicious else ""
+    return SUSPICIOUS_BADGE.format(gettext("Yes")) if model.is_suspicious else ""
 
 
 def _audit_tool_calls(model: AuditEvent, _attr: object) -> Markup | str:
@@ -113,33 +121,31 @@ def _audit_tool_calls(model: AuditEvent, _attr: object) -> Markup | str:
     return Markup("<br>").join(model.tool_calls.splitlines())
 
 
-# ---------- Filters with Russian labels ----------
-# In SQLAdmin the «All / Yes / No» options are hardcoded in the filters and not translated.
-
-ALL_LABEL = "Все"
+# ---------- Filters with translated labels ----------
+# SQLAdmin hardcodes the «All / Yes / No» options and the operation names in English, outside its catalogs.
 
 
 @final
 class YesNoFilter(BooleanFilter):
     @override
     async def lookups(self, request: Request, model: object, run_query: object) -> list[tuple[str, str]]:
-        return [("all", ALL_LABEL), ("true", "Да"), ("false", "Нет")]
+        return [("all", gettext("All")), ("true", gettext("Yes")), ("false", gettext("No"))]
 
 
 @final
 class ChoiceFilter(StaticValuesFilter):
     @override
     async def lookups(self, request: Request, model: object, run_query: object) -> list[tuple[str, str]]:
-        return [("__all", ALL_LABEL), *self.values]
+        return [("__all", gettext("All")), *self.values]
 
 
-OPERATION_LABELS = {
-    "equals": "Равно",
-    "contains": "Содержит",
-    "starts_with": "Начинается с",
-    "ends_with": "Заканчивается на",
-    "greater_than": "Больше",
-    "less_than": "Меньше",
+OPERATION_LABELS: dict[str, str] = {
+    "equals": lazy_gettext("Equals"),
+    "contains": lazy_gettext("Contains"),
+    "starts_with": lazy_gettext("Starts with"),
+    "ends_with": lazy_gettext("Ends with"),
+    "greater_than": lazy_gettext("Greater than"),
+    "less_than": lazy_gettext("Less than"),
 }
 
 
@@ -152,8 +158,8 @@ class OperationFilter(OperationColumnFilter):
 
 # ---------- Clients ----------
 
-# The DB stores the status name (NEW); the admin shows the label («Новая»)
-STATUS_CHOICES = [(status.name, status.value) for status in LeadStatus]
+# The DB stores the status name (NEW); the admin shows the label («New»), translated
+STATUS_CHOICES: list[tuple[str, str]] = [(status.name, lazy_gettext(status.value)) for status in LeadStatus]
 
 
 def _status_name(value: LeadStatus | str) -> str:
@@ -161,11 +167,13 @@ def _status_name(value: LeadStatus | str) -> str:
 
 
 class AdminView(ModelView):
-    """Common base for sections: forms with errors in Russian (forms.AdminForm)."""
+    """Common base for sections: forms with translated errors (forms.AdminForm)."""
 
     form_base_class: ClassVar[type[Form]] = AdminForm
     # SQLAdmin shows the exception text above the form: without catching it, that would be raw SQL in English
-    integrity_error: ClassVar[str] = "Запись не сохранена: такая уже есть или значения нарушают ограничения базы."
+    integrity_error: ClassVar[str] = lazy_gettext(
+        "Record not saved: it already exists or the values break database constraints."
+    )
 
     @override
     async def insert_model(self, request: Request, data: dict[str, object]) -> object:
@@ -173,7 +181,7 @@ class AdminView(ModelView):
             # SQLAdmin left insert_model untyped (dict without parameters, returns Any)
             obj = cast(object, await super().insert_model(request, data))  # pyright: ignore[reportUnknownMemberType]
         except IntegrityError as exc:
-            raise ValueError(self.integrity_error) from exc
+            raise ValueError(str(self.integrity_error)) from exc
         return obj
 
     @override
@@ -181,8 +189,14 @@ class AdminView(ModelView):
         try:
             obj = cast(object, await super().update_model(request, pk, data))  # pyright: ignore[reportUnknownMemberType]
         except IntegrityError as exc:
-            raise ValueError(self.integrity_error) from exc
+            raise ValueError(str(self.integrity_error)) from exc
         return obj
+
+    @override
+    def search_placeholder(self) -> str:
+        # SQLAdmin joins the labels with str.join, which does not accept lazy translations
+        labels: dict[str, object] = self._column_labels
+        return ", ".join(str(labels.get(field, field)) for field in self._search_fields)
 
     def async_sessions(self) -> async_sessionmaker[AsyncSession] | None:
         """Session factory for custom checks in on_model_change; None if the engine is not async (never in admin)."""
@@ -200,8 +214,8 @@ def _strip(value: object) -> object:
 
 @final
 class LeadAdmin(AdminView, model=Lead):
-    name = "Заявка"
-    name_plural = "Заявки"
+    name = lazy_gettext("Lead")
+    name_plural = lazy_gettext("Leads")
     icon = "fa-solid fa-phone"
     category = CLIENTS
 
@@ -219,7 +233,7 @@ class LeadAdmin(AdminView, model=Lead):
     ]
     column_default_sort = [(Lead.created_at, True)]
     column_searchable_list = [Lead.client_name, Lead.phone, Lead.message]
-    column_filters = [ChoiceFilter(Lead.status, STATUS_CHOICES, title="Статус")]
+    column_filters = [ChoiceFilter(Lead.status, STATUS_CHOICES, title=lazy_gettext("Status"))]
     column_formatters = {Lead.message: _lead_message, Lead.status: lead_status_cell}
     column_formatters_detail = {Lead.status: _lead_status}
     column_details_exclude_list = [Lead.client]
@@ -227,14 +241,14 @@ class LeadAdmin(AdminView, model=Lead):
     form_overrides = {"status": SelectField}
     form_args = {"status": {"choices": STATUS_CHOICES, "coerce": _status_name}}
     column_labels = {
-        Lead.id: "№",
-        Lead.created_at: "Создана",
-        Lead.updated_at: "Изменена",
-        Lead.status: "Статус",
-        Lead.client_name: "Клиент",
-        Lead.phone: "Телефон",
-        Lead.message: "Сообщение",
-        Lead.admin_note: "Заметка администратора",
+        Lead.id: lazy_gettext("No."),
+        Lead.created_at: lazy_gettext("Created"),
+        Lead.updated_at: lazy_gettext("Updated"),
+        Lead.status: lazy_gettext("Status"),
+        Lead.client_name: lazy_gettext("Client"),
+        Lead.phone: lazy_gettext("Phone"),
+        Lead.message: lazy_gettext("Message"),
+        Lead.admin_note: lazy_gettext("Administrator note"),
         Lead.chat_id: "Chat ID",
     }
 
@@ -249,8 +263,8 @@ def _operator_until(model: Client, _attr: object) -> str:
 
 @final
 class ClientAdmin(AdminView, model=Client):
-    name = "Клиент"
-    name_plural = "Клиенты"
+    name = lazy_gettext("Client")
+    name_plural = lazy_gettext("Clients")
     icon = "fa-solid fa-user"
     category = CLIENTS
 
@@ -268,7 +282,7 @@ class ClientAdmin(AdminView, model=Client):
     column_default_sort = [(Client.last_seen_at, True)]
     # Chat ID, to find a client spotted in the audit log
     column_searchable_list = [Client.chat_id, Client.username, Client.full_name]
-    column_filters = [YesNoFilter(Client.is_blocked, title="Заблокирован")]
+    column_filters = [YesNoFilter(Client.is_blocked, title=lazy_gettext("Blocked"))]
     column_details_exclude_list = [Client.messages, Client.leads]
     form_columns = [Client.is_blocked]
     column_formatters = {Client.operator_until: _operator_until}
@@ -276,15 +290,15 @@ class ClientAdmin(AdminView, model=Client):
     column_labels = {
         Client.chat_id: "Chat ID",
         Client.username: "Username",
-        Client.full_name: "Имя",
-        Client.is_blocked: "Заблокирован",
-        Client.operator_until: "С оператором до",
-        Client.first_seen_at: "Первое сообщение",
-        Client.last_seen_at: "Последнее сообщение",
+        Client.full_name: lazy_gettext("Full name"),
+        Client.is_blocked: lazy_gettext("Blocked"),
+        Client.operator_until: lazy_gettext("With operator until"),
+        Client.first_seen_at: lazy_gettext("First message"),
+        Client.last_seen_at: lazy_gettext("Last message"),
     }
 
 
-ORDER_STATUS_CHOICES = [(status.name, status.value) for status in OrderStatus]
+ORDER_STATUS_CHOICES: list[tuple[str, str]] = [(status.name, lazy_gettext(status.value)) for status in OrderStatus]
 
 
 def _order_status_name(value: OrderStatus | str) -> str:
@@ -292,7 +306,7 @@ def _order_status_name(value: OrderStatus | str) -> str:
 
 
 def _order_status(model: Order, _attr: object) -> str:
-    return model.status.value
+    return gettext(model.status.value)
 
 
 def _order_number(value: object) -> object:
@@ -306,16 +320,18 @@ def _valid_order_number(_form: Form, field: Field) -> None:
     # A number the bot cannot find: the client would get «не найден» and waste attempts
     value: object = field.data  # pyright: ignore[reportAny]  # WTForms does not type field data
     if not isinstance(value, str) or normalize_number(value) != value:
-        raise ValidationError("Номер заказа — латинские буквы, цифры и дефис, от 3 до 32 знаков, например DE-10023.")
+        raise ValidationError(
+            gettext("Order number: Latin letters, digits and hyphens, 3 to 32 characters, for example DE-10023.")
+        )
 
 
 @final
 class OrderAdmin(AdminView, model=Order):
-    name = "Заказ"
-    name_plural = "Заказы"
+    name = lazy_gettext("Order")
+    name_plural = lazy_gettext("Orders")
     icon = "fa-solid fa-box"
     category = CLIENTS
-    integrity_error = "Заказ с таким номером уже есть — откройте его и измените."
+    integrity_error = lazy_gettext("An order with this number already exists: open it and edit it instead.")
 
     column_list = [
         Order.number,
@@ -328,7 +344,7 @@ class OrderAdmin(AdminView, model=Order):
     ]
     column_default_sort = [(Order.created_at, True)]
     column_searchable_list = [Order.number, Order.customer_name, Order.phone]
-    column_filters = [ChoiceFilter(Order.status, ORDER_STATUS_CHOICES, title="Статус")]
+    column_filters = [ChoiceFilter(Order.status, ORDER_STATUS_CHOICES, title=lazy_gettext("Status"))]
     column_formatters = {Order.status: _order_status}
     column_formatters_detail = {Order.status: _order_status}
     form_columns = [
@@ -345,30 +361,37 @@ class OrderAdmin(AdminView, model=Order):
         "number": {
             "validators": [DataRequired(), _valid_order_number],
             "filters": [_order_number],
-            "description": "Как на чеке, например DE-10023. Клиент называет его боту",
+            "description": _sentences(
+                lazy_gettext("As on the receipt, for example DE-10023."),
+                lazy_gettext("The customer gives it to the bot"),
+            ),
         },
         "status": {"choices": ORDER_STATUS_CHOICES, "coerce": _order_status_name},
         "customer_name": {"validators": [DataRequired()], "filters": [_strip]},
         "phone": {
             "validators": [DataRequired(), Length(max=32)],
             "filters": [_strip],
-            "description": "Бот покажет статус, только если клиент назовёт последние 4 цифры этого номера",
+            "description": lazy_gettext(
+                "The bot shows the status only if the customer gives the last 4 digits of this number"
+            ),
         },
         "items": {"validators": [DataRequired()], "filters": [_strip]},
-        "total": {"validators": [NumberRange(min=0, max=10**9)], "description": "Лей, целым числом"},
-        "delivery_date": {"description": "Когда ожидается доставка или выдача; пусто — дата ещё не известна"},
+        "total": {"validators": [NumberRange(min=0, max=10**9)], "description": lazy_gettext("Lei, a whole number")},
+        "delivery_date": {
+            "description": lazy_gettext("When delivery or pickup is expected; empty means the date is not known yet")
+        },
     }
     column_labels = {
         Order.id: "ID",
-        Order.number: "Номер",
-        Order.created_at: "Создан",
-        Order.updated_at: "Изменён",
-        Order.status: "Статус",
-        Order.customer_name: "Покупатель",
-        Order.phone: "Телефон",
-        Order.items: "Состав",
-        Order.total: "Сумма, лей",
-        Order.delivery_date: "Дата доставки",
+        Order.number: lazy_gettext("Number"),
+        Order.created_at: lazy_gettext("Placed"),
+        Order.updated_at: lazy_gettext("Last updated"),
+        Order.status: lazy_gettext("Status"),
+        Order.customer_name: lazy_gettext("Customer"),
+        Order.phone: lazy_gettext("Phone"),
+        Order.items: lazy_gettext("Items"),
+        Order.total: lazy_gettext("Total, lei"),
+        Order.delivery_date: lazy_gettext("Delivery date"),
     }
 
     @override
@@ -377,7 +400,7 @@ class OrderAdmin(AdminView, model=Order):
         number = data.get("number")
         own_id = None if is_created or not isinstance(model, Order) else model.id
         if isinstance(number, str) and await self._number_taken(number, own_id):
-            raise ValueError(self.integrity_error)
+            raise ValueError(str(self.integrity_error))
 
     async def _number_taken(self, number: str, own_id: int | None) -> bool:
         sessions = self.async_sessions()
@@ -392,13 +415,13 @@ class OrderAdmin(AdminView, model=Order):
         return other is not None
 
 
-ROLE_CHOICES = [("user", "user — клиент"), ("assistant", "assistant — бот")]
+ROLE_CHOICES = [("user", lazy_gettext("user — client")), ("assistant", lazy_gettext("assistant — bot"))]
 
 
 @final
 class ChatMessageAdmin(AdminView, model=ChatMessage):
-    name = "Сообщение"
-    name_plural = "Переписка"
+    name = lazy_gettext("Message")
+    name_plural = lazy_gettext("Chat history")
     icon = "fa-solid fa-comments"
     category = CLIENTS
 
@@ -417,22 +440,27 @@ class ChatMessageAdmin(AdminView, model=ChatMessage):
     column_searchable_list = [ChatMessage.content]
     column_filters = [
         OperationFilter(ChatMessage.chat_id, title="Chat ID"),
-        ChoiceFilter(ChatMessage.role, ROLE_CHOICES, title="Роль"),
+        ChoiceFilter(ChatMessage.role, ROLE_CHOICES, title=lazy_gettext("Role")),
     ]
     column_formatters = {ChatMessage.content: _chat_content}
     column_details_exclude_list = [ChatMessage.client]
     column_labels = {
-        ChatMessage.id: "№",
-        ChatMessage.created_at: "Время",
+        ChatMessage.id: lazy_gettext("No."),
+        ChatMessage.created_at: lazy_gettext("Time"),
         ChatMessage.chat_id: "Chat ID",
-        ChatMessage.role: "Роль",
-        ChatMessage.content: "Текст",
+        ChatMessage.role: lazy_gettext("Role"),
+        ChatMessage.content: lazy_gettext("Text"),
     }
 
 
 # ---------- Knowledge base ----------
 
-SORT_HINT = {"description": "Меньше — выше в списке. В списке порядок удобнее менять перетаскиванием"}
+SORT_HINT = {
+    "description": _sentences(
+        lazy_gettext("Lower numbers come first."),
+        lazy_gettext("In the list it is easier to change the order by dragging"),
+    )
+}
 # The order is changed by dragging, which only works when the whole section is on one page
 SORTABLE_LIST = "live/sortable_list.html"
 SORTABLE_PAGE_SIZE = 100
@@ -441,8 +469,8 @@ SORTABLE_PAGE_SIZE = 100
 @final
 class ServiceAdmin(AdminView, model=Service):
     # Domain-neutral names: the same section holds clinic services or shop products
-    name = "Позиция"
-    name_plural = "Каталог и цены"
+    name = lazy_gettext("Item")
+    name_plural = lazy_gettext("Catalog and prices")
     icon = "fa-solid fa-list"
     category = KNOWLEDGE
 
@@ -452,7 +480,7 @@ class ServiceAdmin(AdminView, model=Service):
     page_size = SORTABLE_PAGE_SIZE
     page_size_options = [SORTABLE_PAGE_SIZE]
     column_searchable_list = [Service.name]
-    column_filters = [YesNoFilter(Service.is_active, title="Активна")]
+    column_filters = [YesNoFilter(Service.is_active, title=lazy_gettext("Active"))]
     column_formatters = {Service.sort_order: sort_handle_cell}
     form_columns = [
         Service.name,
@@ -462,23 +490,23 @@ class ServiceAdmin(AdminView, model=Service):
         Service.sort_order,
     ]
     form_args = {
-        "price": {"validators": [NumberRange(min=0)], "description": "В леях"},
-        "description": {"description": "Необязательно: уточнение для бота"},
+        "price": {"validators": [NumberRange(min=0)], "description": lazy_gettext("In lei")},
+        "description": {"description": lazy_gettext("Optional: a note for the bot")},
         "sort_order": SORT_HINT,
     }
     column_labels = {
-        Service.sort_order: "Порядок",
-        Service.name: "Название",
-        Service.price: "Цена, лей",
-        Service.description: "Описание",
-        Service.is_active: "Активна",
+        Service.sort_order: lazy_gettext("Sort order"),
+        Service.name: lazy_gettext("Name"),
+        Service.price: lazy_gettext("Price, lei"),
+        Service.description: lazy_gettext("Description"),
+        Service.is_active: lazy_gettext("Active"),
     }
 
 
 @final
 class FaqAdmin(AdminView, model=FaqItem):
-    name = "Вопрос"
-    name_plural = "Частые вопросы"
+    name = lazy_gettext("Question")
+    name_plural = lazy_gettext("FAQ")
     icon = "fa-solid fa-circle-question"
     category = KNOWLEDGE
 
@@ -492,17 +520,17 @@ class FaqAdmin(AdminView, model=FaqItem):
     form_columns = [FaqItem.question, FaqItem.answer, FaqItem.is_active, FaqItem.sort_order]
     form_args = {"sort_order": SORT_HINT}
     column_labels = {
-        FaqItem.sort_order: "Порядок",
-        FaqItem.question: "Вопрос",
-        FaqItem.answer: "Ответ",
-        FaqItem.is_active: "Активен",
+        FaqItem.sort_order: lazy_gettext("Sort order"),
+        FaqItem.question: lazy_gettext("Question"),
+        FaqItem.answer: lazy_gettext("Answer"),
+        FaqItem.is_active: lazy_gettext("Enabled"),
     }
 
 
 @final
 class InfoSectionAdmin(AdminView, model=InfoSection):
-    name = "Раздел"
-    name_plural = "О компании"
+    name = lazy_gettext("Section")
+    name_plural = lazy_gettext("About the business")
     icon = "fa-solid fa-building"
     category = KNOWLEDGE
 
@@ -525,22 +553,22 @@ class InfoSectionAdmin(AdminView, model=InfoSection):
     ]
     form_args = {"sort_order": SORT_HINT}
     column_labels = {
-        InfoSection.sort_order: "Порядок",
-        InfoSection.title: "Заголовок",
-        InfoSection.content: "Текст",
-        InfoSection.is_active: "Активен",
+        InfoSection.sort_order: lazy_gettext("Sort order"),
+        InfoSection.title: lazy_gettext("Title"),
+        InfoSection.content: lazy_gettext("Text"),
+        InfoSection.is_active: lazy_gettext("Enabled"),
     }
 
 
 # ---------- Security ----------
 
-OUTCOME_CHOICES = [(outcome.name, outcome.value) for outcome in AuditOutcome]
+OUTCOME_CHOICES: list[tuple[str, str]] = [(outcome.name, lazy_gettext(outcome.value)) for outcome in AuditOutcome]
 
 
 @final
 class AuditEventAdmin(AdminView, model=AuditEvent):
-    name = "Событие"
-    name_plural = "Журнал"
+    name = lazy_gettext("Event")
+    name_plural = lazy_gettext("Log")
     icon = "fa-solid fa-shield-halved"
     category = SECURITY
 
@@ -565,8 +593,8 @@ class AuditEventAdmin(AdminView, model=AuditEvent):
     column_default_sort = [(AuditEvent.id, True)]
     column_searchable_list = [AuditEvent.user_text, AuditEvent.llm_answer]
     column_filters = [
-        YesNoFilter(AuditEvent.is_suspicious, title="Подозрительное"),
-        ChoiceFilter(AuditEvent.outcome, OUTCOME_CHOICES, title="Итог"),
+        YesNoFilter(AuditEvent.is_suspicious, title=lazy_gettext("Suspicious")),
+        ChoiceFilter(AuditEvent.outcome, OUTCOME_CHOICES, title=lazy_gettext("Outcome")),
         OperationFilter(AuditEvent.chat_id, title="Chat ID"),
     ]
     column_formatters = {
@@ -585,40 +613,45 @@ class AuditEventAdmin(AdminView, model=AuditEvent):
         AuditEvent.tool_calls: _audit_tool_calls,
     }
     column_labels = {
-        AuditEvent.id: "№",
-        AuditEvent.created_at: "Время",
+        AuditEvent.id: lazy_gettext("No."),
+        AuditEvent.created_at: lazy_gettext("Time"),
         AuditEvent.chat_id: "Chat ID",
-        AuditEvent.outcome: "Итог",
-        AuditEvent.is_suspicious: "Подозрительное",
-        AuditEvent.flags: "Признаки атаки",
-        AuditEvent.user_text: "Сообщение клиента",
-        AuditEvent.llm_answer: "Ответ модели",
-        AuditEvent.final_answer: "Отправлено клиенту",
-        AuditEvent.model: "Модель",
+        AuditEvent.outcome: lazy_gettext("Outcome"),
+        AuditEvent.is_suspicious: lazy_gettext("Suspicious"),
+        AuditEvent.flags: lazy_gettext("Attack signs"),
+        AuditEvent.user_text: lazy_gettext("Client message"),
+        AuditEvent.llm_answer: lazy_gettext("Model answer"),
+        AuditEvent.final_answer: lazy_gettext("Sent to client"),
+        AuditEvent.model: lazy_gettext("Model"),
         AuditEvent.stop_reason: "stop_reason",
-        AuditEvent.input_tokens: "Токены на входе",
-        AuditEvent.output_tokens: "Токены на выходе",
-        AuditEvent.cache_read_tokens: "Токены из кэша",
-        AuditEvent.cache_write_tokens: "Токены в кэш",
-        AuditEvent.cost_micro_usd: "Стоимость, USD",
-        AuditEvent.latency_ms: "Задержка, мс",
-        AuditEvent.tool_calls: "Что искал бот",
+        AuditEvent.input_tokens: lazy_gettext("Input tokens"),
+        AuditEvent.output_tokens: lazy_gettext("Output tokens"),
+        AuditEvent.cache_read_tokens: lazy_gettext("Cache read tokens"),
+        AuditEvent.cache_write_tokens: lazy_gettext("Cache write tokens"),
+        AuditEvent.cost_micro_usd: lazy_gettext("Cost, USD"),
+        AuditEvent.latency_ms: lazy_gettext("Latency, ms"),
+        AuditEvent.tool_calls: lazy_gettext("What the bot searched for"),
     }
 
 
 # ---------- Costs ----------
 
 # The cap guards against typos: the most expensive models cost tens of dollars per million tokens
-PRICE_HINT = {"validators": [NumberRange(min=0, max=1000)], "description": "USD за миллион токенов, можно с запятой: 0,15"}
+PRICE_HINT = {
+    "validators": [NumberRange(min=0, max=1000)],
+    "description": lazy_gettext("USD per million tokens, a decimal comma is fine: 0,15"),
+}
 
 
 @final
 class ModelPriceAdmin(AdminView, model=ModelPrice):
-    name = "Цена модели"
-    name_plural = "Цены моделей"
+    name = lazy_gettext("Model price")
+    name_plural = lazy_gettext("Model prices")
     icon = "fa-solid fa-tags"
     category = COSTS
-    integrity_error = "Для этой модели уже есть тариф с таким значением «От длины промпта» — измените существующую строку."
+    integrity_error = lazy_gettext(
+        "This model already has a rate with this «From prompt length» value: edit the existing row."
+    )
     # The field for float columns is set explicitly: SQLAdmin 0.32 looks for a «Numeric» converter for them,
     # but in SQLAlchemy 2.1 Float no longer inherits Numeric; without an explicit field the form fails
     # with NoConverterFound
@@ -645,10 +678,10 @@ class ModelPriceAdmin(AdminView, model=ModelPrice):
         ModelPrice.cache_read_per_mtok,
     ]
     form_args = {
-        "model": {"description": "ID модели, как в настройках бота, например claude-haiku-5-5"},
+        "model": {"description": lazy_gettext("Model ID as in the bot settings, for example claude-haiku-5-5")},
         "from_prompt_tokens": {
             "validators": [NumberRange(min=0)],
-            "description": "Тариф для промптов не короче этого числа токенов; обычно 0",
+            "description": lazy_gettext("Rate for prompts of at least this many tokens; usually 0"),
         },
         "input_per_mtok": PRICE_HINT,
         "output_per_mtok": PRICE_HINT,
@@ -656,19 +689,19 @@ class ModelPriceAdmin(AdminView, model=ModelPrice):
         "cache_read_per_mtok": PRICE_HINT,
     }
     column_labels = {
-        ModelPrice.model: "Модель",
-        ModelPrice.from_prompt_tokens: "От длины промпта",
-        ModelPrice.input_per_mtok: "Вход",
-        ModelPrice.output_per_mtok: "Выход",
-        ModelPrice.cache_write_per_mtok: "Запись в кэш",
-        ModelPrice.cache_read_per_mtok: "Чтение из кэша",
+        ModelPrice.model: lazy_gettext("Model"),
+        ModelPrice.from_prompt_tokens: lazy_gettext("From prompt length"),
+        ModelPrice.input_per_mtok: lazy_gettext("Input"),
+        ModelPrice.output_per_mtok: lazy_gettext("Output"),
+        ModelPrice.cache_write_per_mtok: lazy_gettext("Writing to cache"),
+        ModelPrice.cache_read_per_mtok: lazy_gettext("Reading from cache"),
     }
 
 
 @final
 class UsageDailyAdmin(AdminView, model=UsageDaily):
-    name = "День"
-    name_plural = "Расход по дням"
+    name = lazy_gettext("Day")
+    name_plural = lazy_gettext("Daily spend")
     icon = "fa-solid fa-calendar-day"
     category = COSTS
 
@@ -691,25 +724,37 @@ class UsageDailyAdmin(AdminView, model=UsageDaily):
     column_formatters = {UsageDaily.cost_micro_usd: _daily_cost}
     column_formatters_detail = {UsageDaily.cost_micro_usd: _daily_cost}
     column_labels = {
-        UsageDaily.day: "День (UTC)",
-        UsageDaily.model: "Модель",
-        UsageDaily.requests: "Запросов",
-        UsageDaily.input_tokens: "Вход",
-        UsageDaily.output_tokens: "Выход",
-        UsageDaily.cache_read_tokens: "Из кэша",
-        UsageDaily.cache_write_tokens: "В кэш",
-        UsageDaily.cost_micro_usd: "Стоимость, USD",
-        UsageDaily.unpriced_requests: "Без цены",
+        UsageDaily.day: lazy_gettext("Day (UTC)"),
+        UsageDaily.model: lazy_gettext("Model"),
+        UsageDaily.requests: lazy_gettext("Requests"),
+        UsageDaily.input_tokens: lazy_gettext("Input"),
+        UsageDaily.output_tokens: lazy_gettext("Output"),
+        UsageDaily.cache_read_tokens: lazy_gettext("Cache read"),
+        UsageDaily.cache_write_tokens: lazy_gettext("Cache write"),
+        UsageDaily.cost_micro_usd: lazy_gettext("Cost, USD"),
+        UsageDaily.unpriced_requests: lazy_gettext("Unpriced"),
     }
 
 
 # ---------- Settings ----------
 
 
+# Languages by their own names, like in the language switcher: «Русский», «Română», «English»
+ADMIN_LANGUAGE_CHOICES = [(code, get_locale_display_name(code)) for code in LOCALES]
+
+
+def _admin_language(model: BotConfig, _attr: object) -> str:
+    return get_locale_display_name(model.admin_language)
+
+
+def _profile(model: BotConfig, _attr: object) -> str:
+    return gettext(model.profile.value)
+
+
 @final
 class BotConfigAdmin(AdminView, model=BotConfig):
-    name = "Настройки бота"
-    name_plural = "Настройки бота"
+    name = lazy_gettext("Bot settings")
+    name_plural = lazy_gettext("Bot settings")
     icon = "fa-solid fa-gear"
 
     @override
@@ -718,9 +763,8 @@ class BotConfigAdmin(AdminView, model=BotConfig):
         # from answering
         name = data.get("model")
         if isinstance(name, str) and not await self._is_priced(name):
-            raise ValueError(
-                f"Для модели «{name}» нет цены в «Расходы → Цены моделей». Проверьте ID модели или сначала добавьте цену."
-            )
+            no_price = gettext("No price for model «%(model)s» in «Costs → Model prices».") % {"model": name}
+            raise ValueError(" ".join((no_price, gettext("Check the model ID or add its price first."))))
 
     async def _is_priced(self, name: str) -> bool:
         sessions = self.async_sessions()
@@ -734,6 +778,8 @@ class BotConfigAdmin(AdminView, model=BotConfig):
     can_create = False
     can_delete = False
     # The profile changes only together with the knowledge base (seed --reset --profile), so it is not in the form
+    column_formatters = {BotConfig.profile: _profile, BotConfig.admin_language: _admin_language}
+    column_formatters_detail = {BotConfig.profile: _profile, BotConfig.admin_language: _admin_language}
     column_list = [
         BotConfig.profile,
         BotConfig.model,
@@ -745,6 +791,7 @@ class BotConfigAdmin(AdminView, model=BotConfig):
         BotConfig.daily_budget_usd,
         BotConfig.catalog_inline_limit,
         BotConfig.operator_hours,
+        BotConfig.admin_language,
         BotConfig.updated_at,
     ]
     form_columns = [
@@ -760,72 +807,103 @@ class BotConfigAdmin(AdminView, model=BotConfig):
         BotConfig.daily_budget_usd,
         BotConfig.catalog_inline_limit,
         BotConfig.operator_hours,
+        BotConfig.admin_language,
     ]
+    form_overrides = {"admin_language": SelectField}
     form_args = {
         "model": {
             "validators": [DataRequired(), Length(max=100)],
             "filters": [_strip],
-            "description": (
-                "ID модели Claude, например claude-haiku-5-5 или claude-sonnet-5-5. "
-                "Цена модели должна быть в «Расходы → Цены моделей»"
+            "description": _sentences(
+                lazy_gettext("Claude model ID, for example claude-haiku-5-5 or claude-sonnet-5-5."),
+                lazy_gettext("The model needs a price in «Costs → Model prices»"),
             ),
         },
         "greeting": {
             "validators": [DataRequired()],
             "filters": [_strip],
-            "description": "По-русски. Клиентам с Telegram не на русском и не на румынском — вместе с румынским",
+            "description": _sentences(
+                lazy_gettext("In Russian."),
+                lazy_gettext(
+                    "Clients whose Telegram is in neither Russian nor Romanian get it together with the Romanian one"
+                ),
+            ),
         },
         "greeting_ro": {
             "filters": [_strip],
-            "description": "Клиентам с Telegram на румынском. Пусто — всем идёт приветствие выше",
+            "description": _sentences(
+                lazy_gettext("For clients whose Telegram is in Romanian."),
+                lazy_gettext("Empty: everyone gets the greeting above"),
+            ),
         },
         "max_tokens": {
             "validators": [NumberRange(min=1, max=64000)],
-            "description": "Длина ответа бота, а не вопроса клиента",
+            "description": lazy_gettext("Length of the bot's answer, not of the client's question"),
         },
         "max_len": {
             "validators": [NumberRange(min=1)],
-            "description": "Символов. На более длинное сообщение бот ответит, сколько символов можно",
+            "description": _sentences(
+                lazy_gettext("Characters."),
+                lazy_gettext("To a longer message the bot replies how many characters are allowed"),
+            ),
         },
         "history_limit": {
             "validators": [NumberRange(min=0, max=100)],
-            "description": "Сколько последних сообщений передавать модели",
+            "description": lazy_gettext("How many recent messages to pass to the model"),
         },
         "rate_limit": {"validators": [NumberRange(min=1)]},
-        "rate_window": {"validators": [NumberRange(min=1)], "description": "Секунд"},
+        "rate_window": {"validators": [NumberRange(min=1)], "description": lazy_gettext("Seconds")},
         "daily_budget_usd": {
             "validators": [NumberRange(min=0, max=10_000)],
-            "description": "Долларов в сутки (UTC), 0 — без лимита. После лимита бот отвечает без Claude, заявки сохраняются",
+            "description": _sentences(
+                lazy_gettext("Dollars per day (UTC), 0 means no limit."),
+                lazy_gettext("Past the limit the bot answers without Claude; leads are still saved"),
+            ),
         },
         "catalog_inline_limit": {
             "validators": [NumberRange(min=0, max=1000)],
-            "description": "Каталог больше этого числа активных услуг бот не читает целиком, а ищет в нём. 0 — всегда поиск",
+            "description": _sentences(
+                lazy_gettext("A catalog with more active items than this is searched instead of read whole."),
+                lazy_gettext("0 means always search"),
+            ),
+        },
+        "admin_language": {
+            "choices": ADMIN_LANGUAGE_CHOICES,
+            "description": lazy_gettext(
+                "Language of the bot's Telegram messages to you: new leads, alerts, the live operator. "
+                "The admin panel's own language is chosen with the switcher in the menu"
+            ),
         },
         "operator_hours": {
             "validators": [NumberRange(min=1, max=720)],
-            "description": "Столько часов бот молчит после просьбы клиента позвать человека, если оператор не ответил. "
-            "Каждый ответ оператора продлевает срок",
+            "description": _sentences(
+                lazy_gettext(
+                    "For this many hours the bot stays silent after a client asks for a human, if the operator has not replied."
+                ),
+                lazy_gettext("Each operator reply extends the period"),
+            ),
         },
         "audit_retention_days": {
             "validators": [NumberRange(min=1, max=3650)],
-            "description": "Записи журнала старше этого срока удаляются автоматически",
+            "description": lazy_gettext("Log records older than this are deleted automatically"),
         },
     }
     column_labels = {
-        BotConfig.profile: "Профиль бизнеса",
-        BotConfig.model: "Модель",
-        BotConfig.max_tokens: "Лимит токенов ответа",
-        BotConfig.max_len: "Макс. длина сообщения клиента",
-        BotConfig.history_limit: "Глубина истории",
-        BotConfig.rate_limit: "Сообщений в окне",
-        BotConfig.rate_window: "Окно rate-limit, с",
-        BotConfig.greeting: "Приветствие (/start)",
-        BotConfig.greeting_ro: "Приветствие по-румынски",
-        BotConfig.audit_retention_days: "Хранить журнал, дней",
-        BotConfig.daily_budget_usd: "Лимит расходов в сутки, $",
-        BotConfig.catalog_inline_limit: "Каталог в промпте, до позиций",
-        BotConfig.operator_hours: "Оператор ведёт диалог, часов",
-        BotConfig.updated_at: "Изменено",
+        BotConfig.profile: lazy_gettext("Business profile"),
+        BotConfig.model: lazy_gettext("Model"),
+        BotConfig.max_tokens: lazy_gettext("Answer token limit"),
+        BotConfig.max_len: lazy_gettext("Max client message length"),
+        BotConfig.history_limit: lazy_gettext("History depth"),
+        BotConfig.rate_limit: lazy_gettext("Messages per window"),
+        BotConfig.rate_window: lazy_gettext("Rate-limit window, s"),
+        BotConfig.greeting: lazy_gettext("Greeting (/start)"),
+        BotConfig.greeting_ro: lazy_gettext("Greeting in Romanian"),
+        BotConfig.audit_retention_days: lazy_gettext("Keep log, days"),
+        BotConfig.daily_budget_usd: lazy_gettext("Daily spend limit, $"),
+        BotConfig.catalog_inline_limit: lazy_gettext("Catalog in prompt, up to items"),
+        BotConfig.operator_hours: lazy_gettext("Operator handles chat, hours"),
+        BotConfig.admin_language: lazy_gettext("Administrator language"),
+        BotConfig.updated_at: lazy_gettext("Last changed"),
     }
 
 

@@ -9,6 +9,21 @@ panel starts, and every schema change ships as an Alembic migration.
 
 ## [Unreleased]
 
+### Added
+
+- The admin panel speaks Russian, Romanian and English. It follows the browser language and falls back to English.
+  The language switcher in the menu overrides it and remembers the choice. Several other texts follow the language
+  too:
+  - lead and order statuses, log outcomes, analytics topics and attack signs;
+  - form errors;
+  - the «?» help: every section's text and every field hint exist in all three languages.
+
+  Translations live in gettext catalogs (`medllmbot/locales`), and a test fails when a UI string has no Russian or
+  Romanian translation.
+- A bot setting for the administrator's language (RU/RO/EN) covers every Telegram message the bot sends the
+  administrator: new leads, suspicious-message and spending-limit alerts, live-operator notifications, the “Back to
+  bot” button and its replies. Existing settings keep Russian after the migration.
+
 ## [0.2.0] - 2026-11-22
 
 This release measures answer quality and serves Romanian customers fully. An eval of the store bot found four

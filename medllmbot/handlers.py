@@ -15,6 +15,7 @@ from medllmbot.config import BotSettings
 from medllmbot.db.models import AuditOutcome, BotConfig, BusinessProfile
 from medllmbot.db.repository import Repository
 from medllmbot.guards import extract_phone
+from medllmbot.i18n import Gettext, gettext_for
 from medllmbot.middlewares import incoming_event
 from medllmbot.profiles import PROFILES
 from medllmbot.security import FLAG_LABELS, AlertCooldown
@@ -101,25 +102,26 @@ async def handle_text(
     # A failure to send the reply (the client blocked the bot, network) must not lose the lead and notifications
     await send(msg, answer)
 
+    # Messages to the administrator are in the language from the bot settings
+    _ = gettext_for(config.admin_language)
     if reply.suspicious and alerts.ready(msg.chat.id):
-        labels = ", ".join(FLAG_LABELS.get(flag, flag) for flag in reply.flags)
-        await notify_admin(
-            bot,
-            settings.admin_id,
-            f"Внимание: подозрительное сообщение от {client_name(msg)} (chat {msg.chat.id})\nПризнаки: {labels}\n\n"
-            f"{preview(text)}",
-        )
+        labels = ", ".join(_(FLAG_LABELS.get(flag, flag)) for flag in reply.flags)
+        warning = _("Warning: suspicious message from %(client)s (chat %(chat_id)s)") % {
+            "client": client_name(msg),
+            "chat_id": msg.chat.id,
+        }
+        signs = _("Signs: %(signs)s") % {"signs": labels}
+        await notify_admin(bot, settings.admin_id, f"{warning}\n{signs}\n\n{preview(text)}")
 
     if reply.outcome is AuditOutcome.BUDGET_EXCEEDED and budget_alerts.ready(BUDGET_ALERT_KEY):
-        await notify_admin(
-            bot,
-            settings.admin_id,
-            f"Дневной лимит расходов на Claude (${config.daily_budget_usd}) исчерпан. До полуночи UTC бот отвечает "
-            "без модели, заявки сохраняются. Лимит меняется в админке: «Настройки бота».",
+        budget = _(
+            "The daily Claude spending limit ($%(budget)s) is used up. Until midnight UTC the bot answers without "
+            "the model; leads are still saved. The limit is set in the admin panel: “Bot settings”."
         )
+        await notify_admin(bot, settings.admin_id, budget % {"budget": config.daily_budget_usd})
 
     if phone:
-        await forward_lead(msg, bot, repo, settings.admin_id, phone)
+        await forward_lead(msg, bot, repo, settings.admin_id, phone, _)
 
 
 def message_language(msg: Message) -> Language:
@@ -196,12 +198,14 @@ async def notify_admin(
     return None
 
 
-async def forward_lead(msg: Message, bot: Bot, repo: Repository, admin_id: int, phone: str) -> None:
-    """Saves the lead and forwards it to the administrator."""
+async def forward_lead(msg: Message, bot: Bot, repo: Repository, admin_id: int, phone: str, _: Gettext) -> None:
+    """Saves the lead and forwards it to the administrator; `_` translates into the administrator's language."""
     client = client_name(msg)
     text = msg.text or msg.caption or ""  # the phone number may be in a photo caption
     lead = await repo.create_lead(msg.chat.id, client, phone, text)
-    sent = await notify_admin(bot, admin_id, f"Новая заявка #{lead.id} от {client}\nТелефон: {phone}\n\n{preview(text)}")
+    title = _("New lead #%(id)s from %(client)s") % {"id": lead.id, "client": client}
+    phone_line = _("Phone: %(phone)s") % {"phone": phone}
+    sent = await notify_admin(bot, admin_id, f"{title}\n{phone_line}\n\n{preview(text)}")
     if sent is not None:
         # The administrator's reply to the lead notification goes to the client, as with the live operator
         await repo.add_relay(sent.chat.id, sent.message_id, msg.chat.id)

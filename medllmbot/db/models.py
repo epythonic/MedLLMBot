@@ -25,6 +25,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from medllmbot.db import fts
+from medllmbot.i18n import N_
 
 # Alembic needs explicit constraint names for batch migrations in SQLite
 NAMING_CONVENTION: dict[str, str] = {
@@ -79,11 +80,15 @@ class ChatMessage(Base):
     client: Mapped[Client] = relationship(back_populates="messages")
 
 
+# Enum values are English labels marked for the admin's catalogs (N_); the admin translates them when it shows
+# them. The DB stores member names (NEW, ANSWERED…), so relabelling needs no migration.
+
+
 class LeadStatus(enum.Enum):
-    NEW = "Новая"
-    IN_PROGRESS = "В работе"
-    DONE = "Выполнена"  # appointment booked or order placed; the DB stores the name DONE, no migration needed
-    REJECTED = "Отказ"
+    NEW = N_("New")
+    IN_PROGRESS = N_("In progress")
+    DONE = N_("Done")  # appointment booked or order placed
+    REJECTED = N_("Rejected")
 
     @override
     def __str__(self) -> str:
@@ -121,22 +126,22 @@ class Lead(Base):
 class AuditOutcome(enum.Enum):
     """How processing of an incoming message ended."""
 
-    ANSWERED = "Ответ"
-    PRICE_REPLACED = "Цена заменена"
-    LEAK_BLOCKED = "Утечка промпта"
-    REFUSAL = "Отказ модели"
-    TRUNCATED = "Ответ обрезан"  # hit max_tokens
-    EMPTY = "Пустой ответ"  # the model returned no text
-    LLM_ERROR = "Ошибка API"
-    TOO_LONG = "Слишком длинное"
-    BUDGET_EXCEEDED = "Лимит расходов"  # daily Claude budget exhausted
-    GREETING = "Приветствие"  # /start
-    NOT_TEXT = "Не текст"  # photo, voice message, sticker
-    RATE_LIMITED = "Rate-limit"
-    BLOCKED = "Клиент заблокирован"
-    HANDOFF = "Позвал оператора"  # the client asked for a human; the bot handed the dialog to the admin
-    TO_OPERATOR = "Переслано оператору"  # the operator handles the dialog: message relayed to them, Claude not called
-    FROM_OPERATOR = "Ответ оператора"  # the admin replied to the client from Telegram; the text is in user_text
+    ANSWERED = N_("Answered")
+    PRICE_REPLACED = N_("Price replaced")
+    LEAK_BLOCKED = N_("Prompt leak")
+    REFUSAL = N_("Model refusal")
+    TRUNCATED = N_("Answer cut off")  # hit max_tokens
+    EMPTY = N_("Empty answer")  # the model returned no text
+    LLM_ERROR = N_("API error")
+    TOO_LONG = N_("Too long")
+    BUDGET_EXCEEDED = N_("Spend limit")  # daily Claude budget exhausted
+    GREETING = N_("Greeting")  # /start
+    NOT_TEXT = N_("Not text")  # photo, voice message, sticker
+    RATE_LIMITED = N_("Rate limit")
+    BLOCKED = N_("Client blocked")
+    HANDOFF = N_("Asked for operator")  # the client asked for a human; the bot handed the dialog to the admin
+    TO_OPERATOR = N_("Sent to operator")  # the operator handles the dialog: relayed to them, Claude not called
+    FROM_OPERATOR = N_("Operator reply")  # the admin replied to the client from Telegram; the text is in user_text
 
     @override
     def __str__(self) -> str:
@@ -332,12 +337,14 @@ class FaqItem(Base):
 
 
 class OrderStatus(enum.Enum):
-    NEW = "Принят"
-    CONFIRMED = "Подтверждён"
-    SHIPPED = "Передан в доставку"
-    READY = "Ждёт в пункте самовывоза"
-    DELIVERED = "Получен"
-    CANCELLED = "Отменён"
+    """Admin labels. The wording the model sees is Russian and lives in orders.STATUS_TEXT."""
+
+    NEW = N_("Accepted")
+    CONFIRMED = N_("Confirmed")
+    SHIPPED = N_("Out for delivery")
+    READY = N_("Ready for pickup")
+    DELIVERED = N_("Delivered")
+    CANCELLED = N_("Cancelled")
 
     @override
     def __str__(self) -> str:
@@ -381,8 +388,8 @@ class Order(Base):
 class BusinessProfile(enum.Enum):
     """Whose bot this is: the profile sets the role and domain rules in the prompt (medllmbot/profiles.py)."""
 
-    CLINIC = "Стоматология"
-    SHOP = "Магазин электроники"
+    CLINIC = N_("Dental clinic")
+    SHOP = N_("Electronics store")
 
     @override
     def __str__(self) -> str:
@@ -409,6 +416,7 @@ class BotConfig(Base):
         CheckConstraint("daily_budget_usd >= 0", name="budget_non_negative"),
         CheckConstraint("catalog_inline_limit >= 0", name="catalog_limit_non_negative"),
         CheckConstraint("operator_hours > 0", name="operator_hours_positive"),
+        CheckConstraint("admin_language IN ('ru', 'ro', 'en')", name="admin_language_known"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, default=1)
@@ -442,6 +450,9 @@ class BotConfig(Base):
     # How many hours the bot stays silent after a client asks for a human, if the operator has not replied;
     # each operator reply extends the period
     operator_hours: Mapped[int] = mapped_column(default=12, server_default="12")
+    # Language of the bot's Telegram messages to the administrator: new leads, alerts, live operator.
+    # The admin panel picks its own language per browser
+    admin_language: Mapped[str] = mapped_column(String(2), default="ru", server_default="ru")
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
     @override

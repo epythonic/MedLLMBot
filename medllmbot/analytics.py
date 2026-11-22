@@ -21,6 +21,7 @@ from typing import Self, override
 from medllmbot.db.models import AuditOutcome, BusinessProfile
 from medllmbot.db.repository import LeadRow, QuestionRow, Repository
 from medllmbot.guards import extract_phone
+from medllmbot.i18n import N_
 from medllmbot.text import normalize
 from medllmbot.tools import FOUND, ORDER_STATUS_NAME, SEARCH_CATALOG_NAME
 
@@ -30,8 +31,8 @@ DEFAULT_PERIOD = 30
 DIALOG_GAP = timedelta(hours=24)
 MAX_GAPS = 50  # unanswered question groups on the page: the most frequent ones
 MAX_EXAMPLES = 3  # latest questions under the topic name
-OTHER = "Другое"
-CONTACTS = "Оставили телефон"
+OTHER = N_("Other")
+CONTACTS = N_("Left a phone number")
 
 # Not questions to the bot: greeting, non-text, messages the bot skipped without a reply, and the conversation
 # with the live operator, which a human handles. The request for an operator itself is a question, counted separately
@@ -73,13 +74,13 @@ class Topic:
 # Topics shared by both profiles.
 # Not prices: «почему», «центр», «стоит ли», «дорогу», Romanian «pretenție»
 PRICES = Topic.of(
-    "Цены",
+    N_("Prices"),
     r"цен(?!тр)", r"стои(?!т ли\b)", r"прайс", r"тариф", r"почем\b", r"дорого\b", r"дороже",
     r"дорог(?:ие|ая|ое|ой|ую|ого|их)\b", r"дешев", r"бесплатн", r"скидк", r"акци",
     r"pret(?:ul|uri|urile)?\b", r"cost", r"tarif", r"reducer", r"gratuit", r"price", r"discount",
 )  # fmt: skip
 PAYMENT = Topic.of(
-    "Оплата и рассрочка",
+    N_("Payment and installments"),
     r"оплат", r"заплат", r"плати", r"картой", r"карточк", r"по карте", r"наличн", r"безнал", r"рассроч",
     r"кредит", r"частями", r"страхов", r"перевод", r"счет\b",
     r"plat", r"card(?:ul)?\b", r"numerar", r"rate\b", r"credit", r"asigur", r"transfer", r"pay", r"installment",
@@ -88,7 +89,7 @@ PAYMENT = Topic.of(
 # with a time word. «Время работы» and «режим работы» do not fit: people ask that about batteries and vacuums.
 # Romanian «afla» means both "to be located" and "to find out" («cum pot afla statusul»): location only after «unde»
 LOCATION = Topic.of(
-    "Адрес и часы работы",
+    N_("Address and opening hours"),
     r"адрес", r"наход", r"добрат", r"доехат", r"проехат", r"парков", r"шоурум", r"часы работы", r"график работы",
     r"до скольки", r"во сколько (?:открыва|закрыва|работаете)", r"открыт[ыо]\b", r"открывает", r"закрывает",
     r"работаете (?:сегодня|завтра|сейчас)", r"выходн", r"суббот", r"воскресен", r"в праздн",
@@ -100,42 +101,42 @@ LOCATION = Topic.of(
 CLINIC_TOPICS: tuple[Topic, ...] = (
     PRICES,
     Topic.of(
-        "Запись на приём",
+        N_("Appointments"),
         r"запис", r"запиш", r"прием", r"визит", r"свободн\w* (?:время|окн|мест|дат)", r"окошк",
         r"programa", r"programez", r"inscri", r"appointment", r"book",
     ),
     LOCATION,
     # «Скол» only as a whole word: otherwise every «сколько стоит» question would land in this topic
     Topic.of(
-        "Боль и срочная помощь",
+        N_("Pain and urgent care"),
         r"болит", r"болят", r"боль\b", r"болью", r"боли\b", r"больно", r"ноет", r"ноют", r"отек", r"опух", r"флюс",
         r"кровоточ", r"кровит", r"травм", r"скол\b", r"сколол", r"откол", r"сломал", r"треснул", r"выпал", r"сроч",
         r"остр", r"durere", r"doare", r"umfl", r"urgen", r"pain", r"hurt", r"toothache", r"emergency",
     ),
     Topic.of(
-        "Лечение зубов",
+        N_("Dental treatment"),
         r"леч", r"вылеч", r"кариес", r"пломб", r"пульпит", r"канал", r"нерв", r"удал(?:ить|ят|ять|яют|яете|ени|ите|ил)", r"мудрост", r"рентген",
         r"снимок", r"анестез", r"обезбол", r"наркоз",
         r"trata", r"carie", r"plomb", r"canal", r"extract", r"scoate", r"radiograf", r"anestez",
         r"filling", r"cavity", r"root canal", r"x-ray",
     ),
     Topic.of(
-        "Имплантация и протезирование",
+        N_("Implants and prosthetics"),
         r"имплант", r"протез", r"корон", r"винир", r"мост",
         r"implant", r"protez", r"coroan", r"fatet", r"crown", r"veneer", r"denture",
     ),
     Topic.of(
-        "Гигиена и отбеливание",
+        N_("Hygiene and whitening"),
         r"чистк", r"почистит", r"гигиен", r"отбел", r"камн", r"камен", r"налет", r"air ?flow",
         r"albir", r"detartraj", r"igien", r"curat", r"whiten", r"cleaning",
     ),
     Topic.of(
-        "Брекеты и прикус",
+        N_("Braces and bite"),
         r"брекет", r"элайнер", r"капп?(?:а|ы|у|ой)\b", r"прикус", r"ортодонт", r"выравнив", r"кривы",
         r"ortodon", r"bracket", r"aparat dentar", r"gutier", r"braces", r"aligner",
     ),
     Topic.of(
-        "Детская стоматология",
+        N_("Children's dentistry"),
         r"ребен", r"дет(?:и|ей|ям|ск|ок)", r"сын(?:\b|а|у|ом)", r"доч", r"малыш", r"молочн",
         r"copi[il]", r"pediatr", r"child", r"kid",
     ),
@@ -144,7 +145,7 @@ CLINIC_TOPICS: tuple[Topic, ...] = (
 
 SHOP_TOPICS: tuple[Topic, ...] = (
     Topic.of(
-        "Подбор товара",
+        N_("Product choice"),
         r"посовет", r"совет", r"порекоменд", r"рекоменд", r"выбрат", r"выбер", r"выбор", r"подобрат", r"подбер",
         r"лучш", r"отлича", r"разниц", r"сравн", r"какой (?:взять|купить)",
         r"recomand", r"sfat", r"alege", r"diferent", r"compar", r"recommend", r"better", r"best", r"which one",
@@ -153,7 +154,7 @@ SHOP_TOPICS: tuple[Topic, ...] = (
     # «Наличными» is payment, not availability: «налич» needs a vowel after it.
     # «Гарантия закончилась» is not availability
     Topic.of(
-        "Наличие",
+        N_("Availability"),
         r"налич[иея]", r"в продаже", r"остал", r"закончились", r"поступ",
         r"stoc", r"disponibil", r"in stock", r"available",
     ),
@@ -161,7 +162,7 @@ SHOP_TOPICS: tuple[Topic, ...] = (
     # that is how the client answers the bot's request. A model code mid-question («Есть WH-1000XM5?») is not an
     # order, «заказать» is a purchase. «Трекер» is a fitness band, so only «трек-номер»
     Topic.of(
-        "Статус заказа",
+        N_("Order status"),
         r"статус", r"(?:мой|моего|моим|наш|нашего) заказ", r"где заказ", r"номер заказа", r"посылк",
         r"заказ(?:а|у|е|ом)? (?:№ ?|# ?|номер )?[a-zа-я]{0,4}[-–—]?\d{3,}\b",
         r"^(?:№ ?|# ?)?[a-zа-я]{1,4}[-–—]\d{3,}\b", r"^(?:№ ?|# ?)?[a-z]{1,4} ?\d{5,}\b",
@@ -169,22 +170,22 @@ SHOP_TOPICS: tuple[Topic, ...] = (
         r"comanda mea", r"comenzi", r"statusul", r"my order", r"order status", r"order number", r"tracking",
     ),
     Topic.of(
-        "Покупка и оформление",
+        N_("Purchase and checkout"),
         r"купит", r"куплю", r"покупк", r"приобрест", r"заказат", r"закажу", r"оформ", r"корзин",
         r"cumpar", r"achizit", r"buy", r"purchase",
     ),
     Topic.of(
-        "Доставка и самовывоз",
+        N_("Delivery and pickup"),
         r"достав", r"курьер", r"привез", r"привоз", r"самовывоз", r"забрат", r"пункт выдачи",
         r"livr", r"curier", r"ridica(?:re|rea)?\b", r"deliver", r"shipping", r"pick ?up",
     ),
     PAYMENT,
     Topic.of(
-        "Возврат и обмен",
+        N_("Returns and exchanges"),
         r"возврат", r"вернут", r"верну\b", r"вернет", r"обмен", r"поменят", r"return", r"schimb", r"refund",
     ),
     Topic.of(
-        "Гарантия и ремонт",
+        N_("Warranty and repair"),
         r"гарант", r"ремонт", r"сервис", r"слома", r"не работает", r"не включа", r"не заряжа", r"брак", r"неисправ",
         r"дефект", r"garant", r"repar", r"defect", r"warranty", r"repair", r"broken",
     ),
@@ -212,10 +213,10 @@ def topics_of(text: str, topics: Sequence[Topic]) -> tuple[str, ...]:
 class GapReason(enum.Enum):
     """Why the client did not get a substantive answer."""
 
-    NO_INFO = "Нет в базе знаний"
-    NOT_FOUND = "Нет в каталоге"
-    UNKNOWN_PRICE = "Цена не из каталога"
-    NO_ANSWER = "Бот не ответил"
+    NO_INFO = N_("Not in the knowledge base")
+    NOT_FOUND = N_("Not in the catalog")
+    UNKNOWN_PRICE = N_("Price not from the catalog")
+    NO_ANSWER = N_("Bot did not answer")
 
     @override
     def __str__(self) -> str:

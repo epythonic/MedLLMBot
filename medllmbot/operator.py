@@ -1,13 +1,14 @@
 """Live operator: a client asks for a human, the bot hands the dialog to the administrator in Telegram and goes quiet.
 
 - The client writes «позовите менеджера», «хочу поговорить с человеком» or the /operator command.
-- The administrator gets a notification with the latest dialog messages and a «Вернуть бота» button.
+- The administrator gets a notification with the latest dialog messages and a “Back to bot” button.
 - While the operator has the dialog, client messages go to the administrator and Claude is not called.
   When the administrator replies to a bot message, the bot forwards the reply to the client.
-- The bot answers on its own again after the «Вернуть бота» button or `bot_config.operator_hours` hours
+- The bot answers on its own again after the “Back to bot” button or `bot_config.operator_hours` hours
   after the client's request or the operator's last reply.
 
 This module holds request detection and texts; the Telegram handlers are in `operator_handlers.py`.
+Texts for the administrator are msgids, translated into `bot_config.admin_language`.
 """
 
 import re
@@ -16,11 +17,12 @@ from datetime import datetime, timedelta
 
 from anthropic.types import MessageParam
 
+from medllmbot.i18n import N_, Gettext
 from medllmbot.text import normalize
 
 OPERATOR_COMMAND = "operator"
-END_BUTTON = "Вернуть бота"
-_END_PREFIX = "operator:end:"  # «Вернуть бота» button data: + the client's chat_id
+END_BUTTON = N_("Back to bot")
+_END_PREFIX = "operator:end:"  # the button's callback data: + the client's chat_id
 HISTORY_IN_NOTICE = 6  # latest dialog messages in the notification to the administrator
 LINE_PREVIEW = 300  # characters of one history message in the notification
 
@@ -107,17 +109,21 @@ def client_label(name: str, chat_id: int) -> str:
     return f"{name} (chat {chat_id})"
 
 
-def handoff_notice(client: str, request: str, history: Sequence[MessageParam], hours: int) -> str:
-    """First notification: the client asks for a human. `client` comes from `client_label`."""
-    lines = [f"Клиент {client} просит оператора:", _short(request, 1000)]
+def handoff_notice(client: str, request: str, history: Sequence[MessageParam], hours: int, _: Gettext) -> str:
+    """First notification: the client asks for a human. `client` comes from `client_label`, `_` translates
+    into the administrator's language."""
+    lines = [_("Client %(client)s asks for an operator:") % {"client": client}, _short(request, 1000)]
     if history:
-        lines += ["", "Последние сообщения:"]
-        lines += [f"{'Клиент' if message['role'] == 'user' else 'Бот'}: {_short(_content(message))}" for message in history]
-    lines += [
-        "",
-        "Ответьте на это сообщение — ответ уйдёт клиенту. Бот в этом чате молчит, пока вы не нажмёте "
-        f"«{END_BUTTON}» или пока не пройдёт {hours} ч без ваших ответов.",
-    ]
+        client_role, bot_role = _("Client"), _("Bot")
+        lines += ["", _("Latest messages:")]
+        lines += [
+            f"{client_role if message['role'] == 'user' else bot_role}: {_short(_content(message))}" for message in history
+        ]
+    reply_hint = _(
+        "Reply to this message and your reply goes to the client. The bot stays silent in this chat until you press "
+        "“%(button)s” or %(hours)s h pass without your replies."
+    )
+    lines += ["", reply_hint % {"button": _(END_BUTTON), "hours": hours}]
     return "\n".join(lines)
 
 
@@ -126,10 +132,10 @@ def client_message_notice(client: str, text: str) -> str:
     return f"{client}:\n{text}"
 
 
-# Replies to the administrator
-DELIVERY_FORBIDDEN = "Не удалось отправить клиенту: он заблокировал бота или удалил чат."
-DELIVERY_FAILED = "Не удалось отправить клиенту: Telegram вернул ошибку. Попробуйте ещё раз или другим сообщением."
-ENDED = "Бот снова отвечает клиенту."
-CLIENT_LEFT = "клиент нажал /start и вернулся к боту."
-ALREADY_ENDED = "Клиент уже с ботом."
-NOT_ALLOWED = "Это может только администратор."
+# Replies to the administrator (msgids, translated into the administrator's language)
+DELIVERY_FORBIDDEN = N_("Could not send to the client: they blocked the bot or deleted the chat.")
+DELIVERY_FAILED = N_("Could not send to the client: Telegram returned an error. Try again or send another message.")
+ENDED = N_("The bot is answering the client again.")
+CLIENT_LEFT = N_("the client pressed /start and went back to the bot.")
+ALREADY_ENDED = N_("The client is already with the bot.")
+NOT_ALLOWED = N_("Only the administrator can do this.")

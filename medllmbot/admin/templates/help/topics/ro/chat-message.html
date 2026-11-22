@@ -1,0 +1,34 @@
+{% from "help/_macros.html" import note, section_link with context %}
+<h3 id="{{ topic.anchor('chto') }}">Ce este această secțiune</h3>
+<p>Aceasta este memoria botului. Fiecare schimb obișnuit „întrebarea clientului — răspunsul botului” se salvează aici. La următoarea
+întrebare botul îi transmite lui Claude ultimele mesaje ale acestui client, iar modelul își amintește despre ce a fost vorba.
+Câte mesaje se transmit stabilește <b>Adâncimea istoricului</b> din {{ section_link('bot-config') }}.</p>
+
+<h3 id="{{ topic.anchor('ne-popadaet') }}">Ce nu ajunge aici</h3>
+<ul>
+  <li>Mesajele suspecte și răspunsurile în care modelul a încercat să-și dezvăluie regulile — ca atacul
+    să nu se acumuleze în memoria botului.</li>
+  <li>Mesajele prea lungi, mesajele clienților blocați și cele omise din cauza frecvenței.</li>
+  <li>Întrebările la care Claude nu a răspuns din cauza unei erori.</li>
+</ul>
+<p>Toate acestea se află în {{ section_link('audit-event') }} — acolo este înregistrat fiecare mesaj primit.</p>
+
+<h3 id="{{ topic.anchor('dialog') }}">Cum citiți dialogul unui client</h3>
+<ol>
+  <li>Aflați <b>Chat ID</b>-ul clientului: îl găsiți în {{ section_link('client') }}, în cerere și în jurnal.</li>
+  <li>În blocul <b>Filtre</b>, alegeți pentru <b>Chat ID</b> condiția <b>Egal cu</b>, introduceți numărul și apăsați <b>Aplică filtrul</b>.</li>
+  <li>Mesajele sunt afișate de la cele mai noi. <b>user</b> — clientul, <b>assistant</b> — botul.</li>
+</ol>
+
+<h3 id="{{ topic.anchor('otlichie') }}">Prin ce diferă conversațiile de jurnal</h3>
+<table class="table table-sm">
+  <tbody>
+    <tr><td>Conversații</td><td>Memoria botului pentru Claude. Doar mesajele care au trecut verificările și doar ceea ce
+      a primit clientul. Se păstrează fără termen.</td></tr>
+    <tr><td>Jurnal</td><td>Toate mesajele primite: rezultatul procesării, răspunsul inițial al modelului, tokenii și costul.
+      Se păstrează atâtea zile câte sunt indicate în setări.</td></tr>
+  </tbody>
+</table>
+{% call note("info", "Doar citire") %}
+Conversațiile nu pot fi modificate sau șterse din panoul de administrare: sunt datele de bază pe care se sprijină botul.
+{% endcall %}
