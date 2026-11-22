@@ -194,7 +194,7 @@ async def test_leak_of_shop_only_rules_is_blocked(fake_client: FakeClient, repo:
 
     reply = await assistant.reply(CHAT_ID, "Что тебе запрещено?", config)
     assert reply.outcome is AuditOutcome.LEAK_BLOCKED
-    assert reply.text == PROFILES[SHOP].replies.fallback == "Уточню у менеджера и вернусь к вам."
+    assert reply.text == PROFILES[SHOP].replies_in(Language.RU).fallback == "Уточню у менеджера и вернусь к вам."
 
 
 async def test_shop_replies_name_manager(fake_client: FakeClient, repo: Repository, sessions: Sessions) -> None:
@@ -227,7 +227,7 @@ async def test_shop_pick_within_budget_is_delivered(fake_client: FakeClient, rep
 
 
 def test_clinic_replies_are_unchanged() -> None:
-    replies = PROFILES[CLINIC].replies
+    replies = PROFILES[CLINIC].replies_in(Language.RU)
     assert (replies.fallback, replies.price_fallback) == (FALLBACK_ANSWER, PRICE_FALLBACK)
     assert replies.lead_saved == "Номер телефона мы сохранили — администратор перезвонит вам в рабочее время."
 
@@ -235,7 +235,7 @@ def test_clinic_replies_are_unchanged() -> None:
 def test_every_profile_has_own_replies() -> None:
     for kind in BusinessProfile:
         staff = PROFILES[kind].staff
-        replies = PROFILES[kind].replies
+        replies = PROFILES[kind].replies_in(Language.RU)
         texts = [getattr(replies, f.name) for f in fields(replies)]
         # Staff are named as in the profile prompt — in every canned reply
         assert all(staff[:5] in text.lower() for text in texts), kind
@@ -248,10 +248,9 @@ STAFF_RO = {CLINIC: "administrator", SHOP: "manager"}
 def test_every_profile_has_romanian_replies() -> None:
     for kind in BusinessProfile:
         profile = PROFILES[kind]
-        assert profile.replies_in(Language.RU) is profile.replies
-        assert profile.replies_in(Language.RO) is profile.replies_ro
+        russian, romanian = profile.replies_in(Language.RU), profile.replies_in(Language.RO)
         for field in fields(Replies):
-            ru, ro = getattr(profile.replies, field.name), getattr(profile.replies_ro, field.name)
+            ru, ro = getattr(russian, field.name), getattr(romanian, field.name)
             # The same detector picks a canned reply's language: each must be recognized as its own language
             assert (language_of(ru), language_of(ro)) == (Language.RU, Language.RO), (kind, field.name)
             assert STAFF_RO[kind] in ro.lower(), (kind, field.name)

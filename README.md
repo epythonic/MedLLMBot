@@ -207,7 +207,7 @@ medllmbot/
 ├── operator_handlers.py # operator handlers: forwarding both ways, the “Back to bot” button
 ├── text.py            # text normalization, customer language, stripping Markdown from answers
 ├── i18n.py            # gettext translation catalogs (RU/RO/EN) and the N_ marker for labels in domain code
-├── locales/           # ru/, ro/: messages.po — translations of the admin panel and of messages to the administrator
+├── locales/           # ru/, ro/: messages.po — translations of the admin panel, of messages to the administrator and of canned replies to customers; ro/sqladmin.po — SQLAdmin's built-in strings
 ├── guards.py          # RateLimiter, PriceChecker, phone number detection
 ├── security.py        # prompt injection detector, prompt leak check
 ├── maintenance.py     # background log cleanup by retention period
@@ -430,6 +430,18 @@ uv run pybabel update -i /tmp/messages.pot -d medllmbot/locales -D messages --no
 ```
 
 Code, comments and commits are in English; everything customers and the administrator see is translated. Tests never touch the network: the Anthropic client and Telegram objects are replaced with fakes. Dedicated tests check that the migrations match the models and that the bot sees edits from the admin panel immediately. CI in GitHub Actions runs on every push on Python 3.14: the linter, type checking (basedpyright), tests, validation of the demo server keys from the GitHub Environment `demo`, and the Docker image build.
+
+### Translations
+
+| What | Where |
+|---|---|
+| Admin interface, the bot's messages to the administrator, its canned replies to customers | `medllmbot/locales/{ru,ro}/LC_MESSAGES/messages.po`; the English text is the `msgid` in the code |
+| Romanian for SQLAdmin's built-in buttons (Russian ships with SQLAdmin) | `medllmbot/locales/ro/LC_MESSAGES/sqladmin.po` |
+| Text of the «?» help sections | `medllmbot/admin/templates/help/topics/{ru,ro,en}/*.html` |
+| Greeting | the admin panel, “Bot settings” (stored in the database) |
+| This README | `README.md`, `README_ru.md`, `README_ro.md` |
+
+To fix a translation, edit only the `msgstr` lines, by hand or in Poedit, and keep placeholders such as `%(name)s`. If you rename a button or a column, rename it in that language's help too: the help names interface elements exactly. The English text is the `msgid` in the code: after changing it, run the two `pybabel` commands above and translate the new entry. Check with `uv run pytest tests/test_i18n.py tests/test_help.py`: the first catches untranslated strings and broken placeholders, the second help sections missing in a language or with different anchors and links.
 
 ### Answer-quality evaluation
 

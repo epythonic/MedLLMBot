@@ -10,28 +10,30 @@ from wtforms.meta import DefaultMeta
 from wtforms.validators import StopValidation
 
 from medllmbot.admin.i18n import LOCALES, get_locale
+from medllmbot.i18n import N_, translation
 
-# The WTForms Russian catalog translates «at least» and «at most» as «больше» and «меньше»:
-# for a price with a minimum of 0 the error would read as if zero were not allowed
-_FIXES: dict[str, dict[str, str]] = {
-    "ru": {
-        "Number must be at least %(min)s.": "Число должно быть не меньше %(min)s.",
-        "Number must be at most %(max)s.": "Число должно быть не больше %(max)s.",
-        "Number must be between %(min)s and %(max)s.": "Число должно быть от %(min)s до %(max)s.",
-    },
-}
+# WTForms messages that our catalogs translate instead of WTForms' own. Its Russian catalog renders «at least»
+# and «at most» as «больше» and «меньше»: for a price with a minimum of 0 the error would read as if zero were
+# not allowed
+_OWN_MESSAGES: frozenset[str] = frozenset(
+    {
+        N_("Number must be at least %(min)s."),
+        N_("Number must be at most %(max)s."),
+        N_("Number must be between %(min)s and %(max)s."),
+    }
+)
 
 
 @final
 class Translations:
-    """WTForms message catalog for one admin language, with fixes for inaccurate translations."""
+    """WTForms message catalog for one admin language, with our translations of a few of its messages."""
 
     def __init__(self, locale: str) -> None:
         self._catalog = get_translations([locale])
-        self._fixes = _FIXES.get(locale, {})
+        self._own = translation(locale)
 
     def gettext(self, string: str) -> str:
-        return self._fixes.get(string) or self._catalog.gettext(string)
+        return (self._own if string in _OWN_MESSAGES else self._catalog).gettext(string)
 
     def ngettext(self, singular: str, plural: str, n: int) -> str:
         return self._catalog.ngettext(singular, plural, n)

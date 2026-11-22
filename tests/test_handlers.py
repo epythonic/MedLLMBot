@@ -14,13 +14,12 @@ from medllmbot.handlers import (
     ALERT_PREVIEW,
     LEAD_SAVED,
     TELEGRAM_LIMIT,
-    TEXT_ONLY,
-    TEXT_ONLY_RO,
     handle_text,
     on_error,
     other,
     split_message,
     start,
+    text_only,
 )
 from medllmbot.profiles import PROFILES
 from medllmbot.security import AlertCooldown
@@ -231,7 +230,7 @@ async def test_lead_saved_text_follows_profile(
 
     await call(msg)
 
-    shop_text = PROFILES[BusinessProfile.SHOP].replies.lead_saved
+    shop_text = PROFILES[BusinessProfile.SHOP].replies_in(Language.RU).lead_saved
     assert "менеджер перезвонит" in shop_text
     msg.answer.assert_awaited_once_with(f"{too_long(len(text), 500)}\n\n{shop_text}")
     repo.create_lead.assert_awaited_once()
@@ -247,7 +246,7 @@ async def test_lead_saved_text_follows_language(call: HandleText, assistant: Asy
 
     assert assistant.reply.await_args is not None
     assert assistant.reply.await_args.args[3] is Language.RO
-    lead_saved = PROFILES[BusinessProfile.CLINIC].replies_ro.lead_saved
+    lead_saved = PROFILES[BusinessProfile.CLINIC].replies_in(Language.RO).lead_saved
     msg.answer.assert_awaited_once_with(f"{too_long(len(text), 500, Language.RO)}\n\n{lead_saved}")
     repo.create_lead.assert_awaited_once()
 
@@ -366,10 +365,16 @@ async def test_regular_message_does_not_alert(call: HandleText, bot: AsyncMock) 
     assert admin_messages(bot) == []
 
 
+def test_text_only_comes_from_catalogs() -> None:
+    # The replies live in the translation catalogs; the exact wording is pinned so a catalog edit is deliberate
+    assert text_only(Language.RU) == "Пожалуйста, напишите ваш вопрос текстом."
+    assert text_only(Language.RO) == "Vă rog să scrieți întrebarea printr-un mesaj text."
+
+
 async def test_non_text_message(repo: AsyncMock) -> None:
     msg = make_message(None, content_type="photo")
     await other(msg, repo)
-    msg.answer.assert_awaited_once_with(TEXT_ONLY)
+    msg.answer.assert_awaited_once_with(text_only(Language.RU))
     event = logged_event(repo)
     assert (event.user_text, event.outcome) == ("[photo]", AuditOutcome.NOT_TEXT)
 
@@ -378,14 +383,14 @@ async def test_non_text_message_in_romanian(repo: AsyncMock) -> None:
     # A photo without a caption has no text — the language comes from the client's Telegram
     msg = make_message(None, content_type="photo", language_code="ro")
     await other(msg, repo)
-    msg.answer.assert_awaited_once_with(TEXT_ONLY_RO)
-    assert logged_event(repo).final_answer == TEXT_ONLY_RO
+    msg.answer.assert_awaited_once_with(text_only(Language.RO))
+    assert logged_event(repo).final_answer == text_only(Language.RO)
 
     # A Russian caption outranks the Telegram language
     msg = make_message(None, content_type="photo", language_code="ro")
     msg.caption = "Вот фото чека"
     await other(msg, repo)
-    msg.answer.assert_awaited_once_with(TEXT_ONLY)
+    msg.answer.assert_awaited_once_with(text_only(Language.RU))
 
 
 # ---------- Daily spending limit ----------

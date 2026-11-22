@@ -15,7 +15,7 @@ from medllmbot.config import BotSettings
 from medllmbot.db.models import AuditOutcome, BotConfig, BusinessProfile
 from medllmbot.db.repository import Repository
 from medllmbot.guards import extract_phone
-from medllmbot.i18n import Gettext, gettext_for
+from medllmbot.i18n import N_, Gettext, gettext_for
 from medllmbot.middlewares import incoming_event
 from medllmbot.profiles import PROFILES
 from medllmbot.security import FLAG_LABELS, AlertCooldown
@@ -23,11 +23,10 @@ from medllmbot.text import Language, reply_language, telegram_language
 
 log = logging.getLogger(__name__)
 
-TEXT_ONLY = "Пожалуйста, напишите ваш вопрос текстом."
-TEXT_ONLY_RO = "Vă rog să scrieți întrebarea printr-un mesaj text."
+_TEXT_ONLY = N_("Please type your question as text.")
 # The bot does not process a long message but saves the phone number from it, and the client should know that.
 # Each profile has its own text; the constant is the dental clinic text
-LEAD_SAVED = PROFILES[BusinessProfile.CLINIC].replies.lead_saved
+LEAD_SAVED = PROFILES[BusinessProfile.CLINIC].replies_in(Language.RU).lead_saved
 # How many characters of a client message to show the administrator in a notification.
 # The full text is in the admin panel; Telegram rejects messages longer than 4096 characters
 ALERT_PREVIEW = 500
@@ -211,9 +210,14 @@ async def forward_lead(msg: Message, bot: Bot, repo: Repository, admin_id: int, 
         await repo.add_relay(sent.chat.id, sent.message_id, msg.chat.id)
 
 
+def text_only(language: Language) -> str:
+    """The reply to a message without text, in the client's language."""
+    return gettext_for(language)(_TEXT_ONLY)
+
+
 async def other(msg: Message, repo: Repository) -> None:
     """Photos, voice messages, stickers, etc."""
-    answer = TEXT_ONLY_RO if message_language(msg) is Language.RO else TEXT_ONLY
+    answer = text_only(message_language(msg))
     await log_reply(repo, msg, AuditOutcome.NOT_TEXT, answer)
     await send(msg, answer)
 

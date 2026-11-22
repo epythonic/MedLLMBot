@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: MedLLMBot VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-11-22 10:50+0300\n"
+"POT-Creation-Date: 2026-11-22 12:37+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ro\n"
@@ -113,27 +113,31 @@ msgstr "Botul nu a răspuns"
 msgid "Total"
 msgstr "Total"
 
-#: medllmbot/handlers.py:109
+#: medllmbot/handlers.py:26
+msgid "Please type your question as text."
+msgstr "Vă rog să scrieți întrebarea printr-un mesaj text."
+
+#: medllmbot/handlers.py:108
 #, python-format
 msgid "Warning: suspicious message from %(client)s (chat %(chat_id)s)"
 msgstr "Atenție: mesaj suspect de la %(client)s (chat %(chat_id)s)"
 
-#: medllmbot/handlers.py:113
+#: medllmbot/handlers.py:112
 #, python-format
 msgid "Signs: %(signs)s"
 msgstr "Semne: %(signs)s"
 
-#: medllmbot/handlers.py:118
+#: medllmbot/handlers.py:117
 #, python-format
 msgid "The daily Claude spending limit ($%(budget)s) is used up. Until midnight UTC the bot answers without the model; leads are still saved. The limit is set in the admin panel: “Bot settings”."
 msgstr "Limita zilnică de cheltuieli pentru Claude ($%(budget)s) a fost atinsă. Până la miezul nopții UTC botul răspunde fără model, cererile se salvează în continuare. Limita se schimbă în panoul de administrare: „Setările botului”."
 
-#: medllmbot/handlers.py:206
+#: medllmbot/handlers.py:205
 #, python-format
 msgid "New lead #%(id)s from %(client)s"
 msgstr "Cerere nouă #%(id)s de la %(client)s"
 
-#: medllmbot/handlers.py:207
+#: medllmbot/handlers.py:206
 #, python-format
 msgid "Phone: %(phone)s"
 msgstr "Telefon: %(phone)s"
@@ -188,6 +192,62 @@ msgstr "Clientul este deja cu botul."
 #: medllmbot/operator.py:141
 msgid "Only the administrator can do this."
 msgstr "Doar administratorul poate face asta."
+
+#: medllmbot/profiles.py:82
+msgid "Sorry, a technical error occurred. The administrator will contact you."
+msgstr "Ne pare rău, a apărut o eroare tehnică. Administratorul vă va contacta."
+
+#: medllmbot/profiles.py:83
+msgid "I will check with the administrator and get back to you."
+msgstr "Voi verifica cu administratorul și revin cu un răspuns."
+
+#: medllmbot/profiles.py:84
+msgid "I will check the price with the administrator and get back to you."
+msgstr "Voi verifica prețul cu administratorul și revin cu un răspuns."
+
+#: medllmbot/profiles.py:85
+msgid "I cannot answer in detail right now. The administrator will reply during business hours."
+msgstr "Acum nu pot răspunde detaliat. Administratorul vă va răspunde în timpul programului de lucru."
+
+#: medllmbot/profiles.py:86
+msgid "We have saved your phone number — the administrator will call you back during business hours."
+msgstr "Am salvat numărul de telefon — administratorul vă va suna în timpul programului de lucru."
+
+#: medllmbot/profiles.py:88
+msgid "I have passed your question to the administrator — they will reply right here, in this chat, during business hours. Write to them right here."
+msgstr "Am transmis întrebarea dvs. administratorului — vă va răspunde aici, în acest chat, în timpul programului de lucru. Scrieți-i direct aici."
+
+#: medllmbot/profiles.py:92
+msgid "The administrator has ended the conversation. If you have questions, write to me — I will answer."
+msgstr "Administratorul a încheiat conversația. Dacă mai aveți întrebări, scrieți-mi — vă răspund."
+
+#: medllmbot/profiles.py:123
+msgid "Sorry, a technical error occurred. The manager will contact you."
+msgstr "Ne pare rău, a apărut o eroare tehnică. Managerul vă va contacta."
+
+#: medllmbot/profiles.py:124
+msgid "I will check with the manager and get back to you."
+msgstr "Voi verifica cu managerul și revin cu un răspuns."
+
+#: medllmbot/profiles.py:125
+msgid "I will check the price with the manager and get back to you."
+msgstr "Voi verifica prețul cu managerul și revin cu un răspuns."
+
+#: medllmbot/profiles.py:126
+msgid "I cannot answer in detail right now. The manager will reply during business hours."
+msgstr "Acum nu pot răspunde detaliat. Managerul vă va răspunde în timpul programului de lucru."
+
+#: medllmbot/profiles.py:127
+msgid "We have saved your phone number — the manager will call you back during business hours."
+msgstr "Am salvat numărul de telefon — managerul vă va suna în timpul programului de lucru."
+
+#: medllmbot/profiles.py:129
+msgid "I have passed your question to the manager — they will reply right here, in this chat, during business hours. Write to them right here."
+msgstr "Am transmis întrebarea dvs. managerului — vă va răspunde aici, în acest chat, în timpul programului de lucru. Scrieți-i direct aici."
+
+#: medllmbot/profiles.py:132
+msgid "The manager has ended the conversation. If you have questions, write to me — I will answer."
+msgstr "Managerul a încheiat conversația. Dacă mai aveți întrebări, scrieți-mi — vă răspund."
 
 #: medllmbot/security.py:32
 msgid "asks to ignore instructions"
@@ -244,6 +304,21 @@ msgstr "Încercați din nou peste 15 minute."
 #: medllmbot/admin/auth.py:98
 msgid "Wrong username or password."
 msgstr "Nume de utilizator sau parolă greșită."
+
+#: medllmbot/admin/forms.py:20
+#, python-format
+msgid "Number must be at least %(min)s."
+msgstr "Numărul trebuie să fie cel puțin %(min)s."
+
+#: medllmbot/admin/forms.py:21
+#, python-format
+msgid "Number must be at most %(max)s."
+msgstr "Numărul trebuie să fie cel mult %(max)s."
+
+#: medllmbot/admin/forms.py:22
+#, python-format
+msgid "Number must be between %(min)s and %(max)s."
+msgstr "Numărul trebuie să fie între %(min)s și %(max)s."
 
 #: medllmbot/admin/fragments.py:21
 msgid "Lead not found — refresh the page"

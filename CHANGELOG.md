@@ -9,6 +9,13 @@ panel starts, and every schema change ships as an Alembic migration.
 
 ## [Unreleased]
 
+### Changed
+
+- The bot's canned replies to customers moved from the code to the translation catalogs, next to the admin texts.
+  All short texts are now edited in one place, and a test catches a reply without a Russian or Romanian
+  translation. The wording customers see has not changed. The README has a “Translations” section on where each
+  text lives and how to edit and check it.
+
 ## [0.3.0] - 2026-11-22
 
 This release makes the project usable in three languages. The admin panel, its help and the documentation are in
