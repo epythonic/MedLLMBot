@@ -428,6 +428,15 @@ class TestBotConfigForm:
         assert admin.post("/admin/bot-config/edit/1", data=form).status_code == 400
         assert load_config(db).operator_hours == 12
 
+    def test_admin_language(self, admin: TestClient, db: Path) -> None:
+        assert load_config(db).admin_language == "ru"  # messages to the administrator were Russian before
+        form = BOT_CONFIG_FORM | {"admin_language": "ro"}
+        assert admin.post("/admin/bot-config/edit/1", data=form, follow_redirects=False).status_code == 302
+        assert load_config(db).admin_language == "ro"
+        assert "Română" in admin.get("/admin/bot-config/list").text  # languages by their own names
+        assert admin.post("/admin/bot-config/edit/1", data=BOT_CONFIG_FORM | {"admin_language": "de"}).status_code == 400
+        assert load_config(db).admin_language == "ro"
+
     def test_operator_hours_saved(self, admin: TestClient, db: Path) -> None:
         form = BOT_CONFIG_FORM | {"operator_hours": "24"}
         assert admin.post("/admin/bot-config/edit/1", data=form, follow_redirects=False).status_code == 302

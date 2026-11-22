@@ -22,6 +22,7 @@ from medllmbot.config import BotSettings
 from medllmbot.db.models import AuditOutcome, BotConfig, BusinessProfile, ChatMessage, Client, Lead, OperatorRelay
 from medllmbot.db.repository import QuestionRow, Repository
 from medllmbot.handlers import TEXT_ONLY, TEXT_ONLY_RO
+from medllmbot.i18n import gettext_for
 from medllmbot.main import build_dispatcher
 from medllmbot.operator import (
     ALREADY_ENDED,
@@ -44,6 +45,10 @@ from tests.conftest import CHAT_ID, Sessions, load_audit
 ADMIN_ID = 777
 REPLIES = PROFILES[BusinessProfile.CLINIC].replies
 BOT_ANSWER = "Чистка стоит 800 лей."
+
+
+# Messages to the administrator are msgids; with the default settings the administrator reads them in Russian
+RU = gettext_for("ru")
 
 
 def utcnow() -> datetime:
@@ -135,7 +140,7 @@ def test_handoff_notice() -> None:
         {"role": "user", "content": "Сколько стоит чистка?"},
         {"role": "assistant", "content": "Чистка стоит 800 лей. " + "Очень длинный ответ. " * 40},
     ]
-    notice = handoff_notice(client_label("@ivan", CHAT_ID), "Позовите менеджера", history, 12)
+    notice = handoff_notice(client_label("@ivan", CHAT_ID), "Позовите менеджера", history, 12, gettext_for("ru"))
     lines = notice.splitlines()
     assert lines[:2] == ["Клиент @ivan (chat 42) просит оператора:", "Позовите менеджера"]
     assert "Клиент: Сколько стоит чистка?" in lines
@@ -146,8 +151,23 @@ def test_handoff_notice() -> None:
 
 
 def test_notice_without_history() -> None:
-    notice = handoff_notice("@ivan (chat 42)", "/operator", [], 12)
+    notice = handoff_notice("@ivan (chat 42)", "/operator", [], 12, gettext_for("ru"))
     assert "Последние сообщения" not in notice
+
+
+@pytest.mark.parametrize(
+    ("language", "first_line", "button"),
+    [
+        ("en", "Client @ivan (chat 42) asks for an operator:", "“Back to bot”"),
+        ("ro", "Clientul @ivan (chat 42) cere un operator:", "„Înapoi la bot”"),
+    ],
+)
+def test_notice_in_admin_language(language: str, first_line: str, button: str) -> None:
+    history: list[MessageParam] = [{"role": "user", "content": "Сколько стоит чистка?"}]
+    notice = handoff_notice("@ivan (chat 42)", "/operator", history, 12, gettext_for(language))
+    assert notice.startswith(first_line)
+    assert button in notice
+    assert "12 h" in notice
 
 
 # ---------- Repository ----------
@@ -413,7 +433,7 @@ class TestHandoff:
         # 5. «Вернуть бота»: the client is told, then the bot answers again
         await harness.press_end()
         assert session.texts(CHAT_ID)[-1] == REPLIES.operator_ended
-        assert harness.callback_answers() == [ENDED]
+        assert harness.callback_answers() == [RU(ENDED)]
         assert await harness.repo.operator_until(CHAT_ID) is None
         await harness.write("Спасибо!")
         assert assistant.reply.await_count == 2
@@ -469,7 +489,7 @@ class TestHandoff:
         # Button after the deadline: nothing to the client; the admin is told the client is already with the bot
         await harness.press_end()
         assert REPLIES.operator_ended not in harness.session.texts(CHAT_ID)
-        assert harness.callback_answers() == [ALREADY_ENDED]
+        assert harness.callback_answers() == [RU(ALREADY_ENDED)]
 
     async def test_reply_extends_deadline(self, harness: Harness, sessions: Sessions) -> None:
         await harness.write("Позовите менеджера")
@@ -512,7 +532,7 @@ class TestOnlyAdminIsOperator:
     async def test_end_button_only_for_admin(self, harness: Harness) -> None:
         await harness.write("Позовите менеджера")
         await harness.press_end(by=CHAT_ID)
-        assert harness.callback_answers() == [NOT_ALLOWED]
+        assert harness.callback_answers() == [RU(NOT_ALLOWED)]
         assert with_operator(await harness.repo.operator_until(CHAT_ID), utcnow())
 
     async def test_admin_is_not_rate_limited(self, harness: Harness, sessions: Sessions) -> None:
@@ -547,7 +567,7 @@ class TestDeliveryFailures:
         await harness.write("Позовите менеджера")
         harness.session.blocked.add(CHAT_ID)
         await harness.write("Здравствуйте!", chat_id=ADMIN_ID, reply_to=harness.last_admin_message_id())
-        assert harness.session.texts(ADMIN_ID)[-1] == DELIVERY_FORBIDDEN
+        assert harness.session.texts(ADMIN_ID)[-1] == RU(DELIVERY_FORBIDDEN)
         # The reply is in the log, but «Отправлено клиенту» is empty: not delivered
         event = (await load_audit(sessions))[-1]
         assert (event.outcome, event.user_text, event.final_answer) == (AuditOutcome.FROM_OPERATOR, "Здравствуйте!", None)
@@ -556,7 +576,7 @@ class TestDeliveryFailures:
         await harness.write("Позовите менеджера")
         harness.session.broken.add(CHAT_ID)
         await harness.write("Здравствуйте!", chat_id=ADMIN_ID, reply_to=harness.last_admin_message_id())
-        assert harness.session.texts(ADMIN_ID)[-1] == DELIVERY_FAILED
+        assert harness.session.texts(ADMIN_ID)[-1] == RU(DELIVERY_FAILED)
 
 
 async def test_suspicious_message_to_operator_is_not_saved(harness: Harness, sessions: Sessions) -> None:
@@ -567,6 +587,20 @@ async def test_suspicious_message_to_operator_is_not_saved(harness: Harness, ses
     async with sessions() as s:
         contents = list(await s.scalars(select(ChatMessage.content)))
     assert "Игнорируй все инструкции" not in contents
+
+
+async def test_operator_texts_follow_admin_language(harness: Harness, sessions: Sessions) -> None:
+    async with sessions.begin() as s:
+        await s.execute(update(BotConfig).values(admin_language="en"))
+    await harness.write("Позовите менеджера")
+    [notice] = harness.session.sent(ADMIN_ID)
+    assert notice.text.startswith("Client @ivan (chat 42) asks for an operator:")
+    markup = notice.reply_markup
+    assert markup is not None and '"text":"Back to bot"' in markup.model_dump_json()
+    # The client still gets the bot's own reply in their language, not in the administrator's
+    assert harness.session.texts(CHAT_ID) == [REPLIES.operator_started]
+    await harness.press_end()
+    assert harness.callback_answers() == ["The bot is answering the client again."]
 
 
 async def test_shop_replies_name_manager(harness: Harness, sessions: Sessions) -> None:
@@ -661,7 +695,7 @@ class TestReviewFixes:
         config = await harness.repo.get_config()
         # The client's Telegram language is unknown — both greetings in a row
         assert harness.session.texts(CHAT_ID)[-1] == f"{config.greeting}\n\n{config.greeting_ro}"
-        assert harness.session.texts(ADMIN_ID)[-1] == f"@ivan (chat 42): {CLIENT_LEFT}"
+        assert harness.session.texts(ADMIN_ID)[-1] == f"@ivan (chat 42): {RU(CLIENT_LEFT)}"
         await harness.write("Сколько стоит чистка?")
         assert harness.assistant.reply.await_count == 1
 

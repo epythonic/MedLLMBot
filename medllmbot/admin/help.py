@@ -62,8 +62,7 @@ TOPICS: tuple[HelpTopic, ...] = (
         ),
         fields={
             "id": lazy_gettext(
-                "Lead number. The administrator gets the same number in the Telegram notification: “Новая заявка #7” "
-                "(New lead #7)."
+                "Lead number. The administrator gets the same number in the Telegram notification: “New lead #7”."
             ),
             "created_at": lazy_gettext("When the client left the phone number (server time, UTC)."),
             "updated_at": lazy_gettext("When the lead was last changed in the admin panel."),
@@ -411,9 +410,14 @@ TOPICS: tuple[HelpTopic, ...] = (
             "operator_hours": lazy_gettext(
                 "When a client asks for a live person — for how many hours the bot stays silent and forwards their "
                 "messages to the administrator if the administrator does not reply. Each administrator reply extends "
-                "the period. To hand the client back to the bot sooner, use the “Вернуть бота” (Return the bot) button "
+                "the period. To hand the client back to the bot sooner, use the “Back to bot” button "
                 "in Telegram. A new value applies to the next requests and replies: for clients already with "
                 "the operator the period does not change."
+            ),
+            "admin_language": lazy_gettext(
+                "Language of the bot's Telegram messages to the administrator: new leads, suspicious-message and "
+                "spending-limit alerts, live-operator notifications and the “Back to bot” button. The admin panel "
+                "itself follows the browser language or the switcher in the menu."
             ),
             "updated_at": lazy_gettext("When the settings were last changed."),
         },

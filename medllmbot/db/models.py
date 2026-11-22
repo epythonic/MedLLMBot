@@ -416,6 +416,7 @@ class BotConfig(Base):
         CheckConstraint("daily_budget_usd >= 0", name="budget_non_negative"),
         CheckConstraint("catalog_inline_limit >= 0", name="catalog_limit_non_negative"),
         CheckConstraint("operator_hours > 0", name="operator_hours_positive"),
+        CheckConstraint("admin_language IN ('ru', 'ro', 'en')", name="admin_language_known"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, default=1)
@@ -449,6 +450,9 @@ class BotConfig(Base):
     # How many hours the bot stays silent after a client asks for a human, if the operator has not replied;
     # each operator reply extends the period
     operator_hours: Mapped[int] = mapped_column(default=12, server_default="12")
+    # Language of the bot's Telegram messages to the administrator: new leads, alerts, live operator.
+    # The admin panel picks its own language per browser
+    admin_language: Mapped[str] = mapped_column(String(2), default="ru", server_default="ru")
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
     @override

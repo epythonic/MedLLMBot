@@ -11,6 +11,7 @@ from typing import ClassVar, cast, final, override
 from markupsafe import Markup
 from sqladmin import ModelView
 from sqladmin.filters import BooleanFilter, OperationColumnFilter, StaticValuesFilter
+from sqladmin.i18n import get_locale_display_name
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -19,7 +20,7 @@ from wtforms import Field, Form, SelectField
 from wtforms.validators import DataRequired, Length, NumberRange, ValidationError
 
 from medllmbot.admin.forms import AdminForm, CommaFloatField
-from medllmbot.admin.i18n import gettext, lazy_gettext, lazy_text
+from medllmbot.admin.i18n import LOCALES, gettext, lazy_gettext, lazy_text
 from medllmbot.admin.live import NEW_AUDIT_EVENTS, NEW_LEADS, audit_chat_id_cell, lead_status_cell, sort_handle_cell
 from medllmbot.costs import format_usd, match_model
 from medllmbot.db.models import (
@@ -738,6 +739,14 @@ class UsageDailyAdmin(AdminView, model=UsageDaily):
 # ---------- Settings ----------
 
 
+# Languages by their own names, like in the language switcher: «Русский», «Română», «English»
+ADMIN_LANGUAGE_CHOICES = [(code, get_locale_display_name(code)) for code in LOCALES]
+
+
+def _admin_language(model: BotConfig, _attr: object) -> str:
+    return get_locale_display_name(model.admin_language)
+
+
 def _profile(model: BotConfig, _attr: object) -> str:
     return gettext(model.profile.value)
 
@@ -769,8 +778,8 @@ class BotConfigAdmin(AdminView, model=BotConfig):
     can_create = False
     can_delete = False
     # The profile changes only together with the knowledge base (seed --reset --profile), so it is not in the form
-    column_formatters = {BotConfig.profile: _profile}
-    column_formatters_detail = {BotConfig.profile: _profile}
+    column_formatters = {BotConfig.profile: _profile, BotConfig.admin_language: _admin_language}
+    column_formatters_detail = {BotConfig.profile: _profile, BotConfig.admin_language: _admin_language}
     column_list = [
         BotConfig.profile,
         BotConfig.model,
@@ -782,6 +791,7 @@ class BotConfigAdmin(AdminView, model=BotConfig):
         BotConfig.daily_budget_usd,
         BotConfig.catalog_inline_limit,
         BotConfig.operator_hours,
+        BotConfig.admin_language,
         BotConfig.updated_at,
     ]
     form_columns = [
@@ -797,7 +807,9 @@ class BotConfigAdmin(AdminView, model=BotConfig):
         BotConfig.daily_budget_usd,
         BotConfig.catalog_inline_limit,
         BotConfig.operator_hours,
+        BotConfig.admin_language,
     ]
+    form_overrides = {"admin_language": SelectField}
     form_args = {
         "model": {
             "validators": [DataRequired(), Length(max=100)],
@@ -855,6 +867,13 @@ class BotConfigAdmin(AdminView, model=BotConfig):
                 lazy_gettext("0 means always search"),
             ),
         },
+        "admin_language": {
+            "choices": ADMIN_LANGUAGE_CHOICES,
+            "description": lazy_gettext(
+                "Language of the bot's Telegram messages to you: new leads, alerts, the live operator. "
+                "The admin panel's own language is chosen with the switcher in the menu"
+            ),
+        },
         "operator_hours": {
             "validators": [NumberRange(min=1, max=720)],
             "description": _sentences(
@@ -883,6 +902,7 @@ class BotConfigAdmin(AdminView, model=BotConfig):
         BotConfig.daily_budget_usd: lazy_gettext("Daily spend limit, $"),
         BotConfig.catalog_inline_limit: lazy_gettext("Catalog in prompt, up to items"),
         BotConfig.operator_hours: lazy_gettext("Operator handles chat, hours"),
+        BotConfig.admin_language: lazy_gettext("Administrator language"),
         BotConfig.updated_at: lazy_gettext("Last changed"),
     }
 

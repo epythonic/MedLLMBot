@@ -20,6 +20,9 @@ panel starts, and every schema change ships as an Alembic migration.
 
   Translations live in gettext catalogs (`medllmbot/locales`), and a test fails when a UI string has no Russian or
   Romanian translation.
+- A bot setting for the administrator's language (RU/RO/EN) covers every Telegram message the bot sends the
+  administrator: new leads, suspicious-message and spending-limit alerts, live-operator notifications, the “Back to
+  bot” button and its replies. Existing settings keep Russian after the migration.
 
 ## [0.2.0] - 2026-11-22
 

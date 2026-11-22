@@ -8,6 +8,7 @@ Enum labels, analytics topic names and attack-sign labels are msgids marked with
 as plain strings, the admin translates them when it renders a page.
 """
 
+from collections.abc import Callable
 from functools import cache
 from io import BytesIO
 from pathlib import Path
@@ -15,6 +16,8 @@ from pathlib import Path
 from babel.messages.mofile import write_mo
 from babel.messages.pofile import read_po
 from babel.support import NullTranslations, Translations
+
+type Gettext = Callable[[str], str]  # translates a msgid into one language
 
 LOCALES: tuple[str, ...] = ("ru", "ro", "en")  # in the order of the admin's language switcher
 DEFAULT_LOCALE = "en"  # msgids are English, so English needs no catalog
@@ -50,3 +53,8 @@ def load_catalog(locale: str, domain: str = DOMAIN) -> Translations:
 def translation(locale: str) -> NullTranslations:
     """Our catalog for one language, for code outside an admin request. English returns msgids as they are."""
     return NullTranslations() if locale == DEFAULT_LOCALE else load_catalog(locale)
+
+
+def gettext_for(locale: str) -> Gettext:
+    """gettext for one language, e.g. the administrator's (`bot_config.admin_language`)."""
+    return translation(locale).gettext
