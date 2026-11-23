@@ -17,7 +17,7 @@ from medllmbot.db.models import (
 )
 from medllmbot.db.repository import NewRecords, Repository
 from medllmbot.db.seed import DEMO_SERVICES, seed_demo
-from tests.conftest import CHAT_ID, Sessions, load_audit
+from tests.conftest import CHAT_ID, Sessions, break_audit_log, load_audit
 
 
 class TestClients:
@@ -203,6 +203,25 @@ class TestCosts:
             0,
             1,
         )
+
+    async def test_event_with_pair_is_priced_and_remembered(self, seeded_repo: Repository, sessions: Sessions) -> None:
+        await seeded_repo.log_event_with_pair(llm_event(), question="вопрос", answer="ответ")
+
+        [event] = await load_audit(sessions)
+        assert event.cost_micro_usd == 2925
+        [day] = await load_usage(sessions)
+        assert (day.requests, day.cost_micro_usd) == (1, 2925)
+        assert [m["content"] for m in await seeded_repo.load_history(CHAT_ID, limit=8)] == ["вопрос", "ответ"]
+
+    async def test_failed_event_write_saves_nothing(self, seeded_repo: Repository, sessions: Sessions) -> None:
+        await break_audit_log(sessions)
+
+        with pytest.raises(IntegrityError):
+            await seeded_repo.log_event_with_pair(llm_event(), question="вопрос", answer="ответ")
+
+        # One transaction: neither the pair nor the spending outlives the failed log write
+        assert await seeded_repo.load_history(CHAT_ID, limit=8) == []
+        assert await load_usage(sessions) == []
 
     async def test_no_llm_call_no_usage(self, seeded_repo: Repository, sessions: Sessions) -> None:
         await seeded_repo.log_event(AuditEvent.incoming(CHAT_ID, "а" * 600, AuditOutcome.TOO_LONG))

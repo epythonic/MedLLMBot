@@ -136,9 +136,7 @@ class ClinicAssistant:
         customer = [text, *(m["content"] for m in history if m["role"] == "user" and isinstance(m["content"], str))]
         reply = self._check_answer(result, prices, customer, self._leaks[config.profile], replies, flags)
         # Attack attempts are kept out of the model context so a multi-step attack cannot build up
-        if not reply.suspicious:
-            await self.repo.save_pair(chat_id=chat_id, question=text, answer=reply.text)
-        return await self._log(chat_id, text, reply, result=result)
+        return await self._log(chat_id, text, reply, result=result, remember=not reply.suspicious)
 
     def _tools(self, chat_id: int, config: BotConfig, *, catalog_search: bool) -> Toolbox | None:
         """Tools for this question: search if the catalog is not in the prompt, orders if the profile has them."""
@@ -182,7 +180,9 @@ class ClinicAssistant:
         *,
         result: LLMResult | None = None,
         model: str | None = None,
+        remember: bool = False,
     ) -> Reply:
+        """Writes the event to the audit log; `remember` also saves the question and answer to the history."""
         event = AuditEvent.incoming(chat_id, text, reply.outcome, reply.flags)
         event.final_answer = reply.text
         event.model = model
@@ -196,5 +196,10 @@ class ClinicAssistant:
             event.cache_write_tokens = result.cache_write_tokens
             event.latency_ms = result.latency_ms
             event.tool_calls = "\n".join(result.tool_calls) or None
-        await self.repo.log_event(event, requests=result.usages if result is not None else ())
+        requests = result.usages if result is not None else ()
+        if remember:
+            # One transaction: if the log write fails, the history does not get an answer the client never saw
+            await self.repo.log_event_with_pair(event, question=text, answer=reply.text, requests=requests)
+        else:
+            await self.repo.log_event(event, requests=requests)
         return reply

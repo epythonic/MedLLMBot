@@ -8,7 +8,7 @@ import pytest
 from anthropic import AsyncAnthropic
 from anthropic.types import MessageParam, TextBlockParam, ToolChoiceParam, ToolParam
 from sqladmin.i18n import set_locale
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from medllmbot.admin import i18n
@@ -179,6 +179,14 @@ async def load_audit(sessions: Sessions) -> list[AuditEvent]:
     """All audit log records in order."""
     async with sessions() as s:
         return list((await s.scalars(select(AuditEvent).order_by(AuditEvent.id))).all())
+
+
+async def break_audit_log(sessions: Sessions) -> None:
+    """Every audit log write fails, as when the DB stays busy longer than busy_timeout."""
+    async with sessions.begin() as s:
+        await s.execute(
+            text("CREATE TRIGGER audit_log_fails BEFORE INSERT ON audit_log BEGIN SELECT RAISE(ABORT, 'locked'); END")
+        )
 
 
 @pytest.fixture
