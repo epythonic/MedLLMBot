@@ -24,7 +24,7 @@ livrării doar dacă cumpărătorul a indicat numărul comenzii și ultimele 4 c
 - Ține minte ultimele mesaje din dialog; istoricul este stocat în SQLite.
 - Compară prețurile din răspunsul modelului cu lista de prețuri. Dacă modelul a numit un preț inventat, clientul nu îl va vedea.
 - **Caută singur într-un catalog mare** (tool use): dacă numărul serviciilor active depășește pragul din setări, lista de prețuri nu este inclusă integral în prompt — Claude apelează instrumentul `search_catalog`, care caută în indexul full-text SQLite FTS5, primește până la 10 poziții potrivite și răspunde pe baza lor. Căutarea înțelege diferite forme ale cuvântului („чистку” → „Чистка”), filtrează după preț și nu execută sintaxa FTS din interogare. Un catalog mic este inclus în continuare integral în prompt — așa este mai ieftin și mai rapid.
-- Cererea cu număr de telefon (numere moldovenești în orice format și internaționale cu „+”) este salvată cu statusul „Nouă” și trimisă administratorului. Cererea nu se pierde nici dacă LLM-ul nu este disponibil, mesajul depășește limita sau Telegram nu a acceptat răspunsul către client.
+- Cererea cu număr de telefon (numere moldovenești în orice format și internaționale cu „+”) este salvată cu statusul „Nou” și trimisă administratorului. Cererea nu se pierde nici dacă LLM-ul nu este disponibil, mesajul depășește limita sau Telegram nu a acceptat răspunsul către client.
 - **Cheamă un om:** clientul scrie „chemați un manager”, „vreau să vorbesc cu un om” (în rusă sau în română) sau /operator — administratorul primește o notificare cu ultimele mesaje și răspunde direct din Telegram, printr-un răspuns (reply) la mesajul botului. Cât timp dialogul este la operator, botul tace și trimite administratorului mesajele clientului, inclusiv fotografiile, fără a apela Claude. Butonul „Înapoi la bot” sau termenul din setări readuc dialogul la bot.
 - Răspunsurile predefinite, fără model („Voi verifica cu administratorul”, „Mesajul este prea lung”, scuzele pentru o defecțiune), sunt în limba clientului: rusă sau română. Limba se determină după mesaj, iar dacă din el nu se poate deduce (o comandă pentru bot, un număr de comandă, o fotografie fără descriere) — după limba Telegram a clientului. Salutul la /start se alege după limba Telegram, iar clienții cu Telegram în altă limbă primesc ambele saluturi.
 - Cât timp modelul se gândește, clientul vede „scrie…”. Un răspuns lung vine în mai multe mesaje, în limita impusă de Telegram.
@@ -34,7 +34,7 @@ livrării doar dacă cumpărătorul a indicat numărul comenzii și ultimele 4 c
 
 ### Panoul de administrare
 
-- **Cereri:** listă cu filtru după status (Nouă / În lucru / Finalizată / Respinsă) și notițele administratorului.
+- **Cereri:** listă cu filtru după status (Nou / În curs de procesare / Finalizat / Respins) și notițele administratorului.
 - **Comenzi** (magazin): număr, cumpărător, status, produse, sumă, data livrării — pe baza lor botul răspunde despre comandă. În demo este un tabel din baza de date, iar pentru un magazin real — sistemul lui de evidență (CMS, 1C), prin interfața `OrderBackend`.
 - **Clienți:** cine a scris și când, blocare cu o singură bifă, cine este acum preluat de operator.
 - **Analiză:** despre ce întreabă clienții (subiecte după cuvinte-cheie în rusă și română), ce pondere din dialoguri se încheie cu o cerere și la ce întrebări botul nu a găsit răspuns — cu motivul și un link spre înregistrarea din jurnal. Este un indiciu despre ce trebuie adăugat în baza de cunoștințe. Se calculează din jurnal pentru 7, 30 sau 90 de zile, fără a apela Claude: nu costă nimic, iar conversațiile clienților nu ajung nicăieri altundeva.
@@ -89,7 +89,7 @@ Cum procesează botul un mesaj:
 6. Handlerul trimite răspunsul (pe cel lung — în mai multe părți). Dacă mesajul este suspect, administratorul primește o notificare (cel mult o dată la 15 minute pentru fiecare client). Dacă există un număr de telefon, se creează o cerere — chiar și atunci când Telegram nu a acceptat răspunsul către client.
 7. O eroare neprevăzută la orice pas este interceptată: clientul primește scuze, iar eroarea ajunge în log.
 
-`/start` și mesajele non-text (fotografii, mesaje vocale) ajung și ele în jurnal, cu rezultatele „Salut” și „Nu este text”.
+`/start` și mesajele non-text (fotografii, mesaje vocale) ajung și ele în jurnal, cu rezultatele „Salut” și „Conținut non-text”.
 
 ### Schema bazei de date
 
