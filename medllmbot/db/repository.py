@@ -106,6 +106,13 @@ def _to_message(role: str, content: str) -> MessageParam:
     return AssistantMessageParam(role="assistant", content=content)
 
 
+def _pair(chat_id: int, question: str, answer: str) -> list[ChatMessage]:
+    return [
+        ChatMessage(chat_id=chat_id, role="user", content=question),
+        ChatMessage(chat_id=chat_id, role="assistant", content=answer),
+    ]
+
+
 def _token_usage(event: AuditEvent) -> TokenUsage | None:
     """Tokens from the event; None if there was no model request."""
     if event.input_tokens is None or event.output_tokens is None:
@@ -156,6 +163,19 @@ async def _add_daily_usage(session: AsyncSession, model: str, usage: TokenUsage,
         set_={name: getattr(UsageDaily, name) + stmt.excluded[name] for name in counters},
     )
     await session.execute(stmt)
+
+
+async def _add_event(session: AsyncSession, event: AuditEvent, requests: Sequence[TokenUsage]) -> None:
+    """Adds the event; if there was a model request, its cost goes into the event and the daily totals."""
+    usage = _token_usage(event)
+    if usage is not None and event.model is not None:
+        prices = PriceBook(_to_price(row) for row in await session.scalars(select(ModelPrice)))
+        if requests:
+            event.cost_micro_usd = prices.total_micro_usd(event.model, requests)
+        else:
+            event.cost_micro_usd = prices.cost_micro_usd(event.model, usage)
+        await _add_daily_usage(session, event.model, usage, event.cost_micro_usd)
+    session.add(event)
 
 
 class Repository:
@@ -215,12 +235,7 @@ class Repository:
     async def save_pair(self, chat_id: int, question: str, answer: str) -> None:
         """Saves the question and answer together so the history always starts with the client."""
         async with self.sessions.begin() as session:
-            session.add_all(
-                [
-                    ChatMessage(chat_id=chat_id, role="user", content=question),
-                    ChatMessage(chat_id=chat_id, role="assistant", content=answer),
-                ]
-            )
+            session.add_all(_pair(chat_id, question, answer))
 
     # ---------- Leads ----------
 
@@ -315,15 +330,19 @@ class Repository:
         length tier is chosen for each request separately. Without them the cost is computed from the event tokens.
         """
         async with self.sessions.begin() as session:
-            usage = _token_usage(event)
-            if usage is not None and event.model is not None:
-                prices = PriceBook(_to_price(row) for row in await session.scalars(select(ModelPrice)))
-                if requests:
-                    event.cost_micro_usd = prices.total_micro_usd(event.model, requests)
-                else:
-                    event.cost_micro_usd = prices.cost_micro_usd(event.model, usage)
-                await _add_daily_usage(session, event.model, usage, event.cost_micro_usd)
-            session.add(event)
+            await _add_event(session, event, requests)
+
+    async def log_event_with_pair(
+        self, event: AuditEvent, question: str, answer: str, requests: Sequence[TokenUsage] = ()
+    ) -> None:
+        """`log_event` plus `save_pair` in one transaction: either both are written or neither.
+
+        If the log write fails (the DB stays busy), the client gets an error message instead of the answer,
+        so the history must not get that answer either.
+        """
+        async with self.sessions.begin() as session:
+            await _add_event(session, event, requests)
+            session.add_all(_pair(event.chat_id, question, answer))
 
     async def spent_today_micro_usd(self) -> int:
         """Claude spending for the current day (UTC) across all models, for the daily budget."""

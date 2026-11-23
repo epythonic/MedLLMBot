@@ -18,6 +18,10 @@ panel starts, and every schema change ships as an Alembic migration.
 
 ### Fixed
 
+- If the audit log write fails (for example, the database stays busy for more than 5 seconds), the customer gets
+  a tech error message, and the model history no longer keeps the answer they never received. Before, the question
+  and answer were saved first, in a separate transaction, so the next reply was built on an answer the customer had
+  not seen. The history and the log entry with its cost are now written in one transaction.
 - The admin sidebar shows which sections belong to which category. Categories have their own icons, and their
   sections sit under the category title on a guide line. Before, the categories had no icon and their sections had
   the same indent, so an opened category looked as if its sections had moved left, and “Bot settings” and “Help” read

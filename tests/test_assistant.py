@@ -4,6 +4,7 @@ import anthropic
 import httpx2 as httpx
 import pytest
 from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 
 from medllmbot.assistant import (
     BUDGET_EXCEEDED,
@@ -20,7 +21,17 @@ from medllmbot.llm import ClinicLLM
 from medllmbot.profiles import PROFILES
 from medllmbot.prompts import CATALOG_SEARCH_NOTE
 from medllmbot.text import Language
-from tests.conftest import CHAT_ID, CLINIC_RULES, CLINIC_TOOL, FakeClient, Sessions, load_audit, make_response, make_tool_use
+from tests.conftest import (
+    CHAT_ID,
+    CLINIC_RULES,
+    CLINIC_TOOL,
+    FakeClient,
+    Sessions,
+    break_audit_log,
+    load_audit,
+    make_response,
+    make_tool_use,
+)
 
 
 @pytest.fixture
@@ -318,6 +329,19 @@ async def test_raw_answer_is_kept_when_price_replaced(
     [event] = await load_audit(sessions)
     assert event.llm_answer == "Чистка всего 450 лей!"
     assert event.final_answer == PRICE_FALLBACK
+
+
+async def test_failed_audit_write_keeps_answer_out_of_history(
+    assistant: ClinicAssistant, seeded_repo: Repository, sessions: Sessions, config: BotConfig
+) -> None:
+    await break_audit_log(sessions)
+
+    # The error reaches the handler's on_error, and the client gets a tech error message instead of the answer
+    with pytest.raises(IntegrityError):
+        await assistant.reply(CHAT_ID, "Сколько стоит чистка?", config)
+
+    # So the model must not see this answer in the history next time
+    assert await seeded_repo.load_history(CHAT_ID, limit=8) == []
 
 
 async def test_injection_attempt_is_flagged_and_kept_out_of_history(
