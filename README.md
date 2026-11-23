@@ -4,7 +4,7 @@
 
 **English** · [Русский](README_ru.md) · [Română](README_ro.md) · [Changelog](CHANGELOG.md)
 
-A demo project: a Telegram bot built on **aiogram 3** and **Claude (Anthropic API)**. It answers a dental clinic's customers' questions about services, prices, the address, opening hours and booking, in Russian and Romanian. All data is stored in **SQLite**, and the clinic's administrator manages it through a **web admin panel** (FastAPI + SQLAdmin) in Russian, Romanian or English: the price list, FAQ, leads, customers, bot settings. Changes are picked up without a restart.
+A mini project: a Telegram bot built on **aiogram 3** and **Claude (Anthropic API)**. It answers a dental clinic's customers' questions about services, prices, the address, opening hours and booking, in Russian and Romanian. All data is stored in **SQLite**, and the clinic's administrator manages it through a **web admin panel** (FastAPI + SQLAdmin) in Russian, Romanian or English: the price list, FAQ, leads, customers, bot settings. Changes are picked up without a restart.
 
 > “Demo Dental Clinic” is fictional; all demo data is made up ([medllmbot/db/seed.py](medllmbot/db/seed.py)).
 
