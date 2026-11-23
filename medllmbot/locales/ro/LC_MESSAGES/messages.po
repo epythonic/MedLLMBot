@@ -43,7 +43,7 @@ msgstr "Programări"
 
 #: medllmbot/analytics.py:111
 msgid "Pain and urgent care"
-msgstr "Durere și urgențe"
+msgstr "Dureri și urgențe"
 
 #: medllmbot/analytics.py:117
 msgid "Dental treatment"
@@ -380,7 +380,7 @@ msgstr "Cereri"
 
 #: medllmbot/admin/help.py:61
 msgid "Clients who left a phone number in the chat. Here a lead is taken from “New” to “Done” or “Rejected”."
-msgstr "Clienții care și-au lăsat numărul de telefon în chat. Aici cererea este dusă de la „Nouă” până la „Finalizată” sau „Respinsă”."
+msgstr "Clienții care și-au lăsat numărul de telefon în chat. Aici cererea este dusă de la „Nou” până la „Finalizat” sau „Respins”."
 
 #: medllmbot/admin/help.py:65
 msgid "Lead number. The administrator gets the same number in the Telegram notification: “New lead #7”."
@@ -396,7 +396,7 @@ msgstr "Când cererea a fost modificată ultima dată în panoul de administrare
 
 #: medllmbot/admin/help.py:70
 msgid "Stage of work on the lead: New → In progress → Done or Rejected. In the list it changes at once, without opening the form. The bot never changes the status — only you do."
-msgstr "Etapa lucrului cu cererea: Nouă → În lucru → Finalizată sau Respinsă. În listă se schimbă imediat, fără a deschide formularul. Botul nu schimbă statusul — doar dvs."
+msgstr "Etapa lucrului cu cererea: Nou → În curs de procesare → Finalizat sau Respins. În listă se schimbă imediat, fără a deschide formularul. Botul nu schimbă statusul — doar dvs."
 
 #: medllmbot/admin/help.py:73
 msgid "The client's Telegram @username or, if there is none, the name from their profile."
@@ -1886,19 +1886,19 @@ msgstr "Aplicați filtrul"
 
 #: medllmbot/db/models.py:88
 msgid "New"
-msgstr "Nouă"
+msgstr "Nou"
 
 #: medllmbot/db/models.py:89
 msgid "In progress"
-msgstr "În lucru"
+msgstr "În curs de procesare"
 
 #: medllmbot/db/models.py:90
 msgid "Done"
-msgstr "Finalizată"
+msgstr "Finalizat"
 
 #: medllmbot/db/models.py:91
 msgid "Rejected"
-msgstr "Respinsă"
+msgstr "Respins"
 
 #: medllmbot/db/models.py:129
 msgid "Answered"
@@ -1942,7 +1942,7 @@ msgstr "Salut"
 
 #: medllmbot/db/models.py:139
 msgid "Not text"
-msgstr "Nu este text"
+msgstr "Conținut non-text"
 
 #: medllmbot/db/models.py:140
 msgid "Rate limit"
@@ -1954,11 +1954,11 @@ msgstr "Client blocat"
 
 #: medllmbot/db/models.py:142
 msgid "Asked for operator"
-msgstr "A cerut operatorul"
+msgstr "Solicitare operator"
 
 #: medllmbot/db/models.py:143
 msgid "Sent to operator"
-msgstr "Trimis operatorului"
+msgstr "Transmis operatorului"
 
 #: medllmbot/db/models.py:144
 msgid "Operator reply"
@@ -1966,11 +1966,11 @@ msgstr "Răspunsul operatorului"
 
 #: medllmbot/db/models.py:342
 msgid "Accepted"
-msgstr "Acceptată"
+msgstr "Acceptat"
 
 #: medllmbot/db/models.py:343
 msgid "Confirmed"
-msgstr "Confirmată"
+msgstr "Confirmat"
 
 #: medllmbot/db/models.py:344
 msgid "Out for delivery"
@@ -1982,11 +1982,11 @@ msgstr "Așteaptă la punctul de ridicare"
 
 #: medllmbot/db/models.py:346
 msgid "Delivered"
-msgstr "Livrată"
+msgstr "Livrat"
 
 #: medllmbot/db/models.py:347
 msgid "Cancelled"
-msgstr "Anulată"
+msgstr "Anulat"
 
 #: medllmbot/db/models.py:391
 msgid "Dental clinic"

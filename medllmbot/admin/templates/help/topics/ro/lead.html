@@ -3,7 +3,7 @@
 <p>Cererile le creează botul, ele nu se adaugă manual. Când un client scrie un mesaj cu un număr de telefon,
 de exemplu <code>+373 60 000 000</code> sau <code>060000000</code>, botul:</p>
 <ul>
-  <li>salvează cererea cu statusul <b>Nouă</b>;</li>
+  <li>salvează cererea cu statusul <b>Nou</b>;</li>
   <li>trimite administratorului în Telegram notificarea „Cerere nouă #N” cu numele, telefonul și textul mesajului;</li>
   <li>îi răspunde clientului ca de obicei.</li>
 </ul>
@@ -15,11 +15,11 @@ Cererea nu se creează numai în două cazuri: dacă clientul este blocat sau da
 <h3 id="{{ topic.anchor('kak') }}">Cum procesați o cerere</h3>
 <ol>
   <li>Deschideți secțiunea — cererile noi sunt sus. Ca să vedeți doar cererile neprocesate, în blocul <b>Filtre</b>
-    alegeți <b>Status → Nouă</b>.</li>
+    alegeți <b>Status → Nou</b>.</li>
   <li>Sunați clientul la numărul din coloana <b>Telefon</b>. În coloana <b>Mesaj</b> sunt adesea deja
     serviciul sau produsul dorit și ora convenabilă.</li>
   <li>Schimbați statusul direct în listă: în coloana <b>Status</b> este o listă derulantă, alegerea se salvează imediat —
-    chenarul se evidențiază cu verde pentru o secundă. Statusul se poate schimba de câte ori este nevoie: „În lucru” → „Finalizată”.</li>
+    chenarul se evidențiază cu verde pentru o secundă. Statusul se poate schimba de câte ori este nevoie: „În curs de procesare” → „Finalizat”.</li>
   <li>Ca să notați ce ați convenit, apăsați pictograma creion și completați <b>Nota administratorului</b>,
     apoi apăsați <b>Salvați</b>.</li>
 </ol>
@@ -32,10 +32,10 @@ tabelului apare mesajul „Cereri noi: N” — apăsați <b>Afișați</b> ca s�
 <h3 id="{{ topic.anchor('statusy') }}">Statusuri</h3>
 <table class="table table-sm">
   <tbody>
-    <tr><td>Nouă</td><td>Botul a creat cererea, clientul încă nu a fost contactat.</td></tr>
-    <tr><td>În lucru</td><td>L-ați contactat pe client sau așteptați răspunsul lui.</td></tr>
-    <tr><td>Finalizată</td><td>Clientul este programat la consultație sau comanda este plasată — cererea este închisă cu succes.</td></tr>
-    <tr><td>Respinsă</td><td>Clientul s-a răzgândit, nu răspunde la telefon sau nu este o cerere.</td></tr>
+    <tr><td>Nou</td><td>Botul a creat cererea, clientul încă nu a fost contactat.</td></tr>
+    <tr><td>În curs de procesare</td><td>L-ați contactat pe client sau așteptați răspunsul lui.</td></tr>
+    <tr><td>Finalizat</td><td>Clientul este programat la consultație sau comanda este plasată — cererea este închisă cu succes.</td></tr>
+    <tr><td>Respins</td><td>Clientul s-a răzgândit, nu răspunde la telefon sau nu este o cerere.</td></tr>
   </tbody>
 </table>
 
@@ -49,8 +49,8 @@ sau comanda este convenită la telefon de un angajat.
 {% endcall %}
 {% call note("info", "Nu tot ce seamănă cu un telefon este o cerere") %}
 Botul caută în text o secvență lungă de cifre. Uneori aceasta se dovedește a fi numărul unui contract sau al unei polițe —
-treceți o astfel de cerere în „Respinsă”.
+treceți o astfel de cerere în „Respins”.
 {% endcall %}
 {% call note("success", "Nu ștergeți cererile") %}
-Ștergerea este ireversibilă. Treceți în „Respinsă” o cerere care nu mai este actuală — istoricul interacțiunilor cu clienții se păstrează.
+Ștergerea este ireversibilă. Treceți în „Respins” o cerere care nu mai este actuală — istoricul interacțiunilor cu clienții se păstrează.
 {% endcall %}

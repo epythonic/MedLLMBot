@@ -15,6 +15,10 @@ panel starts, and every schema change ships as an Alembic migration.
   All short texts are now edited in one place, and a test catches a reply without a Russian or Romanian
   translation. The wording customers see has not changed. The README has a “Translations” section on where each
   text lives and how to edit and check it.
+- Romanian admin labels are proofread. Lead statuses: “Nou”, “În curs de procesare”, “Finalizat”, “Respins”;
+  order statuses: “Acceptat”, “Confirmat”, “Livrat”, “Anulat”; log outcomes: “Conținut non-text”,
+  “Solicitare operator”, “Transmis operatorului”; the analytics topic “Dureri și urgențe”. The Romanian help
+  and README quote the new labels.
 
 ### Fixed
 
