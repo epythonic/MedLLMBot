@@ -4,7 +4,7 @@
 
 [English](README.md) · [Русский](README_ru.md) · **Română** · [Istoricul modificărilor](CHANGELOG.md)
 
-Proiect demonstrativ: un bot Telegram construit cu **aiogram 3** și **Claude (Anthropic API)**. Botul răspunde clienților unei clinici stomatologice la întrebări despre servicii, prețuri, adresă, program și programări, în limbile rusă și română. Toate datele sunt stocate în **SQLite**, iar administratorul clinicii le gestionează prin **panoul de administrare web** (FastAPI + SQLAdmin), în rusă, română sau engleză: lista de prețuri, întrebările frecvente, cererile, clienții, setările botului. Modificările se aplică fără repornire.
+Mini-proiect: un bot Telegram construit cu **aiogram 3** și **Claude (Anthropic API)**. Botul răspunde clienților unei clinici stomatologice la întrebări despre servicii, prețuri, adresă, program și programări, în limbile rusă și română. Toate datele sunt stocate în **SQLite**, iar administratorul clinicii le gestionează prin **panoul de administrare web** (FastAPI + SQLAdmin), în rusă, română sau engleză: lista de prețuri, întrebările frecvente, cererile, clienții, setările botului. Modificările se aplică fără repornire.
 
 > Clinica „Demo Dental Clinic” este fictivă, toate datele demonstrative sunt inventate ([medllmbot/db/seed.py](medllmbot/db/seed.py)).
 
