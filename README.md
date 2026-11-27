@@ -224,6 +224,7 @@ medllmbot/
 │   ├── migrate.py     # python -m medllmbot.db.migrate
 │   ├── seed.py        # python -m medllmbot.db.seed — demo data, --profile shop — the store
 │   ├── demo_shop.py   # demo data for the fictional electronics store
+│   ├── demo_activity.py # fictional customers, chats, leads and log, so the demo admin panel is not empty
 │   └── migrations/    # Alembic
 └── admin/
     ├── __main__.py    # python -m medllmbot.admin
@@ -400,12 +401,18 @@ The first deploy is any PR merged into `main`, or a manual CI run. Demo data aft
 cd /opt/MedLLMBot && docker compose run --rm migrate python -m medllmbot.db.seed
 ```
 
+Besides the knowledge base, the command adds fictional customers with their chats, leads in every status and a log
+for the past week — “Clients”, “Leads”, “Log” and “Analytics” are filled from the first minute. Fictional customers
+are never added next to real ones: if someone has already written to the bot, the command skips them. The log entries
+have no model, tokens or cost, so the admin panel's spending stays real.
+
 ### Costs and demo reset
 
 - In the admin panel, “Bot settings” → **Daily spend limit, $** (1–2 $ is enough for a demo); in the
   [Anthropic Console](https://console.anthropic.com), set a monthly limit on the key as a second line of defence.
 - After a showing, return the demo to its initial state. The command deletes customers, chat history, leads, orders and
-  the log, and restores the knowledge base, the model price list and the settings; cost totals and the daily limit are kept:
+  the log, and restores the knowledge base, the model price list, the settings and the fictional customers (dated from
+  the moment of the reset); cost totals and the daily limit are kept:
 
   ```bash
   docker compose run --rm migrate python -m medllmbot.db.seed --reset

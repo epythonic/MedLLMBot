@@ -1,9 +1,11 @@
 """Demo data: a fictional dental clinic (default) or electronics shop (`--profile shop`).
 
-- `python -m medllmbot.db.seed` fills the knowledge base only if it is empty: re-running is safe.
+- `python -m medllmbot.db.seed` fills the knowledge base only if it is empty, and adds fictional clients with
+  their chats, leads and log entries (`demo_activity.py`) only if there are no clients yet: re-running is safe,
+  and real conversations are never mixed with made-up ones.
 - `python -m medllmbot.db.seed --reset` returns the demo server to its initial state after a showing: deletes
   clients, chat history, leads, orders and the audit log, restores the knowledge base, demo shop orders, the model
-  price list and the bot settings.
+  price list, the bot settings and the fictional activity with fresh dates.
   Spending totals and the daily budget stay, otherwise a reset would zero out the day's spending.
 - `--reset --profile shop` switches the demo to the shop: a different bot profile, catalog and greeting.
 """
@@ -18,6 +20,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from medllmbot.config import AppSettings
+from medllmbot.db.demo_activity import DEMO_CHATS, build_activity
 from medllmbot.db.demo_shop import (
     SHOP_FAQ,
     SHOP_GREETING,
@@ -43,6 +46,7 @@ from medllmbot.db.models import (
     OrderStatus,
     Service,
 )
+from medllmbot.text import Language
 
 log = logging.getLogger(__name__)
 
@@ -216,6 +220,28 @@ async def reset_demo(sessions: async_sessionmaker[AsyncSession], kind: BusinessP
         )
 
 
+async def seed_activity(sessions: async_sessionmaker[AsyncSession], now: datetime | None = None) -> bool:
+    """Adds the fictional clients, chats, leads and log entries of the current profile. Returns True if added.
+
+    Only into a database without clients: a demo where someone already wrote to the bot keeps its real
+    conversations. Dates count back from `now` (naive UTC), so «Analytics» shows them in its periods.
+    """
+    async with sessions.begin() as session:
+        if await session.scalar(select(func.count()).select_from(Client)):
+            return False
+        config = await session.get(BotConfig, 1)
+        kind = config.profile if config else BusinessProfile.CLINIC
+        demo = DEMOS[kind]
+        greeting = config.greeting if config else demo.greeting
+        greeting_ro = (config.greeting_ro if config else demo.greeting_ro) or greeting
+        moment = now or datetime.now(UTC).replace(tzinfo=None)
+        activity = build_activity(DEMO_CHATS[kind], kind, {Language.RU: greeting, Language.RO: greeting_ro}, moment)
+        session.add_all(activity.clients)
+        await session.flush()
+        session.add_all(activity.records)
+    return True
+
+
 # --profile flag value → profile
 PROFILE_OPTIONS: dict[str, BusinessProfile] = {kind.name.lower(): kind for kind in BusinessProfile}
 
@@ -238,6 +264,10 @@ async def main(reset: bool, kind: BusinessProfile) -> None:
                     current.name.lower(),  # the --profile option value, not the Russian display name
                     kind.name.lower(),
                 )
+        if await seed_activity(sessions):
+            log.info("Demo activity added: fictional clients, chats, leads and log entries")
+        else:
+            log.info("The database already has clients, demo activity not added")
     finally:
         await engine.dispose()
 
@@ -247,7 +277,8 @@ def parse_args(argv: list[str] | None = None) -> tuple[bool, BusinessProfile]:
     parser.add_argument(
         "--reset",
         action="store_true",
-        help="delete clients, chat history, leads, orders and the log; reset knowledge base, prices, settings to demo",
+        help="delete clients, chat history, leads, orders and the log; reset knowledge base, prices, settings and "
+        "the fictional clients to demo",
     )
     parser.add_argument(
         "--profile",
