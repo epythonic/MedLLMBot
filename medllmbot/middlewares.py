@@ -1,4 +1,4 @@
-"""aiogram middlewares: client tracking, blocking, settings and spam protection."""
+"""aiogram middlewares: client tracking, blocking, settings, the team and spam protection."""
 
 import logging
 from collections.abc import Awaitable, Callable
@@ -8,11 +8,11 @@ from aiogram import BaseMiddleware
 from aiogram.enums import ChatType, ContentType
 from aiogram.types import Message, TelegramObject
 
-from medllmbot.config import BotSettings
 from medllmbot.db.models import AuditEvent, AuditOutcome, BotConfig
 from medllmbot.db.repository import Repository
 from medllmbot.guards import RateLimiter
 from medllmbot.security import detect_injection
+from medllmbot.team import Team
 
 log = logging.getLogger(__name__)
 
@@ -28,12 +28,15 @@ def incoming_event(message: Message, outcome: AuditOutcome) -> AuditEvent:
 
 
 class ClientMiddleware(BaseMiddleware):
-    """Registers the client, cuts off blocked ones and puts the bot settings into `config`."""
+    """Registers the client, cuts off blocked ones and puts the bot settings into `config` and the owner with
+    the active staff into `team`: both are edited in the admin panel and apply from the next message."""
 
     repo: Repository
+    owner_id: int
 
-    def __init__(self, repo: Repository) -> None:
+    def __init__(self, repo: Repository, owner_id: int) -> None:
         self.repo = repo
+        self.owner_id = owner_id
 
     @override
     async def __call__(self, handler: Handler, event: TelegramObject, data: dict[str, object]) -> object:
@@ -55,13 +58,14 @@ class ClientMiddleware(BaseMiddleware):
             return None
 
         data["config"] = await self.repo.get_config()
+        data["team"] = Team(self.owner_id, await self.repo.active_staff())
         return await handler(event, data)
 
 
 class ThrottlingMiddleware(BaseMiddleware):
     """Silently drops messages when a client writes too often.
 
-    Must come after ClientMiddleware: the limits are taken from `config`. Does not limit the administrator:
+    Must come after ClientMiddleware: the limits are taken from `config`. Does not limit the owner and the staff:
     replying to clients as the operator, they may write often.
     """
 
@@ -75,17 +79,17 @@ class ThrottlingMiddleware(BaseMiddleware):
     @override
     async def __call__(self, handler: Handler, event: TelegramObject, data: dict[str, object]) -> object:
         config = data.get("config")
-        settings = data.get("settings")
-        is_admin = (
+        team = data.get("team")
+        is_staff = (
             isinstance(event, Message)
-            and isinstance(settings, BotSettings)
+            and isinstance(team, Team)
             and event.from_user is not None
-            and event.from_user.id == settings.admin_id
+            and team.is_member(event.from_user.id)
         )
         if (
             isinstance(event, Message)
             and isinstance(config, BotConfig)
-            and not is_admin
+            and not is_staff
             and self.limiter.too_many(event.chat.id, config.rate_limit, config.rate_window)
         ):
             log.info("Rate limit: chat %s", event.chat.id)

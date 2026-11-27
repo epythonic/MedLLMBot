@@ -11,6 +11,17 @@ panel starts, and every schema change ships as an Alembic migration.
 
 ### Added
 
+- The “Telegram staff” admin section: managers, consultants and coordinators added by their Telegram ID get live
+  operator calls and leads and answer customers from Telegram, like the owner from `ADMIN_ID`. A call goes to every
+  operator; the first one to reply handles the customer, the others are told who took it, and their replies are not
+  delivered until someone presses “Back to bot”. The bot recognizes staff by the Telegram user id only; security and
+  spending alerts stay with the owner. With a group in `ADMIN_ID`, the live operator now works through the staff.
+  Staff changes apply from the next message, and a demo reset keeps them. New migration: the `staff` table and
+  `clients.operator_chat_id`.
+- A hint for the live operator: when the administrator writes to the bot without replying while clients wait for
+  the operator, the message no longer goes to Claude as the administrator's own question. It goes to no one, and
+  the bot explains how to reply to a client and offers a “Back to bot” button for each waiting client. The log
+  records it with the new “Operator hint” outcome; analytics does not count it as a question.
 - The admin header shows who is signed in, next to the language switcher: the owner's username or the
   account's email and the role (Owner or Administrator). Its menu links an account from “Administrators” to its own
   page and has a logout link.

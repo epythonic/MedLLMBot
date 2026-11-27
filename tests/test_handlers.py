@@ -23,6 +23,7 @@ from medllmbot.handlers import (
 )
 from medllmbot.profiles import PROFILES
 from medllmbot.security import AlertCooldown
+from medllmbot.team import Team
 from medllmbot.text import Language
 
 ADMIN_ID = 777
@@ -107,7 +108,7 @@ def call(
     budget_alerts = AlertCooldown(seconds=6 * 3600, clock=clock)
 
     async def _call(msg: AsyncMock) -> None:
-        await handle_text(msg, bot, assistant, repo, settings, config, alerts, budget_alerts)
+        await handle_text(msg, bot, assistant, repo, settings, config, alerts, budget_alerts, Team(ADMIN_ID, {}))
 
     return _call
 

@@ -37,6 +37,7 @@ from medllmbot.db.models import (
     ModelPrice,
     Order,
     OrderStatus,
+    StaffMember,
     UsageDaily,
 )
 from medllmbot.db.repository import Repository
@@ -90,6 +91,7 @@ def db(settings: AdminSettings) -> Path:
         async with repo.sessions.begin() as session:
             session.add(Order(number="DE-1", customer_name="Ион", phone="+373 69 000 001", items="Чайник", total=399))
             session.add(AdminUser(email=PARTNER, password_hash=PARTNER_HASH))
+            session.add(StaffMember(name="Анна", chat_id=555))
 
     run_with_repo(settings.db_path, prepare)
     return settings.db_path
@@ -409,6 +411,47 @@ class TestHeaderProfile:
     )
     def test_avatar_letter(self, name: str, initial: str) -> None:
         assert AdminIdentity(name).initial == initial
+
+
+def get_staff(db: Path) -> list[StaffMember]:
+    async def load(repo: Repository) -> list[StaffMember]:
+        async with repo.sessions() as session:
+            return list(await session.scalars(select(StaffMember).order_by(StaffMember.id)))
+
+    return run_with_repo(db, load)
+
+
+class TestStaffForm:
+    """«Telegram staff»: the bot learns them from the next message, so the form checks the Telegram ID."""
+
+    def test_create(self, admin: TestClient, db: Path) -> None:
+        response = admin.post(
+            "/admin/staff-member/create",
+            data={"name": "  Борис  ", "chat_id": "123456789", "is_active": "y"},
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 302
+        boris = get_staff(db)[-1]
+        assert (boris.name, boris.chat_id, boris.is_active) == ("Борис", 123456789, True)
+
+    @pytest.mark.parametrize(
+        "chat_id", ["-100123", "0", "@anna", "", "9" * 20], ids=["group", "zero", "username", "empty", "huge"]
+    )
+    def test_only_a_users_telegram_id(self, admin: TestClient, db: Path, chat_id: str) -> None:
+        response = admin.post("/admin/staff-member/create", data={"name": "Борис", "chat_id": chat_id})
+        assert response.status_code == 400
+        assert [member.name for member in get_staff(db)] == ["Анна"]
+
+    def test_duplicate_telegram_id(self, admin: TestClient) -> None:
+        response = admin.post("/admin/staff-member/create", data={"name": "Ещё Анна", "chat_id": "555"})
+        assert response.status_code == 400
+        assert "Сотрудник с таким Telegram ID уже есть." in response.text
+
+    def test_list_shows_the_team(self, admin: TestClient) -> None:
+        page = admin.get("/admin/staff-member/list").text
+        assert "Сотрудники в Telegram" in page
+        assert "Анна" in page and "555" in page
 
 
 HTMX = {"HX-Request": "true"}

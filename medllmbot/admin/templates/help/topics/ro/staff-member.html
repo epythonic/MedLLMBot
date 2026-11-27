@@ -1,0 +1,39 @@
+{% from "help/_macros.html" import note, section_link with context %}
+<h3 id="{{ topic.anchor('kto') }}">Cine este aici</h3>
+<p>Angajații clinicii sau ai magazinului care lucrează cu clienții în Telegram: managerul, consultantul,
+coordonatorul. Botul îi trimite fiecăruia apelurile pentru operator și cererile noi, iar fiecare poate răspunde
+clienților direct din Telegram, la fel ca proprietarul.</p>
+<p>Proprietarul nu apare în listă: ID-ul lui de Telegram este setat în configurarea serverului (<code>ADMIN_ID</code>).
+Proprietarul primește tot, inclusiv avertismentele despre mesaje suspecte și despre limita de cheltuieli; angajații
+nu le primesc. Botul le scrie tuturor în limba din câmpul <b>Limba administratorului</b> din
+{{ section_link('bot-config') }}.</p>
+
+<h3 id="{{ topic.anchor('dobavit') }}">Cum adăugați un angajat</h3>
+<ol>
+  <li>Rugați persoana să deschidă botul în Telegram și să apese „Start”. Fără asta botul nu îi poate scrie.</li>
+  <li>Găsiți-o în {{ section_link('client') }}: numărul din coloana <b>Chat ID</b> este ID-ul ei de Telegram.</li>
+  <li>Aici apăsați <b>+ Adăugați: Angajat în Telegram</b>, introduceți numele și ID-ul de Telegram și salvați.
+    De la următorul mesaj botul consideră această persoană angajat.</li>
+</ol>
+
+<h3 id="{{ topic.anchor('kak') }}">Cum se împart apelurile</h3>
+<ul>
+  <li>Un client cere un om: notificarea o primesc proprietarul și toți angajații din listă.</li>
+  <li>Clientul îl preia cel care răspunde primul: ceilalți primesc „Clientul @ivan este preluat de Anna”, iar de atunci
+    mesajele clientului le primește doar acea persoană.</li>
+  <li>Răspunsul altui angajat nu ajunge la client: botul îi spune cine a preluat clientul. Pentru a prelua dialogul,
+    de exemplu când colegul lipsește, apăsați <b>Înapoi la bot</b> sub un mesaj despre acest client și răspundeți
+    din nou.</li>
+  <li>Cererile cu număr de telefon ajung la toți: la proprietar și la angajați.</li>
+</ul>
+
+<h3 id="{{ topic.anchor('otklyuchit') }}">Cum dezactivați</h3>
+<p>Deschideți înregistrarea cu pictograma creion, debifați <b>În echipă</b> și salvați sau ștergeți înregistrarea.
+De la următorul mesaj botul nu îi mai trimite acestei persoane apeluri și cereri și nu transmite clienților
+răspunsurile ei. Dacă ea prelua un dialog, mesajele clientului le primesc din nou toți.</p>
+
+{% call note("warning", "Doar după ID-ul de Telegram") %}
+Botul recunoaște un angajat după ID-ul numeric de Telegram, pe care îl pune chiar Telegram în fiecare mesaj. Numele,
+fotografia sau @username-ul le poate copia oricine, de aceea botul nu se uită la ele. Un angajat vede conversațiile
+clienților care cer operatorul: adăugați doar persoane în care aveți încredere.
+{% endcall %}

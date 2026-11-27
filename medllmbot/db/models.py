@@ -52,9 +52,12 @@ class Client(Base):
     username: Mapped[str | None] = mapped_column(String(64))
     full_name: Mapped[str] = mapped_column(String(256), default="", server_default="")
     is_blocked: Mapped[bool] = mapped_column(default=False, server_default=false())
-    # A live operator (the admin in Telegram) handles the client: until this time (UTC) the bot stays silent
-    # and relays messages to them. None means the bot replies (medllmbot/operator.py)
+    # A live operator (the owner or a staff member in Telegram) handles the client: until this time (UTC) the bot
+    # stays silent and relays messages to them. None means the bot replies (medllmbot/operator.py)
     operator_until: Mapped[datetime | None] = mapped_column()
+    # Telegram id of the operator who took the dialog with the first reply; None — not taken yet, every operator
+    # gets the client's messages
+    operator_chat_id: Mapped[int | None] = mapped_column(BigInteger)
     first_seen_at: Mapped[datetime] = mapped_column(server_default=func.now())
     last_seen_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
@@ -142,6 +145,9 @@ class AuditOutcome(enum.Enum):
     HANDOFF = N_("Asked for operator")  # the client asked for a human; the bot handed the dialog to the admin
     TO_OPERATOR = N_("Sent to operator")  # the operator handles the dialog: relayed to them, Claude not called
     FROM_OPERATOR = N_("Operator reply")  # the admin replied to the client from Telegram; the text is in user_text
+    # The admin wrote to the bot without replying while clients waited for the operator: the bot reminded how
+    # to answer them; nothing went to a client, Claude was not called
+    OPERATOR_HINT = N_("Operator hint")
 
     @override
     def __str__(self) -> str:
@@ -410,6 +416,27 @@ class AdminUser(Base):
     @override
     def __str__(self) -> str:
         return self.email
+
+
+@final
+class StaffMember(Base):
+    """A clinic or shop employee in Telegram: a manager, consultant or coordinator.
+
+    Gets live operator calls and leads and answers clients from Telegram, like the owner from ADMIN_ID. The bot
+    recognizes them only by the Telegram user id: a name or username can be copied by anyone.
+    """
+
+    __tablename__ = "staff"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(100))  # shown to the other operators: «Client @ivan is handled by Anna»
+    chat_id: Mapped[int] = mapped_column(BigInteger, unique=True)  # Telegram user id
+    is_active: Mapped[bool] = mapped_column(default=True, server_default=true())
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    @override
+    def __str__(self) -> str:
+        return self.name
 
 
 # ---------- Bot settings ----------

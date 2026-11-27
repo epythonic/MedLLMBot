@@ -1,0 +1,39 @@
+{% from "help/_macros.html" import note, section_link with context %}
+<h3 id="{{ topic.anchor('kto') }}">Who is here</h3>
+<p>Clinic or shop employees who work with clients in Telegram: a manager, a consultant, a coordinator.
+The bot sends each of them live operator calls and new leads, and each can answer clients right from Telegram,
+like the owner.</p>
+<p>The owner is not in the list: their Telegram ID is set in the server settings (<code>ADMIN_ID</code>). The owner
+gets everything, including alerts about suspicious messages and the spending limit; staff do not get those.
+The bot writes to all of them in the language from the <b>Administrator language</b> field in
+{{ section_link('bot-config') }}.</p>
+
+<h3 id="{{ topic.anchor('dobavit') }}">How to add a staff member</h3>
+<ol>
+  <li>Ask the person to open the bot in Telegram and press “Start”. Without it the bot cannot write to them.</li>
+  <li>Find them in {{ section_link('client') }}: the number in the <b>Chat ID</b> column is their Telegram ID.</li>
+  <li>Here, click <b>+ New Telegram staff member</b>, enter the name and the Telegram ID and save. From the next
+    message the bot treats this person as staff.</li>
+</ol>
+
+<h3 id="{{ topic.anchor('kak') }}">How calls are shared</h3>
+<ul>
+  <li>A client asks for a live person: the owner and every staff member on the list get the notification.</li>
+  <li>The first one to reply handles the client: the others get “Client @ivan is handled by Anna”, and from then on
+    only that person gets the client's messages.</li>
+  <li>Another staff member's reply does not reach the client: the bot tells them who handles the client. To take
+    the dialog, for example when a colleague is away, press <b>Back to bot</b> under a message about this client and
+    reply again.</li>
+  <li>Leads with a phone number go to everyone: the owner and the staff.</li>
+</ul>
+
+<h3 id="{{ topic.anchor('otklyuchit') }}">How to turn off</h3>
+<p>Open the record with the pencil icon, clear the <b>On the team</b> box and save, or delete the record.
+From the next message the bot stops sending this person calls and leads and does not pass their replies to clients.
+If they were handling a dialog, every operator gets the client's messages again.</p>
+
+{% call note("warning", "By the Telegram ID only") %}
+The bot recognizes a staff member by the numeric Telegram ID that Telegram itself puts into every message. Anyone can
+copy a name, photo or @username, so the bot ignores them. A staff member sees the conversations of clients who call
+the operator: add only people you trust.
+{% endcall %}

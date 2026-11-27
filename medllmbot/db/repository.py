@@ -38,6 +38,7 @@ from medllmbot.db.models import (
     OperatorRelay,
     Order,
     Service,
+    StaffMember,
     UsageDaily,
 )
 
@@ -276,10 +277,15 @@ class Repository:
         async with self.sessions() as session:
             return await session.scalar(select(Client.operator_until).where(Client.chat_id == chat_id))
 
-    async def start_operator(self, chat_id: int, until: datetime) -> None:
-        """Hands the client to the operator until `until` (UTC): the bot stays silent until then."""
+    async def start_operator(self, chat_id: int, until: datetime, operator: int | None = None) -> None:
+        """Hands the client to the operators until `until` (UTC): the bot stays silent until then.
+
+        `operator` is who took the dialog with their reply; None — not taken yet, every operator gets it.
+        """
         async with self.sessions.begin() as session:
-            await session.execute(update(Client).where(Client.chat_id == chat_id).values(operator_until=until))
+            await session.execute(
+                update(Client).where(Client.chat_id == chat_id).values(operator_until=until, operator_chat_id=operator)
+            )
 
     async def end_operator(self, chat_id: int, now: datetime) -> bool:
         """Returns the client to the bot. True if the operator was handling the client and it had not expired."""
@@ -289,7 +295,20 @@ class Repository:
                 return False
             active = client.operator_until > now
             client.operator_until = None
+            client.operator_chat_id = None
         return active
+
+    async def active_staff(self) -> dict[int, str]:
+        """Active Telegram staff from the admin panel: Telegram user id → name."""
+        stmt = select(StaffMember.chat_id, StaffMember.name).where(StaffMember.is_active).order_by(StaffMember.id)
+        async with self.sessions() as session:
+            return {chat_id: name for chat_id, name in await session.execute(stmt)}
+
+    async def operator_clients(self, now: datetime) -> list[Client]:
+        """Clients the operator handles at `now` (UTC), the latest handed over first."""
+        stmt = select(Client).where(Client.operator_until > now).order_by(Client.operator_until.desc())
+        async with self.sessions() as session:
+            return list(await session.scalars(stmt))
 
     async def add_relay(self, admin_chat_id: int, admin_message_id: int, chat_id: int) -> None:
         """Remembers a bot message in the admin chat: a reply to it goes to client `chat_id`."""
