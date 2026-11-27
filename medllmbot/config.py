@@ -47,6 +47,18 @@ class AdminSettings(AppSettings):
     admin_https_only: bool = False
 
 
+class DeploySettings(AppSettings):
+    """How docker compose publishes the admin panel on the demo server. Read by check_config, not by the app."""
+
+    compose_profiles: str = ""  # comma-separated, as docker compose reads it: tunnel, https or none
+    domain: str = ""  # https profile: Caddy obtains a certificate for this domain
+    tunnel_token: SecretStr = SecretStr("")  # tunnel profile: cloudflared connects to Cloudflare with it
+
+    @property
+    def profiles(self) -> list[str]:
+        return [name.strip() for name in self.compose_profiles.split(",") if name.strip()]
+
+
 # Pydantic error reasons in plain language; the rest are shown as is
 _REASONS: dict[str, str] = {
     "missing": "not set",

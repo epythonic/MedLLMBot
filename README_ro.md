@@ -288,11 +288,19 @@ Panoul de administrare este disponibil la <http://127.0.0.1:8000/admin>. Baza de
 
 ## Demo pe server
 
-Pentru o demonstrație este suficient un VPS mic (1 vCPU, 1 GB RAM) cu Docker și un domeniu îndreptat spre server printr-o înregistrare A.
-Botul funcționează prin long polling, de aceea din exterior sunt necesare doar porturile 80 și 443 — pentru HTTPS-ul panoului de administrare
-(Caddy obține și reînnoiește singur certificatul Let's Encrypt). `deploy/deploy.sh` pornește stiva cu comanda
-`docker compose --profile https up -d --build` (botul, panoul de administrare și Caddy); pentru a o rula manual,
-setați în `.env` `DOMAIN` și `ADMIN_HTTPS_ONLY=true`.
+Pentru o demonstrație este suficient un VPS mic (1 vCPU, 1 GB RAM) cu Docker. Botul funcționează prin long polling,
+de aceea conexiuni din exterior are nevoie doar panoul de administrare. Modul în care este publicat îl alege profilul
+Docker Compose din `COMPOSE_PROFILES`:
+
+- `tunnel` — Cloudflare Tunnel (așa funcționează demo-ul). Containerul `cloudflared` se conectează singur la Cloudflare:
+  pe server nu este deschis niciun port în afară de SSH, nu sunt necesare certificate, iar IP-ul serverului nu este
+  vizibil. Sunt necesare un domeniu în Cloudflare și tokenul tunelului `TUNNEL_TOKEN`.
+- `https` — Caddy pe porturile 80 și 443 obține și reînnoiește singur certificatul Let's Encrypt. Este necesar
+  un domeniu îndreptat spre server printr-o înregistrare A (`DOMAIN`).
+
+`deploy/deploy.sh` pornește stiva cu comanda `docker compose up -d --build`, iar profilul compose îl ia
+din `COMPOSE_PROFILES` din `.env`. Cu oricare profil setați `ADMIN_HTTPS_ONLY=true`. Fără profil, panoul
+de administrare este accesibil doar de pe server (`127.0.0.1:8000`).
 
 ### Cum ajung modificările pe server
 
@@ -308,12 +316,13 @@ flowchart LR
 - În `main` nu se poate face push direct — se poate face doar merge la un PR cu verificările `test` și `docker` verzi (protecția ramurii).
 - După merge, CI verifică cheile din GitHub Environment `demo`, generează din ele `.env` și rulează prin SSH
   pe server [deploy/deploy.sh](deploy/deploy.sh): actualizarea `main` (doar fast-forward), un `.env` nou, reconstruirea containerelor și
-  așteptarea până când panoul de administrare trece health check-ul. Dacă ceva nu a pornit, deploy-ul este roșu, iar în log apar ultimele rânduri
+  așteptarea până când toate serviciile pornesc, iar panoul de administrare și tunelul trec health check-ul. Dacă ceva nu a pornit, deploy-ul este roșu, iar în log apar ultimele rânduri
   ale containerului.
 - Cheia CI de pe server este legată de acest script (`command=` în `authorized_keys`): cu ea nu se poate executa altă comandă.
   Amprenta serverului este fixată într-un secret — SSH nu va accepta un host substituit.
 - Secretele aplicației sunt stocate doar în GitHub Environment `demo`; `.env` de pe server este suprascris
-  la fiecare deploy, de aceea cheile se schimbă în GitHub.
+  la fiecare deploy, de aceea cheile se schimbă în GitHub. Pentru ca o cheie nouă să ajungă pe server fără un PR nou,
+  porniți deploy-ul manual: Actions → CI → Run workflow pe ramura `main` sau `gh workflow run ci.yml --ref main`.
 
 ### Configurarea inițială (o singură dată)
 
@@ -339,6 +348,18 @@ Adăugați cheia publică `medllmbot-deploy.pub` pe server în `~/.ssh/authorize
 command="/opt/MedLLMBot/deploy/deploy.sh",no-port-forwarding,no-agent-forwarding,no-X11-forwarding,no-pty ssh-ed25519 AAAA… github-actions-deploy
 ```
 
+**Cloudflare Tunnel** (profilul `tunnel`) — în panoul Cloudflare al contului cu domeniul:
+
+1. Networking → Tunnels → **Create a tunnel**, cu un nume, de exemplu `medllmbot`.
+2. Copiați tokenul tunelului: Cloudflare îl afișează la crearea tunelului, în comanda de instalare a conectorului,
+   după `--token`. Acesta este secretul `TUNNEL_TOKEN`. Nu instalați conectorul pe server — îl pornește containerul
+   `cloudflared`; până la primul deploy tunelul nu este conectat, ceea ce este normal.
+3. Fila **Routes** → **Add route** → **Published application**: subdomeniul și domeniul demo-ului, **Service URL** —
+   `http://admin:8000`. Acesta este numele serviciului în Docker Compose, nu `localhost`: `cloudflared` rulează
+   în propriul container. Înregistrarea DNS pentru subdomeniu o creează Cloudflare singur.
+
+Cu tunelul, serverului îi trebuie din exterior doar SSH: celelalte porturi de intrare pot fi închise din firewall.
+
 **În GitHub** — Settings → Environments → New environment `demo`, secretele:
 
 | Secret | Ce conține |
@@ -348,8 +369,12 @@ command="/opt/MedLLMBot/deploy/deploy.sh",no-port-forwarding,no-agent-forwarding
 | `DEPLOY_HOST`, `DEPLOY_USER` | adresa serverului și utilizatorul din `authorized_keys` |
 | `DEPLOY_SSH_KEY` | conținutul cheii private `medllmbot-deploy` |
 | `DEPLOY_KNOWN_HOSTS` | rezultatul comenzii `ssh-keyscan` de la pasul de mai sus |
+| `TUNNEL_TOKEN` | tokenul Cloudflare Tunnel (doar pentru profilul `tunnel`) |
 
-Și variabilele (Environment variables): `DOMAIN` — domeniul demo-ului, `ADMIN_USERNAME` — numele de utilizator al panoului de administrare (implicit `admin`).
+Și variabilele (Environment variables): `COMPOSE_PROFILES` — `tunnel` sau `https` (implicit `https`),
+`DOMAIN` — domeniul demo-ului pentru Caddy (doar pentru `https`), `ADMIN_USERNAME` — numele de utilizator al panoului
+de administrare (implicit `admin`). Verificarea cheilor în CI nu lasă să treacă un profil fără cheia lui și nici un
+nume de profil necunoscut.
 
 **Protecția ramurii** `main` — Settings → Branches sau cu o singură comandă:
 
@@ -369,7 +394,7 @@ JSON
 **Activați deploy-ul**: Settings → Secrets and variables → Actions → Variables → `DEPLOY_ENABLED` = `true`.
 Cât timp variabila lipsește, CI doar verifică codul, iar `config` și `deploy` sunt omise.
 
-Primul deploy are loc la orice PR îmbinat în `main`. Datele demo după prima pornire:
+Primul deploy are loc la orice PR îmbinat în `main` sau la o rulare manuală a CI. Datele demo după prima pornire:
 
 ```bash
 cd /opt/MedLLMBot && docker compose run --rm migrate python -m medllmbot.db.seed
@@ -410,7 +435,9 @@ cd /opt/MedLLMBot && docker compose run --rm migrate python -m medllmbot.db.seed
 | `ADMIN_PASSWORD` | — | Parola panoului de administrare, de cel puțin 8 caractere |
 | `ADMIN_SECRET_KEY` | — | Cheia de semnare a cookie-ului de sesiune, de cel puțin 32 de caractere |
 | `ADMIN_HOST` / `ADMIN_PORT` | `127.0.0.1` / `8000` | Adresa panoului de administrare |
-| `DOMAIN` | — | Domeniul serverului demo pentru HTTPS prin Caddy (doar cu `--profile https`) |
+| `COMPOSE_PROFILES` | — | Cum este publicat panoul de administrare pe server: `tunnel` (Cloudflare Tunnel) sau `https` (Caddy); gol — doar botul și panoul de administrare pe `127.0.0.1` |
+| `TUNNEL_TOKEN` | — | Tokenul Cloudflare Tunnel (profilul `tunnel`) |
+| `DOMAIN` | — | Domeniul serverului demo pentru HTTPS prin Caddy (profilul `https`) |
 | `ADMIN_HTTPS_ONLY` | `false` | `true` dacă panoul de administrare este accesat prin HTTPS, în spatele unui reverse proxy: cookie-ul de sesiune va primi flagul `Secure` |
 | `DB_PATH` | `storage/bot.db` | Calea către SQLite |
 

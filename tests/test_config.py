@@ -1,21 +1,23 @@
 """Settings from the environment: from_env() returns the right class and requires secrets."""
 
+import re
 from pathlib import Path
 
 import pytest
-from pydantic import ValidationError
+from pydantic import SecretStr, ValidationError
 
-from medllmbot.check_config import find_problems
-from medllmbot.config import AdminSettings, BotSettings, describe_settings_error
+from medllmbot.check_config import find_deploy_problems, find_problems
+from medllmbot.config import AdminSettings, BotSettings, DeploySettings, describe_settings_error
 
 SECRETS = ("TG_TOKEN", "ADMIN_ID", "ANTHROPIC_API_KEY", "ADMIN_PASSWORD", "ADMIN_SECRET_KEY")
+DEPLOY = ("COMPOSE_PROFILES", "DOMAIN", "TUNNEL_TOKEN")
 
 
 @pytest.fixture(autouse=True)
 def clean_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Empty environment and a directory without .env, so the test does not depend on the developer's machine."""
     monkeypatch.chdir(tmp_path)
-    for name in (*SECRETS, "DB_PATH"):
+    for name in (*SECRETS, *DEPLOY, "DB_PATH"):
         monkeypatch.delenv(name, raising=False)
 
 
@@ -98,4 +100,60 @@ def test_check_config_passes_with_all_keys(monkeypatch: pytest.MonkeyPatch) -> N
         "ADMIN_SECRET_KEY": "k" * 32,
     }.items():
         monkeypatch.setenv(name, value)
+    assert find_problems() == []
+
+
+def set_bot_and_admin_keys(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name, value in {
+        "TG_TOKEN": "123:abc",
+        "ADMIN_ID": "777",
+        "ANTHROPIC_API_KEY": "key",
+        "ADMIN_PASSWORD": "secret-pass",
+        "ADMIN_SECRET_KEY": "k" * 32,
+    }.items():
+        monkeypatch.setenv(name, value)
+
+
+def test_deploy_without_profiles_is_fine() -> None:
+    # A local "docker compose up" publishes nothing, so it needs neither a domain nor a tunnel
+    assert find_deploy_problems(DeploySettings()) == []
+
+
+@pytest.mark.parametrize(("profile", "key"), [("tunnel", "TUNNEL_TOKEN"), ("https", "DOMAIN")])
+def test_deploy_profile_needs_its_key(profile: str, key: str) -> None:
+    assert find_deploy_problems(DeploySettings(compose_profiles=profile)) == [
+        f"{key}: not set (needed by the {profile} profile in COMPOSE_PROFILES)"
+    ]
+
+
+def test_deploy_profile_with_its_key_passes() -> None:
+    settings = DeploySettings(compose_profiles=" tunnel ,https", domain="demo.example.com", tunnel_token=SecretStr("t"))
+
+    assert settings.profiles == ["tunnel", "https"]
+    assert find_deploy_problems(settings) == []
+
+
+def test_deploy_unknown_profile_is_reported() -> None:
+    # A typo in the GitHub variable would otherwise deploy a server with nothing in front of the admin panel
+    assert find_deploy_problems(DeploySettings(compose_profiles="tunel")) == [
+        "COMPOSE_PROFILES: unknown profile 'tunel' (known: https, tunnel)"
+    ]
+
+
+def test_every_compose_profile_is_checked() -> None:
+    compose = (Path(__file__).parent.parent / "docker-compose.yml").read_text(encoding="utf-8")
+    profiles = re.findall(r'^    profiles: \["(\w+)"\]$', compose, re.MULTILINE)
+    assert sorted(profiles) == ["https", "tunnel"]
+    for profile in profiles:
+        # Known to check_config: without its key the profile is reported as missing it, not as unknown
+        assert "unknown profile" not in "".join(find_deploy_problems(DeploySettings(compose_profiles=profile)))
+
+
+def test_check_config_reports_deploy_problems(monkeypatch: pytest.MonkeyPatch) -> None:
+    set_bot_and_admin_keys(monkeypatch)
+    monkeypatch.setenv("COMPOSE_PROFILES", "tunnel")
+
+    assert find_problems() == ["DeploySettings:\n  TUNNEL_TOKEN: not set (needed by the tunnel profile in COMPOSE_PROFILES)"]
+
+    monkeypatch.setenv("TUNNEL_TOKEN", "eyJhIjoi-secret")
     assert find_problems() == []

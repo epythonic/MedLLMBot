@@ -288,11 +288,18 @@ docker compose logs -f bot
 
 ## Демо на сервере
 
-Для показа хватает маленького VPS (1 vCPU, 1 ГБ RAM) с Docker и домена, направленного A-записью на сервер.
-Бот работает через long polling, поэтому снаружи нужны только порты 80 и 443 — для HTTPS админки
-(Caddy сам получает и продлевает сертификат Let's Encrypt). `deploy/deploy.sh` поднимает стек командой
-`docker compose --profile https up -d --build` (бот, админка и Caddy); чтобы запустить её вручную, укажите в `.env`
-`DOMAIN` и `ADMIN_HTTPS_ONLY=true`.
+Для показа хватает маленького VPS (1 vCPU, 1 ГБ RAM) с Docker. Бот работает через long polling, поэтому входящие
+соединения нужны только админке. Как открыть её наружу, выбирает профиль Docker Compose в `COMPOSE_PROFILES`:
+
+- `tunnel` — Cloudflare Tunnel (так устроено демо). Контейнер `cloudflared` сам подключается к Cloudflare: на сервере
+  не открыт ни один порт, кроме SSH, сертификаты не нужны, IP сервера не виден. Нужны домен в Cloudflare
+  и токен туннеля `TUNNEL_TOKEN`.
+- `https` — Caddy на портах 80 и 443 сам получает и продлевает сертификат Let's Encrypt. Нужен домен
+  с A-записью на сервер (`DOMAIN`).
+
+`deploy/deploy.sh` поднимает стек командой `docker compose up -d --build`, а профиль compose берёт
+из `COMPOSE_PROFILES` в `.env`. С любым профилем укажите `ADMIN_HTTPS_ONLY=true`. Без профиля админка открыта только
+на самом сервере (`127.0.0.1:8000`).
 
 ### Как изменения попадают на сервер
 
@@ -308,12 +315,13 @@ flowchart LR
 - В `main` нельзя запушить напрямую — только слить PR с зелёными проверками `test` и `docker` (защита ветки).
 - После слияния CI проверяет ключи из GitHub Environment `demo`, собирает из них `.env` и по SSH запускает
   на сервере [deploy/deploy.sh](deploy/deploy.sh): свежий `main` (только fast-forward), новый `.env`, пересборка контейнеров,
-  ожидание, пока админка станет здоровой. Если что-то не поднялось, деплой красный, а в логе — последние строки
+  ожидание, пока все сервисы запустятся, а админка и туннель пройдут проверку здоровья. Если что-то не поднялось, деплой красный, а в логе — последние строки
   контейнера.
 - Ключ CI на сервере привязан к этому скрипту (`command=` в `authorized_keys`): другую команду им не выполнить.
   Отпечаток сервера закреплён в секрете — подмену хоста SSH не пропустит.
 - Секреты приложения хранятся только в GitHub Environment `demo`; `.env` на сервере перезаписывается
-  при каждом деплое, поэтому ключи меняют в GitHub.
+  при каждом деплое, поэтому ключи меняют в GitHub. Чтобы новый ключ дошёл до сервера без нового PR, запустите
+  деплой вручную: Actions → CI → Run workflow на ветке `main` или `gh workflow run ci.yml --ref main`.
 
 ### Первоначальная настройка (один раз)
 
@@ -339,6 +347,18 @@ ssh-keyscan -t ed25519 ВАШ_СЕРВЕР   # сверьте отпечаток
 command="/opt/MedLLMBot/deploy/deploy.sh",no-port-forwarding,no-agent-forwarding,no-X11-forwarding,no-pty ssh-ed25519 AAAA… github-actions-deploy
 ```
 
+**Cloudflare Tunnel** (профиль `tunnel`) — в панели Cloudflare, где подключён домен:
+
+1. Networking → Tunnels → **Create a tunnel**, имя — например, `medllmbot`.
+2. Скопируйте токен туннеля: Cloudflare показывает его при создании, в команде установки коннектора после `--token`.
+   Это секрет `TUNNEL_TOKEN`. Ставить коннектор на сервер не нужно — его запускает контейнер `cloudflared`;
+   до первого деплоя туннель не подключён, это нормально.
+3. Вкладка **Routes** → **Add route** → **Published application**: поддомен и домен демо, **Service URL** —
+   `http://admin:8000`. Это имя сервиса в Docker Compose, а не `localhost`: `cloudflared` работает в своём
+   контейнере. DNS-запись для поддомена Cloudflare создаёт сам.
+
+С туннелем серверу снаружи нужен только SSH: остальные входящие порты можно закрыть файрволом.
+
 **В GitHub** — Settings → Environments → New environment `demo`, секреты:
 
 | Секрет | Что положить |
@@ -348,8 +368,11 @@ command="/opt/MedLLMBot/deploy/deploy.sh",no-port-forwarding,no-agent-forwarding
 | `DEPLOY_HOST`, `DEPLOY_USER` | адрес сервера и пользователь из `authorized_keys` |
 | `DEPLOY_SSH_KEY` | содержимое закрытого ключа `medllmbot-deploy` |
 | `DEPLOY_KNOWN_HOSTS` | вывод `ssh-keyscan` из шага выше |
+| `TUNNEL_TOKEN` | токен Cloudflare Tunnel (только для профиля `tunnel`) |
 
-И переменные (Environment variables): `DOMAIN` — домен демо, `ADMIN_USERNAME` — логин админки (по умолчанию `admin`).
+И переменные (Environment variables): `COMPOSE_PROFILES` — `tunnel` или `https` (по умолчанию `https`),
+`DOMAIN` — домен демо для Caddy (только для `https`), `ADMIN_USERNAME` — логин админки (по умолчанию `admin`).
+Проверка ключей в CI не пропустит профиль без его ключа и неизвестное имя профиля.
 
 **Защита ветки** `main` — Settings → Branches или одной командой:
 
@@ -369,7 +392,7 @@ JSON
 **Включите деплой**: Settings → Secrets and variables → Actions → Variables → `DEPLOY_ENABLED` = `true`.
 Пока переменной нет, CI только проверяет код, а `config` и `deploy` пропускаются.
 
-Первый деплой — любой PR, слитый в `main`. Демо-данные после первого запуска:
+Первый деплой — любой PR, слитый в `main`, или ручной запуск CI. Демо-данные после первого запуска:
 
 ```bash
 cd /opt/MedLLMBot && docker compose run --rm migrate python -m medllmbot.db.seed
@@ -410,7 +433,9 @@ cd /opt/MedLLMBot && docker compose run --rm migrate python -m medllmbot.db.seed
 | `ADMIN_PASSWORD` | — | Пароль админки, не короче 8 символов |
 | `ADMIN_SECRET_KEY` | — | Ключ подписи cookie сессии, не короче 32 символов |
 | `ADMIN_HOST` / `ADMIN_PORT` | `127.0.0.1` / `8000` | Адрес админки |
-| `DOMAIN` | — | Домен демо-сервера для HTTPS через Caddy (только с `--profile https`) |
+| `COMPOSE_PROFILES` | — | Как открыть админку на сервере: `tunnel` (Cloudflare Tunnel) или `https` (Caddy); пусто — только бот и админка на `127.0.0.1` |
+| `TUNNEL_TOKEN` | — | Токен Cloudflare Tunnel (профиль `tunnel`) |
+| `DOMAIN` | — | Домен демо-сервера для HTTPS через Caddy (профиль `https`) |
 | `ADMIN_HTTPS_ONLY` | `false` | `true`, если админка открыта по HTTPS через reverse proxy: cookie сессии получит флаг `Secure` |
 | `DB_PATH` | `storage/bot.db` | Путь к SQLite |
 
