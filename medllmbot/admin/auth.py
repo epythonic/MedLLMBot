@@ -10,6 +10,7 @@ import hmac
 import secrets
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import final, override
 
 from sqladmin.authentication import AuthenticationBackend
@@ -24,6 +25,31 @@ from medllmbot.db.repository import Repository
 
 # The session lasts a working day, not Starlette's default 14 days
 SESSION_MAX_AGE = 8 * 3600
+# request.state attribute with the AdminIdentity of a checked session
+IDENTITY_STATE = "admin_identity"
+
+
+@dataclass(frozen=True)
+class AdminIdentity:
+    """Who is signed in, for the admin header: the owner from .env or an account from «Administrators»."""
+
+    name: str  # the owner's username or the account's email
+    account_id: int | None = None  # None: the owner, who has no row in admin_users
+
+    @property
+    def is_owner(self) -> bool:
+        return self.account_id is None
+
+    @property
+    def initial(self) -> str:
+        """The avatar letter: the first letter or digit of the name."""
+        return next((char.upper() for char in self.name if char.isalnum()), "?")
+
+
+def current_admin(request: Request) -> AdminIdentity | None:
+    """Who the page is shown to; None where the session is not checked (the login page)."""
+    identity: object = getattr(request.state, IDENTITY_STATE, None)
+    return identity if isinstance(identity, AdminIdentity) else None
 
 
 @final
@@ -138,10 +164,10 @@ class AdminAuth(AuthenticationBackend):
 
     @override
     async def authenticate(self, request: Request) -> Response | bool:
-        token: object = request.session.get("admin")
-        if isinstance(token, str) and (
-            secrets.compare_digest(token, self._session_token) or await self._account_session_valid(request, token)
-        ):
+        identity = await self._session_identity(request)
+        if identity is not None:
+            # The header shows who is signed in (current_admin): the check has just loaded the account anyway
+            setattr(request.state, IDENTITY_STATE, identity)
             return True
         if request.headers.get("HX-Request") == "true":
             # The session expired during an HTMX request: instead of the login page inside a fragment,
@@ -149,10 +175,22 @@ class AdminAuth(AuthenticationBackend):
             return Response(status_code=401, headers={"HX-Redirect": str(request.url_for("admin:login"))})
         return False
 
-    async def _account_session_valid(self, request: Request, token: str) -> bool:
-        """The account still exists, is active and has the password the session was opened with."""
+    async def _session_identity(self, request: Request) -> AdminIdentity | None:
+        """Whose session the request carries; None if there is none or it has ended."""
+        token: object = request.session.get("admin")
+        if not isinstance(token, str):
+            return None
+        if secrets.compare_digest(token, self._session_token):
+            return AdminIdentity(self.username)
+        user = await self._session_account(request, token)
+        return AdminIdentity(user.email, user.id) if user is not None else None
+
+    async def _session_account(self, request: Request, token: str) -> AdminUser | None:
+        """The session's account, if it still exists, is active and has the password the session was opened with."""
         account_id: object = request.session.get("account")
         if not isinstance(account_id, int):
-            return False
+            return None
         user = await self._repo.get_admin_user(account_id)
-        return user is not None and user.is_active and secrets.compare_digest(token, self._account_token(user))
+        if user is None or not user.is_active or not secrets.compare_digest(token, self._account_token(user)):
+            return None
+        return user

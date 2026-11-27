@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: MedLLMBot VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-11-27 16:41+0300\n"
+"POT-Creation-Date: 2026-11-27 17:05+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ru\n"
@@ -293,15 +293,15 @@ msgstr "На главную админки"
 msgid "MedLLMBot admin"
 msgstr "MedLLMBot — админка"
 
-#: medllmbot/admin/auth.py:118
+#: medllmbot/admin/auth.py:144
 msgid "Too many failed login attempts."
 msgstr "Слишком много неудачных попыток входа."
 
-#: medllmbot/admin/auth.py:118
+#: medllmbot/admin/auth.py:144
 msgid "Try again in 15 minutes."
 msgstr "Попробуйте через 15 минут."
 
-#: medllmbot/admin/auth.py:127
+#: medllmbot/admin/auth.py:153
 msgid "Wrong username or password."
 msgstr "Неверный логин или пароль."
 
@@ -1649,6 +1649,7 @@ msgstr "Язык администратора"
 msgid "Last changed"
 msgstr "Изменено"
 
+#: medllmbot/admin/templates/sqladmin/layout.html:133
 #: medllmbot/admin/views.py:955
 msgid "Administrator"
 msgstr "Администратор"
@@ -1958,9 +1959,37 @@ msgstr "Клавиши F1 или «?» открывают справку раз�
 msgid "Settings"
 msgstr "Настройки"
 
-#: medllmbot/admin/templates/sqladmin/layout.html:96
+#: medllmbot/admin/templates/sqladmin/layout.html:99
 msgid "Could not save the changes. Reload the page and try again."
 msgstr "Не удалось сохранить изменения. Обновите страницу и попробуйте ещё раз."
+
+#: medllmbot/admin/templates/sqladmin/layout.html:118
+msgid "Language"
+msgstr "Язык"
+
+#: medllmbot/admin/templates/sqladmin/layout.html:133
+msgid "Owner"
+msgstr "Владелец"
+
+#: medllmbot/admin/templates/sqladmin/layout.html:136
+msgid "Profile"
+msgstr "Профиль"
+
+#: medllmbot/admin/templates/sqladmin/layout.html:144
+msgid "Signed in as"
+msgstr "Вы вошли как"
+
+#: medllmbot/admin/templates/sqladmin/layout.html:148
+msgid "login and password are set in the server settings"
+msgstr "логин и пароль заданы в настройках сервера"
+
+#: medllmbot/admin/templates/sqladmin/layout.html:154
+msgid "My account"
+msgstr "Моя учётная запись"
+
+#: medllmbot/admin/templates/sqladmin/layout.html:158
+msgid "Logout"
+msgstr "Выход"
 
 #: medllmbot/admin/templates/sqladmin/login.html:7
 #, python-format

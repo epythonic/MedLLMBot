@@ -14,7 +14,7 @@ from sqladmin import BaseView, ModelView
 from sqlalchemy import delete, select, update
 
 from medllmbot.admin.app import create_app
-from medllmbot.admin.auth import LoginThrottle
+from medllmbot.admin.auth import AdminIdentity, LoginThrottle
 from medllmbot.admin.forms import AdminForm
 from medllmbot.admin.help import FLAG_HELP, GAP_HELP, HELP, OUTCOME_HELP, TOPICS
 from medllmbot.admin.passwords import hash_password, verify_password
@@ -361,6 +361,54 @@ class TestAdminAccountForm:
             r'<input[^>]*autocomplete="new-password"[^>]*name="password"|<input[^>]*name="password"[^>]*autocomplete="new-password"',
             page,
         )
+
+
+def profile_block(page: str) -> str:
+    """The header's profile menu: from its block to the end of the header; empty if the page has none."""
+    start = page.find('id="admin-profile"')
+    return page[start : page.index("</header>", start)] if start >= 0 else ""
+
+
+class TestHeaderProfile:
+    """The header shows who is signed in, next to the language switcher."""
+
+    def test_owner(self, admin: TestClient) -> None:
+        profile = profile_block(admin.get("/admin/").text)
+
+        assert "admin" in profile
+        assert "Владелец" in profile
+        assert "логин и пароль заданы в настройках сервера" in profile
+        assert 'href="http://testserver/admin/logout"' in profile
+        assert "Моя учётная запись" not in profile  # the owner has no row in «Administrators»
+
+    def test_account_from_administrators(self, client: TestClient, db: Path) -> None:
+        partner = get_account(db)
+        assert partner is not None
+        assert account_login(client) == 200
+
+        profile = profile_block(client.get("/admin/lead/list").text)
+
+        assert PARTNER in profile
+        assert "Администратор" in profile
+        assert "Владелец" not in profile
+        own = f"http://testserver/admin/admin-user/details/{partner.id}"
+        assert f'href="{own}"' in profile
+        assert PARTNER in client.get(own).text
+        assert 'href="http://testserver/admin/logout"' in profile
+
+    def test_shown_on_custom_pages(self, admin: TestClient) -> None:
+        for url in ("/admin/analytics", "/admin/costs"):
+            assert "Владелец" in profile_block(admin.get(url).text), url
+
+    def test_not_on_the_login_page(self, client: TestClient) -> None:
+        assert not profile_block(client.get("/admin/login").text)
+
+    @pytest.mark.parametrize(
+        ("name", "initial"),
+        [("admin", "A"), ("pr.alex@example.com", "P"), ("_ops@example.com", "O"), ("ёлка@example.com", "Ё"), ("", "?")],
+    )
+    def test_avatar_letter(self, name: str, initial: str) -> None:
+        assert AdminIdentity(name).initial == initial
 
 
 HTMX = {"HX-Request": "true"}
