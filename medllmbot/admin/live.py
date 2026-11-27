@@ -46,7 +46,7 @@ def route_name(identity: str) -> str:
     return f"admin:view-{identity}"
 
 
-def _route[H](path: str, *, identity: str, methods: list[str] | None = None) -> Callable[[H], H]:
+def route[H](path: str, *, identity: str, methods: list[str] | None = None) -> Callable[[H], H]:
     # SQLAdmin's expose is untyped (returns Any), so the type is narrowed once here
     decorator: Callable[[H], H] = expose(path, methods=methods, identity=identity)
     return decorator
@@ -117,7 +117,7 @@ def make_live_view(repo: Repository) -> type[BaseView]:
             # Only routes for HTMX fragments; not shown in the menu
             return False
 
-        @_route("/htmx/lead/{lead_id:int}/status", methods=["POST"], identity=LEAD_STATUS)
+        @route("/htmx/lead/{lead_id:int}/status", methods=["POST"], identity=LEAD_STATUS)
         async def lead_status(self, request: Request) -> Response:
             lead_id = _path_int(request, "lead_id")
             raw = (await request.form()).get("status")
@@ -129,7 +129,7 @@ def make_live_view(repo: Repository) -> type[BaseView]:
                 return _fragment(lead_not_found(), 404)
             return _fragment(lead_status_select(str(request.url), lead.status, saved=True))
 
-        @_route("/htmx/new-leads", identity=NEW_LEADS)
+        @route("/htmx/new-leads", identity=NEW_LEADS)
         async def new_leads(self, request: Request) -> Response:
             after = _query_int(request, "after")
             records = await repo.new_leads(after or 0)
@@ -138,7 +138,7 @@ def make_live_view(repo: Repository) -> type[BaseView]:
             text = gettext("New leads: %(count)s") % {"count": records.count} if records.count else None
             return _fragment(new_records_poller(_poll_url(request, after), text=text))
 
-        @_route("/htmx/new-audit-events", identity=NEW_AUDIT_EVENTS)
+        @route("/htmx/new-audit-events", identity=NEW_AUDIT_EVENTS)
         async def new_audit_events(self, request: Request) -> Response:
             after = _query_int(request, "after")
             records = await repo.new_audit_events(after or 0)
@@ -154,7 +154,7 @@ def make_live_view(repo: Repository) -> type[BaseView]:
                 text = gettext("New log events: %(count)s") % {"count": records.count}
             return _fragment(new_records_poller(_poll_url(request, after), text=text, warning=records.suspicious > 0))
 
-        @_route("/htmx/client/{chat_id:int}/block-state", identity=CLIENT_BLOCK_STATE)
+        @route("/htmx/client/{chat_id:int}/block-state", identity=CLIENT_BLOCK_STATE)
         async def client_block_state(self, request: Request) -> Response:
             chat_id = _path_int(request, "chat_id")
             if chat_id is None:
@@ -162,7 +162,7 @@ def make_live_view(repo: Repository) -> type[BaseView]:
             client = await repo.get_client(chat_id)
             return block_control(request, chat_id, client.is_blocked if client else None)
 
-        @_route("/htmx/client/{chat_id:int}/block", methods=["POST"], identity=CLIENT_BLOCK)
+        @route("/htmx/client/{chat_id:int}/block", methods=["POST"], identity=CLIENT_BLOCK)
         async def client_block(self, request: Request) -> Response:
             chat_id = _path_int(request, "chat_id")
             raw = (await request.form()).get("blocked")
@@ -171,7 +171,7 @@ def make_live_view(repo: Repository) -> type[BaseView]:
             client = await repo.set_client_blocked(chat_id, raw == "true")
             return block_control(request, chat_id, client.is_blocked if client else None)
 
-        @_route("/htmx/reorder/{section}", methods=["POST"], identity=REORDER)
+        @route("/htmx/reorder/{section}", methods=["POST"], identity=REORDER)
         async def reorder(self, request: Request) -> Response:
             raw = (await request.form()).getlist("order")
             ids = [int(value) for value in raw if isinstance(value, str) and value.isdecimal()]

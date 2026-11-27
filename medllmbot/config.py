@@ -45,6 +45,9 @@ class AdminSettings(AppSettings):
     admin_port: int = 8000
     # true when the admin panel is behind an HTTPS reverse proxy: the session cookie is not sent over plain HTTP
     admin_https_only: bool = False
+    # The «Demo data» page: reset the demo or switch it between the clinic and the shop from the admin panel.
+    # Only for a demo server: in a real business's admin panel one click would delete its clients and leads
+    admin_demo_tools: bool = False
 
 
 class DeploySettings(AppSettings):

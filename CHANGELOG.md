@@ -11,6 +11,11 @@ panel starts, and every schema change ships as an Alembic migration.
 
 ### Added
 
+- The “Demo data” admin section, on a demo server only (`ADMIN_DEMO_TOOLS=true`, off by default): refresh the demo
+  before a showing or switch it between the dental clinic and the electronics store without access to the server.
+  It runs the same reset as `seed --reset --profile …`, after a confirmation in the browser, and shows the current
+  profile and how many clients, leads and log records the reset deletes. Administrators, spending totals and the
+  daily limit stay. CI passes the `ADMIN_DEMO_TOOLS` variable of the `demo` environment to the server.
 - The demo no longer starts empty: `seed` adds fictional customers with their chats, leads in every status and
   a log for the past week (`medllmbot/db/demo_activity.py`), for the clinic and the shop. The demo shows an attack
   attempt and a blocked spammer, the live operator, Romanian customers, a question the knowledge base cannot answer,

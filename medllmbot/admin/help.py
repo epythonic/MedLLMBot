@@ -422,6 +422,15 @@ TOPICS: tuple[HelpTopic, ...] = (
             "updated_at": lazy_gettext("When the settings were last changed."),
         },
     ),
+    # ---------- Demo server ----------
+    HelpTopic(
+        identity="demo",
+        title=lazy_gettext("Demo data"),
+        summary=lazy_gettext(
+            "Refresh the demo before a showing or switch it between the dental clinic and the electronics store. "
+            "Administrators and spending stay."
+        ),
+    ),
     # ---------- Administrators ----------
     HelpTopic(
         identity="admin-user",

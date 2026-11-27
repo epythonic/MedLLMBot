@@ -242,6 +242,17 @@ async def seed_activity(sessions: async_sessionmaker[AsyncSession], now: datetim
     return True
 
 
+async def restore_demo(
+    sessions: async_sessionmaker[AsyncSession], kind: BusinessProfile, now: datetime | None = None
+) -> None:
+    """`seed --reset`: the profile's demo as after install, with the fictional activity dated from `now`.
+
+    The «Demo data» admin page calls the same function. Admin accounts, spending totals and the daily limit stay.
+    """
+    await reset_demo(sessions, kind)
+    await seed_activity(sessions, now)
+
+
 # --profile flag value → profile
 PROFILE_OPTIONS: dict[str, BusinessProfile] = {kind.name.lower(): kind for kind in BusinessProfile}
 
@@ -251,9 +262,10 @@ async def main(reset: bool, kind: BusinessProfile) -> None:
     try:
         sessions = create_sessionmaker(engine)
         if reset:
-            await reset_demo(sessions, kind)
-            log.info("Demo reset (%s): knowledge base, prices and settings as after install; clients and log deleted", kind)
-        elif await seed_demo(sessions, kind):
+            await restore_demo(sessions, kind)
+            log.info("Demo reset (%s): knowledge base, prices, settings and fictional clients as after install", kind)
+            return
+        if await seed_demo(sessions, kind):
             log.info("Demo data added (%s)", kind)
         else:
             log.info("Knowledge base is not empty, demo data not added")

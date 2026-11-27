@@ -43,6 +43,15 @@ from medllmbot.db.models import (
 
 
 @dataclass(frozen=True)
+class ActivityCounts:
+    """What a demo reset deletes: shown on the «Demo data» page before the button."""
+
+    clients: int
+    leads: int
+    events: int
+
+
+@dataclass(frozen=True)
 class NewRecords:
     """How many records appeared after `after_id`, for the new-records badge in the admin."""
 
@@ -521,6 +530,13 @@ class Repository:
             for position, item_id in enumerate(ids, start=1):
                 rows[item_id].sort_order = position * 10
         return True
+
+    async def activity_counts(self) -> ActivityCounts:
+        async with self.sessions() as session:
+            counts: list[int] = [
+                await session.scalar(select(func.count()).select_from(model)) or 0 for model in (Client, Lead, AuditEvent)
+            ]
+        return ActivityCounts(*counts)
 
     # ---------- Admin panel accounts ----------
 
