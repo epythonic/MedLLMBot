@@ -11,6 +11,11 @@ panel starts, and every schema change ships as an Alembic migration.
 
 ### Added
 
+- The “Administrators” section: extra admin panel accounts with their own email and password, for example for
+  a partner who shows the demo to clients. The password is stored as a salted scrypt hash and is never shown;
+  turning an account off, deleting it or setting a new password ends its open sessions at once. All accounts have
+  the same rights. The owner keeps logging in with `ADMIN_USERNAME` / `ADMIN_PASSWORD` from `.env` and cannot be
+  turned off from the admin panel. The login page asks for a “Username or email”.
 - Cloudflare Tunnel as a second way to publish the admin panel on the demo server: `COMPOSE_PROFILES=tunnel` with
   `TUNNEL_TOKEN` starts a `cloudflared` container, so the server opens no ports but SSH, needs no certificates, and
   its IP stays hidden. Caddy remains available as the `https` profile. The README describes the Cloudflare setup.

@@ -422,6 +422,27 @@ TOPICS: tuple[HelpTopic, ...] = (
             "updated_at": lazy_gettext("When the settings were last changed."),
         },
     ),
+    # ---------- Administrators ----------
+    HelpTopic(
+        identity="admin-user",
+        title=lazy_gettext("Administrators"),
+        summary=lazy_gettext(
+            "Extra admin panel accounts: each person logs in with their own email and password, and access can be "
+            "turned off without changing anyone else's password."
+        ),
+        fields={
+            "email": lazy_gettext(
+                "The login: the administrator types it on the login page instead of a username. Upper or lower case "
+                "does not matter."
+            ),
+            "is_active": lazy_gettext(
+                "Whether the account may log in. Turning it off ends the administrator's open sessions at once; turn it "
+                "back on to restore access."
+            ),
+            "created_at": lazy_gettext("When the account was created (server time, UTC)."),
+            "last_login_at": lazy_gettext("When the administrator last logged in. Empty — not logged in yet."),
+        },
+    ),
 )
 
 HELP: dict[str, HelpTopic] = {topic.identity: topic for topic in TOPICS}

@@ -1,0 +1,37 @@
+{% from "help/_macros.html" import note, section_link with context %}
+<h3 id="{{ topic.anchor('kto') }}">Cine este aici</h3>
+<p>Conturi suplimentare ale panoului de administrare: de exemplu, un partener sau un manager care prezintă demo-ul
+clienților. Fiecare se autentifică cu propriul email și propria parolă, iar accesul unei persoane poate fi dezactivat
+fără a schimba parola celorlalți.</p>
+<p>Proprietarul nu apare în listă: numele de utilizator și parola lui sunt setate în configurarea serverului
+(<code>ADMIN_USERNAME</code> și <code>ADMIN_PASSWORD</code>), de aceea din această secțiune proprietarul nu poate fi
+nici dezactivat, nici șters.</p>
+
+<h3 id="{{ topic.anchor('dobavit') }}">Cum adăugați un administrator</h3>
+<ol>
+  <li>Apăsați <b>+ Adăugați: Administrator</b>.</li>
+  <li>Introduceți emailul — acesta este numele de utilizator. Majusculele nu contează.</li>
+  <li>Alegeți o parolă de cel puțin 12 caractere și apăsați <b>Salvați</b>. Contul este activ imediat.</li>
+  <li>Transmiteți emailul și parola personal sau într-un messenger securizat, nu într-un chat de grup.</li>
+</ol>
+<p>Pe pagina de autentificare administratorul introduce emailul în câmpul <b>Nume de utilizator sau email</b>.</p>
+
+<h3 id="{{ topic.anchor('otklyuchit') }}">Cum dezactivați accesul sau schimbați parola</h3>
+<ul>
+  <li><b>Dezactivare:</b> deschideți înregistrarea cu pictograma creion, debifați <b>Activă</b> și salvați. Toate
+    sesiunile deschise ale acestui administrator se închid imediat, iar înregistrarea rămâne — accesul poate fi
+    restabilit cu aceeași bifă.</li>
+  <li><b>Schimbarea parolei:</b> introduceți o parolă nouă în câmpul <b>Parolă</b> la editare. Sesiunile vechi ale
+    administratorului se închid. Un câmp gol păstrează parola actuală.</li>
+  <li><b>Ștergeți</b> — dacă accesul nu va mai fi necesar.</li>
+</ul>
+
+{% call note("warning", "Toți au aceleași drepturi") %}
+Un administrator din această secțiune vede și modifică tot ce poate și proprietarul: cererile, baza de cunoștințe,
+{{ section_link('bot-config') }}, {{ section_link('model-price') }} și chiar această secțiune. Adăugați doar persoane
+în care aveți încredere.
+{% endcall %}
+{% call note("info", "Parola nu poate fi văzută") %}
+Panoul de administrare nu păstrează parola, ci hash-ul ei (scrypt). Dacă un administrator și-a uitat parola, setați
+una nouă.
+{% endcall %}

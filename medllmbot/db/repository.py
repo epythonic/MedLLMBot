@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from medllmbot.costs import Price, PriceBook, TokenUsage, UsageRow
 from medllmbot.db import fts
 from medllmbot.db.models import (
+    AdminUser,
     AuditEvent,
     AuditOutcome,
     BotConfig,
@@ -520,6 +521,22 @@ class Repository:
             for position, item_id in enumerate(ids, start=1):
                 rows[item_id].sort_order = position * 10
         return True
+
+    # ---------- Admin panel accounts ----------
+
+    async def admin_user_by_email(self, email: str) -> AdminUser | None:
+        """The account with this login; the email is compared without regard to case and surrounding spaces."""
+        async with self.sessions() as session:
+            return await session.scalar(select(AdminUser).where(AdminUser.email == AdminUser.normalize_email(email)))
+
+    async def get_admin_user(self, user_id: int) -> AdminUser | None:
+        async with self.sessions() as session:
+            return await session.get(AdminUser, user_id)
+
+    async def mark_admin_login(self, user_id: int) -> None:
+        """The «Last login» time in the «Administrators» section."""
+        async with self.sessions.begin() as session:
+            await session.execute(update(AdminUser).where(AdminUser.id == user_id).values(last_login_at=func.now()))
 
     async def get_config(self) -> BotConfig:
         """Bot settings; on first access creates the row with default values."""
