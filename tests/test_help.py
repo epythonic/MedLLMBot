@@ -14,8 +14,9 @@ from medllmbot.db.models import AuditOutcome
 from medllmbot.i18n import LOCALES
 from medllmbot.security import FLAG_LABELS
 
-# Custom admin pages without a model: Costs → Monthly report and Clients → Analytics
-CUSTOM_PAGES = {"costs", "analytics"}
+# Custom admin pages without a model: Costs → Monthly report, Clients → Analytics and Demo data
+# (the last one only on a demo server, ADMIN_DEMO_TOOLS=true)
+CUSTOM_PAGES = {"costs", "analytics", "demo"}
 TEMPLATES = Path(__file__).parent.parent / "medllmbot" / "admin" / "templates"
 
 

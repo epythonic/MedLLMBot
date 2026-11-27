@@ -45,6 +45,7 @@ jobs:
 
   # Demo server keys from the GitHub Environment «demo» (Settings → Environments → demo):
   # secrets TG_TOKEN, ADMIN_ID, ANTHROPIC_API_KEY, ADMIN_PASSWORD, ADMIN_SECRET_KEY and variable ADMIN_USERNAME;
+  # ADMIN_DEMO_TOOLS=true shows the «Demo data» page;
   # how the admin is published: variable COMPOSE_PROFILES (tunnel or https, https by default) with secret
   # TUNNEL_TOKEN or variable DOMAIN.
   # The job checks that all keys are set and pass settings validation; values do not reach the log.
@@ -64,6 +65,8 @@ jobs:
       ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
       ADMIN_SECRET_KEY: ${{ secrets.ADMIN_SECRET_KEY }}
       ADMIN_HTTPS_ONLY: "true"
+      # The «Demo data» page (reset and profile switch from the admin): only for the demo server
+      ADMIN_DEMO_TOOLS: ${{ vars.ADMIN_DEMO_TOOLS || 'false' }}
       COMPOSE_PROFILES: ${{ vars.COMPOSE_PROFILES || 'https' }}
       TUNNEL_TOKEN: ${{ secrets.TUNNEL_TOKEN }}
       DOMAIN: ${{ vars.DOMAIN }}
@@ -100,7 +103,7 @@ jobs:
         run: |
           umask 077
           for name in TG_TOKEN ADMIN_ID ANTHROPIC_API_KEY ADMIN_USERNAME ADMIN_PASSWORD ADMIN_SECRET_KEY ADMIN_HTTPS_ONLY \
-              COMPOSE_PROFILES TUNNEL_TOKEN DOMAIN; do
+              ADMIN_DEMO_TOOLS COMPOSE_PROFILES TUNNEL_TOKEN DOMAIN; do
             value="${!name}"
             if [[ "$value" == *"'"* || "$value" == *$'\n'* ]]; then
               echo "::error::$name contains a single quote or a newline" >&2

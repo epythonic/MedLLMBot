@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from markupsafe import escape
 from pydantic import SecretStr, ValidationError
 from sqladmin import BaseView, ModelView
-from sqlalchemy import delete, update
+from sqlalchemy import delete, select, update
 
 from medllmbot.admin.app import create_app
 from medllmbot.admin.auth import LoginThrottle
@@ -22,6 +22,7 @@ from medllmbot.admin.reports import make_analytics_view, make_cost_report_view
 from medllmbot.admin.views import VIEWS
 from medllmbot.analytics import TOPICS as ANALYTICS_TOPICS
 from medllmbot.config import AdminSettings
+from medllmbot.db.demo_activity import CLINIC_CHATS, SHOP_CHATS
 from medllmbot.db.engine import create_engine, create_sessionmaker
 from medllmbot.db.migrate import upgrade_db
 from medllmbot.db.models import (
@@ -30,11 +31,13 @@ from medllmbot.db.models import (
     AuditOutcome,
     BotConfig,
     BusinessProfile,
+    Client,
     Lead,
     LeadStatus,
     ModelPrice,
     Order,
     OrderStatus,
+    UsageDaily,
 )
 from medllmbot.db.repository import Repository
 from medllmbot.db.seed import DEMO_SERVICES, seed_demo
@@ -358,6 +361,99 @@ class TestAdminAccountForm:
             r'<input[^>]*autocomplete="new-password"[^>]*name="password"|<input[^>]*name="password"[^>]*autocomplete="new-password"',
             page,
         )
+
+
+HTMX = {"HX-Request": "true"}
+
+
+@pytest.fixture
+def demo_admin(settings: AdminSettings, db: Path) -> Iterator[TestClient]:
+    """The admin of a demo server: ADMIN_DEMO_TOOLS=true shows the «Demo data» page."""
+    enabled = settings.model_copy(update={"admin_demo_tools": True})
+    with TestClient(create_app(enabled, engine=create_engine(db)), headers={"Accept-Language": "ru"}) as c:
+        assert c.post("/admin/login", data={"username": "admin", "password": PASSWORD}).status_code == 200
+        yield c
+
+
+def client_names(db: Path) -> set[str]:
+    async def names(repo: Repository) -> set[str]:
+        async with repo.sessions() as session:
+            return set(await session.scalars(select(Client.full_name)))
+
+    return run_with_repo(db, names)
+
+
+class TestDemoPage:
+    """«Demo data»: refresh or switch the demo from the admin panel, keeping administrators and spending."""
+
+    def test_hidden_without_the_setting(self, admin: TestClient) -> None:
+        # In a real business's admin panel one click would delete its clients and leads
+        assert admin.get("/admin/demo").status_code == 404
+        assert admin.post("/admin/demo/reset", data={"profile": "clinic"}, headers=HTMX).status_code == 404
+        assert "/admin/demo" not in admin.get("/admin/").text
+        assert 'id="help-demo"' not in admin.get("/admin/help").text
+
+    def test_page_shows_profile_counts_and_actions(self, demo_admin: TestClient) -> None:
+        page = demo_admin.get("/admin/demo").text
+
+        assert "Текущее демо: Стоматология" in page
+        assert "Сейчас в базе: клиентов — 1, заявок — 1, записей журнала — 2." in page
+        assert "Обновить демо" in page
+        assert "Переключить на «Магазин электроники»" in page
+        assert 'hx-confirm="Удалить клиентов, заявки и журнал и восстановить демо «Стоматология»?"' in page
+        assert "/admin/demo" in demo_admin.get("/admin/").text  # in the menu and on the home page
+
+    def test_reset_needs_htmx(self, demo_admin: TestClient, db: Path) -> None:
+        # Another site cannot send the HX-Request header without CORS permission
+        assert demo_admin.post("/admin/demo/reset", data={"profile": "clinic"}).status_code == 400
+        assert client_names(db) == {"Иван Петров"}
+
+    def test_unknown_profile_is_rejected(self, demo_admin: TestClient, db: Path) -> None:
+        assert demo_admin.post("/admin/demo/reset", data={"profile": "bakery"}, headers=HTMX).status_code == 400
+        assert client_names(db) == {"Иван Петров"}
+
+    def test_refresh_keeps_administrators_and_spending(self, demo_admin: TestClient, db: Path) -> None:
+        async def spend(repo: Repository) -> None:
+            async with repo.sessions.begin() as session:
+                session.add(
+                    UsageDaily(day=datetime.now(UTC).date(), model="claude-haiku-5-5", requests=1, cost_micro_usd=700)
+                )
+                await session.execute(update(BotConfig).values(daily_budget_usd=2))
+
+        run_with_repo(db, spend)
+
+        response = demo_admin.post("/admin/demo/reset", data={"profile": "clinic"}, headers=HTMX)
+
+        assert response.status_code == 200
+        assert response.headers["HX-Redirect"].endswith("/admin/demo?restored=clinic")
+        # The real client from a showing is gone, the fictional ones are back
+        assert client_names(db) == {chat.full_name for chat in CLINIC_CHATS}
+        assert get_account(db) is not None
+
+        async def kept(repo: Repository) -> tuple[int, int]:
+            return await repo.spent_today_micro_usd(), (await repo.get_config()).daily_budget_usd
+
+        assert run_with_repo(db, kept) == (700, 2)
+        assert "Готово: демо показывает «Стоматология»" in demo_admin.get("/admin/demo?restored=clinic").text
+
+    def test_switch_to_the_shop(self, demo_admin: TestClient, db: Path) -> None:
+        demo_admin.post("/admin/demo/reset", data={"profile": "shop"}, headers=HTMX)
+
+        async def profile(repo: Repository) -> BusinessProfile:
+            return (await repo.get_config()).profile
+
+        assert run_with_repo(db, profile) is BusinessProfile.SHOP
+        assert client_names(db) == {chat.full_name for chat in SHOP_CHATS}
+        page = demo_admin.get("/admin/demo").text
+        assert "Текущее демо: Магазин электроники" in page
+        assert "Переключить на «Стоматология»" in page
+
+    def test_anonymous_cannot_reset(self, settings: AdminSettings, db: Path) -> None:
+        enabled = settings.model_copy(update={"admin_demo_tools": True})
+        with TestClient(create_app(enabled, engine=create_engine(db))) as anonymous:
+            response = anonymous.post("/admin/demo/reset", data={"profile": "shop"}, headers=HTMX)
+        assert response.status_code == 401
+        assert client_names(db) == {"Иван Петров"}
 
 
 class TestLoginThrottle:
@@ -1092,8 +1188,9 @@ class TestHelp:
             assert str(escape(translation("ru").gettext(flag.label))) in page
         assert "выдаёт себя за владельца или разработчика бота" in page
 
-    def test_help_page_contains_every_section(self, admin: TestClient) -> None:
-        page = admin.get("/admin/help").text
+    def test_help_page_contains_every_section(self, demo_admin: TestClient) -> None:
+        # On a demo server every section is present, «Demo data» included
+        page = demo_admin.get("/admin/help").text
 
         for topic in TOPICS:
             assert f'href="#{topic.anchor()}"' in page  # table of contents
@@ -1114,8 +1211,8 @@ class TestHelp:
     def test_help_page_requires_login(self, client: TestClient) -> None:
         assert client.get("/admin/help", follow_redirects=False).status_code == 302
 
-    def test_home_page_is_a_map_of_sections(self, admin: TestClient) -> None:
-        page = admin.get("/admin/").text
+    def test_home_page_is_a_map_of_sections(self, demo_admin: TestClient) -> None:
+        page = demo_admin.get("/admin/").text
 
         assert "Как работает бот" in page
         for topic in TOPICS:

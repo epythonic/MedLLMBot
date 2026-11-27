@@ -1,0 +1,27 @@
+{% from "help/_macros.html" import note, section_link with context %}
+<h3 id="{{ topic.anchor('zachem') }}">La ce folosește această secțiune</h3>
+<p>Secțiunea pregătește demo-ul pentru prezentare fără acces la server. Butoanele fac același lucru ca și comanda
+<code>seed --reset</code>:</p>
+<ul>
+  <li><b>Reîmprospătați demo-ul</b> — readuce afacerea curentă la starea inițială. Datele conversațiilor fictive se
+    numără de la momentul apăsării, așa că {{ section_link('analytics') }} le arată din nou pentru ultima săptămână.</li>
+  <li><b>Comutați la „…”</b> — arată cealaltă afacere: clinica stomatologică sau magazinul de electronice. Se schimbă
+    profilul botului, baza de cunoștințe, salutul și clienții fictivi.</li>
+</ul>
+<p>Înainte de resetare browserul cere confirmarea. După aceea pagina arată ce demo este deschis acum.</p>
+
+<h3 id="{{ topic.anchor('chto-udalyaetsya') }}">Ce se șterge și ce rămâne</h3>
+<ul>
+  <li><b>Se șterg</b> toți clienții, conversațiile, cererile, comenzile și înregistrările din jurnal — inclusiv cele
+    reale, dacă cineva i-a scris botului în timpul prezentării. Modificările dvs. în baza de cunoștințe, prețurile
+    modelelor și setările botului se resetează și ele.</li>
+  <li><b>Se restabilesc</b> baza de cunoștințe demo, prețurile modelelor, setările botului și clienții fictivi cu
+    conversații, cereri în toate statusurile și jurnalul pe o săptămână.</li>
+  <li><b>Rămân</b> {{ section_link('admin-user') }}, totalurile din {{ section_link('usage-daily') }} și limita
+    zilnică de cheltuieli din {{ section_link('bot-config') }}.</li>
+</ul>
+
+{% call note("warning", "Doar pentru serverul demo") %}
+Secțiunea este vizibilă doar dacă pe server este activată setarea <code>ADMIN_DEMO_TOOLS=true</code>. În panoul de
+administrare al unei afaceri reale ea nu se activează: un singur buton i-ar șterge clienții și cererile.
+{% endcall %}

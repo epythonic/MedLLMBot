@@ -43,6 +43,7 @@ livrării doar dacă cumpărătorul a indicat numărul comenzii și ultimele 4 c
 - **Jurnal:** toate mesajele primite, cu rezultatul procesării, răspunsul brut și cel trimis, tokenurile, latența și ce a căutat modelul în catalog. Filtrele „Suspect” și „Rezultat”, doar pentru citire.
 - **Cheltuieli:** raport lunar defalcat pe modele, cu prognoză pentru luna curentă, cheltuieli pe zile, lista de prețuri a modelelor (se editează când Anthropic schimbă prețurile).
 - **Setările botului:** modelul Claude, limitele, adâncimea istoricului, rate-limit, pragul „Catalog în prompt”, salutul în rusă și în română, limba mesajelor către administrator, termenul de păstrare a jurnalului. Valorile sunt validate de formular și de restricțiile CHECK din baza de date.
+- **Date demo** (doar pe serverul demo, `ADMIN_DEMO_TOOLS=true`): reîmprospătați demo-ul înainte de prezentare sau comutați-l între clinica stomatologică și magazinul de electronice direct din panoul de administrare — la fel ca `seed --reset`, fără acces la server. Administratorii, totalurile cheltuielilor și limita zilnică rămân.
 - **Administratori:** conturi suplimentare cu propriul email și propria parolă — de exemplu, pentru un partener care prezintă demo-ul clienților. Parola este păstrată ca hash scrypt cu sare; accesul se dezactivează cu o bifă, iar sesiunile deschise ale persoanei se închid imediat. Proprietarul se autentifică cu numele de utilizator și parola din `.env` și nu poate fi dezactivat din panoul de administrare.
 - **Formulare:** erorile de introducere sunt afișate în limba panoului de administrare (cataloagele WTForms, în rusă — cu corecturi ale traducerilor inexacte), iar prețurile cu zecimale sunt acceptate atât cu punct, cât și cu virgulă.
 - **Acțiuni rapide cu HTMX:** statusul cererii se schimbă direct în listă, „Cereri” și „Jurnal” afișează fără reîncărcare un banner despre înregistrările noi (evenimentele suspecte sunt evidențiate), iar clientul poate fi blocat de pe pagina înregistrării din jurnal. HTMX se află în proiect, nu pe un CDN, funcționează fără `eval`, iar solicitările care modifică date sunt acceptate doar cu antetul `HX-Request`.
@@ -375,7 +376,7 @@ Cu tunelul, serverului îi trebuie din exterior doar SSH: celelalte porturi de i
 
 Și variabilele (Environment variables): `COMPOSE_PROFILES` — `tunnel` sau `https` (implicit `https`),
 `DOMAIN` — domeniul demo-ului pentru Caddy (doar pentru `https`), `ADMIN_USERNAME` — numele de utilizator al panoului
-de administrare (implicit `admin`). Verificarea cheilor în CI nu lasă să treacă un profil fără cheia lui și nici un
+de administrare (implicit `admin`), `ADMIN_DEMO_TOOLS` — `true` pentru a afișa secțiunea „Date demo”. Verificarea cheilor în CI nu lasă să treacă un profil fără cheia lui și nici un
 nume de profil necunoscut.
 
 **Protecția ramurii** `main` — Settings → Branches sau cu o singură comandă:
@@ -413,7 +414,8 @@ model, tokeni sau cost, așa că cheltuielile din panou rămân reale.
   [Anthropic Console](https://console.anthropic.com) setați o limită lunară pentru cheie — a doua linie de apărare.
 - După demonstrație, readuceți demo-ul la starea inițială. Comanda șterge clienții, conversațiile, cererile, comenzile și jurnalul,
   restabilește baza de cunoștințe, lista de prețuri a modelelor, setările și clienții fictivi (cu date de la momentul
-  resetării); totalurile cheltuielilor și limita zilnică rămân:
+  resetării); totalurile cheltuielilor și limita zilnică rămân. În panoul de administrare același lucru îl face secțiunea
+  „Date demo” (cu `ADMIN_DEMO_TOOLS=true`):
 
   ```bash
   docker compose run --rm migrate python -m medllmbot.db.seed --reset
@@ -446,6 +448,7 @@ model, tokeni sau cost, așa că cheltuielile din panou rămân reale.
 | `COMPOSE_PROFILES` | — | Cum este publicat panoul de administrare pe server: `tunnel` (Cloudflare Tunnel) sau `https` (Caddy); gol — doar botul și panoul de administrare pe `127.0.0.1` |
 | `TUNNEL_TOKEN` | — | Tokenul Cloudflare Tunnel (profilul `tunnel`) |
 | `DOMAIN` | — | Domeniul serverului demo pentru HTTPS prin Caddy (profilul `https`) |
+| `ADMIN_DEMO_TOOLS` | `false` | `true` doar pe serverul demo: secțiunea „Date demo” cu resetare și comutarea profilului. Nu o activați în panoul unei afaceri reale — resetarea șterge clienții și cererile |
 | `ADMIN_HTTPS_ONLY` | `false` | `true` dacă panoul de administrare este accesat prin HTTPS, în spatele unui reverse proxy: cookie-ul de sesiune va primi flagul `Secure` |
 | `DB_PATH` | `storage/bot.db` | Calea către SQLite |
 

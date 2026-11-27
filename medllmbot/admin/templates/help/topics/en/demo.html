@@ -1,0 +1,26 @@
+{% from "help/_macros.html" import note, section_link with context %}
+<h3 id="{{ topic.anchor('zachem') }}">What this section is for</h3>
+<p>The section prepares the demo for a showing without access to the server. The buttons do the same as the
+<code>seed --reset</code> command:</p>
+<ul>
+  <li><b>Refresh the demo</b> — return the current business to its initial state. The dates of the fictional chats
+    count from the moment of the click, so {{ section_link('analytics') }} shows them for the past week again.</li>
+  <li><b>Switch to «…»</b> — show the other business: the dental clinic or the electronics store. The bot profile,
+    knowledge base, greeting and fictional clients change.</li>
+</ul>
+<p>The browser asks for a confirmation before the reset. Afterwards the page shows which demo is now open.</p>
+
+<h3 id="{{ topic.anchor('chto-udalyaetsya') }}">What is deleted and what stays</h3>
+<ul>
+  <li><b>Deleted:</b> all clients, chats, leads, orders and log records — real ones too, if someone wrote to the bot
+    during a showing. Your edits to the knowledge base, model prices and bot settings are reset as well.</li>
+  <li><b>Restored:</b> the demo knowledge base, model prices, bot settings and the fictional clients with chats,
+    leads in every status and a week of log.</li>
+  <li><b>Kept:</b> {{ section_link('admin-user') }}, the totals in {{ section_link('usage-daily') }} and the daily
+    spending limit from {{ section_link('bot-config') }}.</li>
+</ul>
+
+{% call note("warning", "Demo server only") %}
+The section is visible only when the server has <code>ADMIN_DEMO_TOOLS=true</code>. A real business's admin panel
+does not turn it on: one button would delete its clients and leads.
+{% endcall %}

@@ -16,6 +16,7 @@ from starlette.middleware.base import RequestResponseEndpoint
 
 from medllmbot.admin import i18n
 from medllmbot.admin.auth import AdminAuth
+from medllmbot.admin.demo import make_demo_view
 from medllmbot.admin.help import FLAG_HELP, GAP_HELP, OUTCOME_HELP, HelpView, help_topic
 from medllmbot.admin.live import make_live_view
 from medllmbot.admin.reports import make_analytics_view, make_cost_report_view
@@ -131,6 +132,8 @@ def create_app(settings: AdminSettings, engine: AsyncEngine | None = None) -> Fa
     admin.add_view(make_analytics_view(repo))  # goes to the end of the «Clients» category
     admin.add_view(make_cost_report_view(repo))
     admin.add_view(make_live_view(repo))
+    if settings.admin_demo_tools:
+        admin.add_view(make_demo_view(repo))
     admin.add_view(HelpView)
 
     return app

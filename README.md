@@ -43,6 +43,7 @@ date only if the customer gives the order number and the last 4 digits of the ph
 - **Log:** all incoming messages with the processing outcome, the raw and the sent answer, tokens, latency and what the model searched for in the catalog. “Suspicious” and “Outcome” filters, read-only.
 - **Costs:** a monthly report broken down by model with a forecast for the current month, daily spend, and the model price list (editable when Anthropic changes its prices).
 - **Bot settings:** Claude model, limits, history depth, rate limit, the “Catalog in prompt” threshold, greetings in Russian and Romanian, the language of messages to the administrator, log retention. Values are validated by the form and by CHECK constraints in the database.
+- **Demo data** (demo server only, `ADMIN_DEMO_TOOLS=true`): refresh the demo before a showing or switch it between the dental clinic and the electronics store right from the admin panel — the same as `seed --reset`, without access to the server. Administrators, spending totals and the daily limit stay.
 - **Administrators:** extra accounts with their own email and password — for example, for a partner who shows the demo to clients. The password is stored as a salted scrypt hash; access is turned off with a checkbox, and that person's open sessions end at once. The owner logs in with the username and password from `.env` and cannot be turned off from the admin panel.
 - **Forms:** input errors are shown in the admin panel's language (WTForms catalogs, with corrections to inaccurate translations in Russian); decimal prices are accepted with either a dot or a comma.
 - **Quick actions with HTMX:** a lead's status is changed right in the list; “Leads” and “Log” show a banner about new records without a reload (suspicious events are highlighted); a customer can be blocked from a log entry page. HTMX is vendored in the project rather than loaded from a CDN, works without `eval`, and state-changing requests are accepted only with the `HX-Request` header.
@@ -374,7 +375,8 @@ With the tunnel, the server only needs SSH from outside: a firewall can close ev
 | `TUNNEL_TOKEN` | the Cloudflare Tunnel token (only for the `tunnel` profile) |
 
 And variables (Environment variables): `COMPOSE_PROFILES` — `tunnel` or `https` (`https` by default),
-`DOMAIN` — the demo domain for Caddy (only for `https`), `ADMIN_USERNAME` — the admin login (`admin` by default).
+`DOMAIN` — the demo domain for Caddy (only for `https`), `ADMIN_USERNAME` — the admin login (`admin` by default),
+`ADMIN_DEMO_TOOLS` — `true` to show the “Demo data” section.
 The key check in CI stops a profile without its key and an unknown profile name.
 
 **Branch protection** for `main` — Settings → Branches, or with one command:
@@ -412,7 +414,8 @@ have no model, tokens or cost, so the admin panel's spending stays real.
   [Anthropic Console](https://console.anthropic.com), set a monthly limit on the key as a second line of defence.
 - After a showing, return the demo to its initial state. The command deletes customers, chat history, leads, orders and
   the log, and restores the knowledge base, the model price list, the settings and the fictional customers (dated from
-  the moment of the reset); cost totals and the daily limit are kept:
+  the moment of the reset); cost totals and the daily limit are kept. In the admin panel the “Demo data” section does
+  the same (with `ADMIN_DEMO_TOOLS=true`):
 
   ```bash
   docker compose run --rm migrate python -m medllmbot.db.seed --reset
@@ -446,6 +449,7 @@ have no model, tokens or cost, so the admin panel's spending stays real.
 | `COMPOSE_PROFILES` | — | How the admin panel is published on the server: `tunnel` (Cloudflare Tunnel) or `https` (Caddy); empty — only the bot and the admin panel on `127.0.0.1` |
 | `TUNNEL_TOKEN` | — | Cloudflare Tunnel token (the `tunnel` profile) |
 | `DOMAIN` | — | Demo server domain for HTTPS via Caddy (the `https` profile) |
+| `ADMIN_DEMO_TOOLS` | `false` | `true` only on a demo server: the “Demo data” section with reset and profile switch. Do not turn it on in a real business's admin panel — a reset deletes clients and leads |
 | `ADMIN_HTTPS_ONLY` | `false` | `true` if the admin panel is served over HTTPS through a reverse proxy: the session cookie gets the `Secure` flag |
 | `DB_PATH` | `storage/bot.db` | Path to the SQLite database |
 
