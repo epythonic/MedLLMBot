@@ -17,6 +17,7 @@ from medllmbot.db.models import (
     Lead,
     LeadStatus,
     Order,
+    StaffMember,
     UsageDaily,
 )
 from medllmbot.db.repository import Repository
@@ -73,6 +74,15 @@ class TestSeeding:
         assert not await seed_activity(sessions, NOW)
 
         assert [client.chat_id for client in await load_clients(sessions)] == [42]
+
+    async def test_reset_keeps_telegram_staff(self, repo: Repository, sessions: Sessions) -> None:
+        # Like the admin panel accounts: a showing must not cut the partner off the live operator
+        async with sessions.begin() as s:
+            s.add(StaffMember(name="Анна", chat_id=555))
+
+        await demo(sessions, BusinessProfile.SHOP)
+
+        assert await repo.active_staff() == {555: "Анна"}
 
     async def test_follows_the_profile(self, kind: BusinessProfile, sessions: Sessions) -> None:
         names = {client.full_name for client in await load_clients(sessions)}

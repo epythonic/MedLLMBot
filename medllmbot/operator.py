@@ -1,9 +1,11 @@
 """Live operator: a client asks for a human, the bot hands the dialog to the administrator in Telegram and goes quiet.
 
 - The client writes «позовите менеджера», «хочу поговорить с человеком» or the /operator command.
-- The administrator gets a notification with the latest dialog messages and a “Back to bot” button.
-- While the operator has the dialog, client messages go to the administrator and Claude is not called.
-  When the administrator replies to a bot message, the bot forwards the reply to the client.
+- Every operator (the owner from ADMIN_ID and the Telegram staff, `medllmbot/team.py`) gets a notification
+  with the latest dialog messages and a “Back to bot” button.
+- While an operator has the dialog, client messages go to the operators and Claude is not called.
+  When an operator replies to a bot message, the bot forwards the reply to the client; the first reply takes
+  the dialog, and from then on only that operator gets the client's messages.
 - The bot answers on its own again after the “Back to bot” button or `bot_config.operator_hours` hours
   after the client's request or the operator's last reply.
 
@@ -25,6 +27,8 @@ END_BUTTON = N_("Back to bot")
 _END_PREFIX = "operator:end:"  # the button's callback data: + the client's chat_id
 HISTORY_IN_NOTICE = 6  # latest dialog messages in the notification to the administrator
 LINE_PREVIEW = 300  # characters of one history message in the notification
+HINT_CLIENTS = 5  # waiting clients listed in the hint to the administrator, each with its own button
+BUTTON_NAME = 32  # characters of a client name on a button
 
 # Whom the client calls: «оператора», «менеджера», «админа», «живого человека»
 # «Оператор связи» is a mobile carrier, not a person
@@ -132,10 +136,37 @@ def client_message_notice(client: str, text: str) -> str:
     return f"{client}:\n{text}"
 
 
+def operator_hint(waiting: Sequence[str], _: Gettext) -> str:
+    """For the administrator who wrote to the bot without a reply while clients wait for the operator.
+
+    `waiting` holds `client_label` lines, the latest handed over first; the first HINT_CLIENTS are listed.
+    """
+    lines = [_("This message was not sent to anyone. Waiting for the operator:"), *waiting[:HINT_CLIENTS]]
+    if len(waiting) > HINT_CLIENTS:
+        lines.append(f"+{len(waiting) - HINT_CLIENTS}")
+    how = _(
+        "To answer a client, reply to my message about them: swipe it to the left or choose “Reply” in its menu. "
+        "“%(button)s” hands the client back to the bot; while clients wait, the bot does not answer your own messages."
+    )
+    lines += ["", how % {"button": _(END_BUTTON)}]
+    return "\n".join(lines)
+
+
+def end_button_text(client: str, _: Gettext) -> str:
+    """The “Back to bot” button for one of several clients: with the client's name."""
+    return f"{_(END_BUTTON)}: {_short(client, BUTTON_NAME)}"
+
+
 # Replies to the administrator (msgids, translated into the administrator's language)
 DELIVERY_FORBIDDEN = N_("Could not send to the client: they blocked the bot or deleted the chat.")
 DELIVERY_FAILED = N_("Could not send to the client: Telegram returned an error. Try again or send another message.")
 ENDED = N_("The bot is answering the client again.")
 CLIENT_LEFT = N_("the client pressed /start and went back to the bot.")
 ALREADY_ENDED = N_("The client is already with the bot.")
+# Several operators: the first reply takes the dialog
+TAKEN = N_("Client %(client)s is handled by %(name)s.")
+BUSY = N_(
+    "Not sent: client %(client)s is handled by %(name)s. To take the dialog, press “%(button)s” under a message "
+    "about this client, then reply again."
+)
 NOT_ALLOWED = N_("Only the administrator can do this.")

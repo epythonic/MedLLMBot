@@ -40,6 +40,7 @@ from medllmbot.db.models import (
     Order,
     OrderStatus,
     Service,
+    StaffMember,
     UsageDaily,
 )
 from medllmbot.operator import with_operator
@@ -305,7 +306,8 @@ class ClientAdmin(AdminView, model=Client):
     # Chat ID, to find a client spotted in the audit log
     column_searchable_list = [Client.chat_id, Client.username, Client.full_name]
     column_filters = [YesNoFilter(Client.is_blocked, title=lazy_gettext("Blocked"))]
-    column_details_exclude_list = [Client.messages, Client.leads]
+    # operator_chat_id is a bare Telegram id: who took the dialog is visible in Telegram itself
+    column_details_exclude_list = [Client.messages, Client.leads, Client.operator_chat_id]
     form_columns = [Client.is_blocked]
     column_formatters = {Client.operator_until: _operator_until}
     column_formatters_detail = {Client.operator_until: _operator_until}
@@ -1019,6 +1021,53 @@ class AdminUserAdmin(AdminView, model=AdminUser):
             raise ValueError(gettext("Set a password for the new administrator."))
 
 
+# Telegram user ids are positive (a group id is negative and cannot reply as the operator); SQLite stores up to 2**63-1
+MAX_TELEGRAM_ID = 2**63 - 1
+
+
+@final
+class StaffMemberAdmin(AdminView, model=StaffMember):
+    """Clinic or shop employees in Telegram: they get operator calls and leads and answer clients, like the owner
+    from ADMIN_ID. The bot recognizes them only by the Telegram user id (medllmbot/team.py)."""
+
+    name = lazy_gettext("Telegram staff member")
+    name_plural = lazy_gettext("Telegram staff")
+    icon = "fa-brands fa-telegram"
+    integrity_error = lazy_gettext("A staff member with this Telegram ID already exists.")
+
+    column_list = [StaffMember.name, StaffMember.chat_id, StaffMember.is_active, StaffMember.created_at]
+    column_details_list = [StaffMember.name, StaffMember.chat_id, StaffMember.is_active, StaffMember.created_at]
+    column_default_sort = [(StaffMember.name, False)]
+    column_searchable_list = [StaffMember.name, StaffMember.chat_id]
+    column_filters = [YesNoFilter(StaffMember.is_active, title=lazy_gettext("On the team"))]
+    form_columns = [StaffMember.name, StaffMember.chat_id, StaffMember.is_active]
+    form_args = {
+        "name": {
+            "validators": [DataRequired(), Length(max=100)],
+            "filters": [_strip],
+            "description": lazy_gettext("The other operators see it: “Client @ivan is handled by Anna”"),
+        },
+        "chat_id": {
+            "validators": [DataRequired(), NumberRange(min=1, max=MAX_TELEGRAM_ID)],
+            "description": lazy_gettext(
+                "A number, not a @username: the person presses Start in the bot, and the number appears in the Chat ID "
+                "column of “Clients”"
+            ),
+        },
+        "is_active": {
+            "description": lazy_gettext(
+                "Off: the bot sends this person no calls and leads and does not pass their replies to clients"
+            )
+        },
+    }
+    column_labels = {
+        StaffMember.name: lazy_gettext("Full name"),
+        StaffMember.chat_id: "Telegram ID",
+        StaffMember.is_active: lazy_gettext("On the team"),
+        StaffMember.created_at: lazy_gettext("Added"),
+    }
+
+
 VIEWS = [
     LeadAdmin,
     OrderAdmin,
@@ -1032,4 +1081,5 @@ VIEWS = [
     UsageDailyAdmin,
     BotConfigAdmin,
     AdminUserAdmin,
+    StaffMemberAdmin,
 ]

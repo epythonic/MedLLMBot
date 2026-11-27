@@ -452,6 +452,28 @@ TOPICS: tuple[HelpTopic, ...] = (
             "last_login_at": lazy_gettext("When the administrator last logged in. Empty — not logged in yet."),
         },
     ),
+    HelpTopic(
+        identity="staff-member",
+        title=lazy_gettext("Telegram staff"),
+        summary=lazy_gettext(
+            "Managers, consultants and coordinators in Telegram: they get live operator calls and leads and answer "
+            "clients, like the owner. The bot recognizes them by the Telegram ID only."
+        ),
+        fields={
+            "name": lazy_gettext(
+                "How the other operators see this person: “Client @ivan is handled by Anna”. Clients do not see it."
+            ),
+            "chat_id": lazy_gettext(
+                "The person's Telegram user ID: a number, not a @username. Ask them to press “Start” in the bot; "
+                "the number appears in the Chat ID column of “Clients”."
+            ),
+            "is_active": lazy_gettext(
+                "Off: the bot sends this person no calls and leads and does not pass their replies to clients. "
+                "A dialog they took goes to every operator again."
+            ),
+            "created_at": lazy_gettext("When the person was added (server time, UTC)."),
+        },
+    ),
 )
 
 HELP: dict[str, HelpTopic] = {topic.identity: topic for topic in TOPICS}
@@ -519,6 +541,11 @@ OUTCOME_HELP: dict[AuditOutcome, str] = {
     AuditOutcome.FROM_OPERATOR: lazy_gettext(
         "The administrator replied to the client from Telegram. “Client message” holds the administrator's text, "
         "“Sent to client” what was delivered; empty — not delivered (the client blocked the bot or a Telegram error)."
+    ),
+    AuditOutcome.OPERATOR_HINT: lazy_gettext(
+        "The administrator wrote to the bot without replying to its message about a client while clients were waiting "
+        "for the operator. The message went to no one: the bot reminded how to answer a client and offered "
+        "the “Back to bot” buttons. Claude was not called."
     ),
 }
 

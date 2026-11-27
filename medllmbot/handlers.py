@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from collections.abc import Sequence
 
 from aiogram import Bot, F, Router
 from aiogram.enums import ChatType
@@ -19,6 +20,7 @@ from medllmbot.i18n import N_, Gettext, gettext_for
 from medllmbot.middlewares import incoming_event
 from medllmbot.profiles import PROFILES
 from medllmbot.security import FLAG_LABELS, AlertCooldown
+from medllmbot.team import Team
 from medllmbot.text import Language, reply_language, telegram_language
 
 log = logging.getLogger(__name__)
@@ -84,8 +86,9 @@ async def handle_text(
     config: BotConfig,
     alerts: AlertCooldown,
     budget_alerts: AlertCooldown,
+    team: Team,
 ) -> None:
-    """Main handler: the reply, a suspicious message notification, a lead."""
+    """Main handler: the reply, a suspicious message notification (the owner only), a lead (the owner and staff)."""
     text = msg.text or ""
     language = message_language(msg)
 
@@ -120,7 +123,7 @@ async def handle_text(
         await notify_admin(bot, settings.admin_id, budget % {"budget": config.daily_budget_usd})
 
     if phone:
-        await forward_lead(msg, bot, repo, settings.admin_id, phone, _)
+        await forward_lead(msg, bot, repo, team.recipients, phone, _)
 
 
 def message_language(msg: Message) -> Language:
@@ -197,17 +200,19 @@ async def notify_admin(
     return None
 
 
-async def forward_lead(msg: Message, bot: Bot, repo: Repository, admin_id: int, phone: str, _: Gettext) -> None:
-    """Saves the lead and forwards it to the administrator; `_` translates into the administrator's language."""
+async def forward_lead(msg: Message, bot: Bot, repo: Repository, recipients: Sequence[int], phone: str, _: Gettext) -> None:
+    """Saves the lead and forwards it to the owner and the staff (`Team.recipients`); `_` translates into
+    the administrator's language."""
     client = client_name(msg)
     text = msg.text or msg.caption or ""  # the phone number may be in a photo caption
     lead = await repo.create_lead(msg.chat.id, client, phone, text)
     title = _("New lead #%(id)s from %(client)s") % {"id": lead.id, "client": client}
     phone_line = _("Phone: %(phone)s") % {"phone": phone}
-    sent = await notify_admin(bot, admin_id, f"{title}\n{phone_line}\n\n{preview(text)}")
-    if sent is not None:
-        # The administrator's reply to the lead notification goes to the client, as with the live operator
-        await repo.add_relay(sent.chat.id, sent.message_id, msg.chat.id)
+    for recipient in recipients:
+        sent = await notify_admin(bot, recipient, f"{title}\n{phone_line}\n\n{preview(text)}")
+        if sent is not None:
+            # A reply to the lead notification goes to the client, as with the live operator
+            await repo.add_relay(sent.chat.id, sent.message_id, msg.chat.id)
 
 
 def text_only(language: Language) -> str:

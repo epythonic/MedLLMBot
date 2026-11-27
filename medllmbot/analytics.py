@@ -35,7 +35,8 @@ OTHER = N_("Other")
 CONTACTS = N_("Left a phone number")
 
 # Not questions to the bot: greeting, non-text, messages the bot skipped without a reply, and the conversation
-# with the live operator, which a human handles. The request for an operator itself is a question, counted separately
+# with the live operator, which a human handles, hints to the administrator included. The request for an operator
+# itself is a question, counted separately
 NOT_QUESTIONS: frozenset[AuditOutcome] = frozenset(
     {
         AuditOutcome.GREETING,
@@ -44,6 +45,7 @@ NOT_QUESTIONS: frozenset[AuditOutcome] = frozenset(
         AuditOutcome.BLOCKED,
         AuditOutcome.TO_OPERATOR,
         AuditOutcome.FROM_OPERATOR,
+        AuditOutcome.OPERATOR_HINT,
     }
 )
 QUESTION_OUTCOMES: tuple[AuditOutcome, ...] = tuple(o for o in AuditOutcome if o not in NOT_QUESTIONS)

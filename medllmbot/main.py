@@ -35,7 +35,7 @@ def build_dispatcher(repo: Repository, assistant: ClinicAssistant, settings: Bot
         budget_alerts=AlertCooldown(seconds=6 * 3600),
     )
     # Order matters: client and settings first, then the rate limit based on those settings
-    dp.message.outer_middleware(ClientMiddleware(repo))
+    dp.message.outer_middleware(ClientMiddleware(repo, settings.admin_id))
     dp.message.outer_middleware(ThrottlingMiddleware(repo, RateLimiter()))
     # Live operator goes before the main router: its messages must not reach Claude
     dp.include_router(create_operator_router())
