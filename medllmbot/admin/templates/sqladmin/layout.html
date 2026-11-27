@@ -45,6 +45,9 @@
     --tblr-btn-hover-color: #fff;
     --tblr-btn-hover-border-color: rgba(255, 255, 255, .5);
   }
+  /* Header profile: a long email is cut in the bar and shown in full in the menu */
+  .admin-profile-name { max-width: 16rem; }
+  .admin-profile-menu { min-width: 16rem; max-width: 22rem; }
   /* SQLAdmin pages title their card, not the page: the empty page header above it left a blank band */
   .page-header:has(.page-title:empty) { min-height: 0; }
   /* Long texts in lists wrap instead of pushing the last columns out of the card (views._text_cell) */
@@ -97,6 +100,70 @@
     }
   });
 </script>
+{% endblock %}
+{#
+  Top bar: SQLAdmin's language switcher, then who is signed in (AdminAuth.authenticate → current_admin):
+  the owner from .env or an account from «Administrators», with a link to that account and logout.
+#}
+{% block topbar %}
+{% set me = current_admin(request) %}
+{% set show_switcher = i18n_config.language_switcher and i18n_config.language_switcher | length > 1 %}
+{% if show_switcher or me %}
+<header class="navbar navbar-expand-md d-print-none sticky-top shadow-sm" data-bs-theme="dark">
+  <div class="container-fluid">
+    <div class="navbar-nav flex-row ms-auto align-items-center gap-3" id="topbar-end">
+      {% if show_switcher %}
+      <div class="nav-item dropdown">
+        <a href="#" class="btn btn-outline-light dropdown-toggle d-flex align-items-center px-3"
+          data-bs-toggle="dropdown" aria-expanded="false" title="{{ _('Language') }}">
+          <i class="fa fa-language me-2"></i>
+          <span>{{ get_locale_display_name(get_locale()) }}</span>
+        </a>
+        <div class="dropdown-menu dropdown-menu-end">
+          {% for code in i18n_config.language_switcher %}
+          <a class="dropdown-item {% if code == get_locale() %}active{% endif %}"
+            href="{{ request.url.include_query_params(lang=code) }}">
+            {{ get_locale_display_name(code) }}
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      {% if me %}
+      {% set role = _("Owner") if me.is_owner else _("Administrator") %}
+      <div class="nav-item dropdown" id="admin-profile">
+        <a href="#" class="nav-link d-flex align-items-center lh-1 px-2 py-1 rounded" data-bs-toggle="dropdown"
+          aria-expanded="false" aria-label="{{ _('Profile') }}: {{ me.name }}">
+          <span class="avatar avatar-sm rounded-circle bg-primary text-white">{{ me.initial }}</span>
+          <span class="d-none d-sm-block ps-2 text-start">
+            <span class="d-block text-truncate admin-profile-name">{{ me.name }}</span>
+            <span class="d-block mt-1 small text-secondary">{{ role }}</span>
+          </span>
+        </a>
+        <div class="dropdown-menu dropdown-menu-end admin-profile-menu">
+          <div class="dropdown-header">{{ _("Signed in as") }}</div>
+          <div class="dropdown-item-text">
+            <div class="fw-bold text-break">{{ me.name }}</div>
+            <div class="small text-secondary">
+              {{ role }}{% if me.is_owner %} · {{ _("login and password are set in the server settings") }}{% endif %}
+            </div>
+          </div>
+          <div class="dropdown-divider"></div>
+          {% if not me.is_owner %}
+          <a class="dropdown-item" href="{{ url_for('admin:details', identity='admin-user', pk=me.account_id) }}">
+            <i class="fa-solid fa-user-shield me-2"></i>{{ _("My account") }}
+          </a>
+          {% endif %}
+          <a class="dropdown-item" href="{{ url_for('admin:logout') }}">
+            <i class="fa fa-sign-out me-2"></i>{{ _("Logout") }}
+          </a>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</header>
+{% endif %}
 {% endblock %}
 {% block body %}
 {{ super() }}

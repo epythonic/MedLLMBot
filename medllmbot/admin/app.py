@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.middleware.base import RequestResponseEndpoint
 
 from medllmbot.admin import i18n
-from medllmbot.admin.auth import AdminAuth
+from medllmbot.admin.auth import AdminAuth, current_admin
 from medllmbot.admin.demo import make_demo_view
 from medllmbot.admin.help import FLAG_HELP, GAP_HELP, OUTCOME_HELP, HelpView, help_topic
 from medllmbot.admin.live import make_live_view
@@ -117,10 +117,11 @@ def create_app(settings: AdminSettings, engine: AsyncEngine | None = None) -> Fa
     for error in (ValueError, OverflowError):
         admin.admin.add_exception_handler(error, bad_request)
     admin.templates.env.filters["usd"] = format_usd
-    # «?» help: the sqladmin/layout.html template finds a section's help via help_topic.
+    # sqladmin/layout.html finds a section's «?» help via help_topic and the header's profile via current_admin.
     # Jinja infers the globals type from its default dict, so it is widened explicitly
     template_globals = cast(dict[str, object], admin.templates.env.globals)
     template_globals.update(
+        current_admin=current_admin,
         help_topic=help_topic,
         outcome_help=OUTCOME_HELP,
         flag_help=FLAG_HELP,

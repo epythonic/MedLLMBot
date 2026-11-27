@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: MedLLMBot VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-11-27 16:41+0300\n"
+"POT-Creation-Date: 2026-11-27 17:05+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ro\n"
@@ -293,15 +293,15 @@ msgstr "La pagina principală a panoului de administrare"
 msgid "MedLLMBot admin"
 msgstr "MedLLMBot — administrare"
 
-#: medllmbot/admin/auth.py:118
+#: medllmbot/admin/auth.py:144
 msgid "Too many failed login attempts."
 msgstr "Prea multe încercări eșuate de autentificare."
 
-#: medllmbot/admin/auth.py:118
+#: medllmbot/admin/auth.py:144
 msgid "Try again in 15 minutes."
 msgstr "Încercați din nou peste 15 minute."
 
-#: medllmbot/admin/auth.py:127
+#: medllmbot/admin/auth.py:153
 msgid "Wrong username or password."
 msgstr "Nume de utilizator sau parolă greșită."
 
@@ -1649,6 +1649,7 @@ msgstr "Limba administratorului"
 msgid "Last changed"
 msgstr "Ultima modificare"
 
+#: medllmbot/admin/templates/sqladmin/layout.html:133
 #: medllmbot/admin/views.py:955
 msgid "Administrator"
 msgstr "Administrator"
@@ -1958,9 +1959,37 @@ msgstr "Tastele F1 sau „?” deschid ajutorul secțiunii."
 msgid "Settings"
 msgstr "Setări"
 
-#: medllmbot/admin/templates/sqladmin/layout.html:96
+#: medllmbot/admin/templates/sqladmin/layout.html:99
 msgid "Could not save the changes. Reload the page and try again."
 msgstr "Modificările nu au putut fi salvate. Reîncărcați pagina și încercați din nou."
+
+#: medllmbot/admin/templates/sqladmin/layout.html:118
+msgid "Language"
+msgstr "Limbă"
+
+#: medllmbot/admin/templates/sqladmin/layout.html:133
+msgid "Owner"
+msgstr "Proprietar"
+
+#: medllmbot/admin/templates/sqladmin/layout.html:136
+msgid "Profile"
+msgstr "Profil"
+
+#: medllmbot/admin/templates/sqladmin/layout.html:144
+msgid "Signed in as"
+msgstr "Conectat ca"
+
+#: medllmbot/admin/templates/sqladmin/layout.html:148
+msgid "login and password are set in the server settings"
+msgstr "numele de utilizator și parola sunt setate în configurarea serverului"
+
+#: medllmbot/admin/templates/sqladmin/layout.html:154
+msgid "My account"
+msgstr "Contul meu"
+
+#: medllmbot/admin/templates/sqladmin/layout.html:158
+msgid "Logout"
+msgstr "Deconectare"
 
 #: medllmbot/admin/templates/sqladmin/login.html:7
 #, python-format

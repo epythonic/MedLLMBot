@@ -11,6 +11,9 @@ panel starts, and every schema change ships as an Alembic migration.
 
 ### Added
 
+- The admin header shows who is signed in, next to the language switcher: the owner's username or the
+  account's email and the role (Owner or Administrator). Its menu links an account from “Administrators” to its own
+  page and has a logout link.
 - The “Demo data” admin section, on a demo server only (`ADMIN_DEMO_TOOLS=true`, off by default): refresh the demo
   before a showing or switch it between the dental clinic and the electronics store without access to the server.
   It runs the same reset as `seed --reset --profile …`, after a confirmation in the browser, and shows the current
