@@ -101,12 +101,13 @@ def create_app(settings: AdminSettings, engine: AsyncEngine | None = None) -> Fa
         return RedirectResponse("/static/favicon.svg", status_code=301)
 
     i18n.install()
+    repo = Repository(create_sessionmaker(engine))
     admin = Admin(
         app,
         engine,
         title=i18n.lazy_gettext("MedLLMBot admin"),
         favicon_url="/static/favicon.svg",
-        authentication_backend=AdminAuth(settings),
+        authentication_backend=AdminAuth(settings, repo),
         templates_dir=str(TEMPLATES_DIR),
         # RU/RO/EN: the switcher's choice, then the browser language, otherwise English
         i18n_config=i18n.I18N_CONFIG,
@@ -127,7 +128,6 @@ def create_app(settings: AdminSettings, engine: AsyncEngine | None = None) -> Fa
     )
     for view in VIEWS:
         admin.add_view(view)
-    repo = Repository(create_sessionmaker(engine))
     admin.add_view(make_analytics_view(repo))  # goes to the end of the «Clients» category
     admin.add_view(make_cost_report_view(repo))
     admin.add_view(make_live_view(repo))

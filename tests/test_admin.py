@@ -11,12 +11,13 @@ from fastapi.testclient import TestClient
 from markupsafe import escape
 from pydantic import SecretStr, ValidationError
 from sqladmin import BaseView, ModelView
-from sqlalchemy import delete
+from sqlalchemy import delete, update
 
 from medllmbot.admin.app import create_app
 from medllmbot.admin.auth import LoginThrottle
 from medllmbot.admin.forms import AdminForm
 from medllmbot.admin.help import FLAG_HELP, GAP_HELP, HELP, OUTCOME_HELP, TOPICS
+from medllmbot.admin.passwords import hash_password, verify_password
 from medllmbot.admin.reports import make_analytics_view, make_cost_report_view
 from medllmbot.admin.views import VIEWS
 from medllmbot.analytics import TOPICS as ANALYTICS_TOPICS
@@ -24,6 +25,7 @@ from medllmbot.config import AdminSettings
 from medllmbot.db.engine import create_engine, create_sessionmaker
 from medllmbot.db.migrate import upgrade_db
 from medllmbot.db.models import (
+    AdminUser,
     AuditEvent,
     AuditOutcome,
     BotConfig,
@@ -39,6 +41,10 @@ from medllmbot.db.seed import DEMO_SERVICES, seed_demo
 from medllmbot.i18n import translation
 
 PASSWORD = "secret-pass"
+# An extra account from «Administrators»; the hash is computed once: scrypt is deliberately slow
+PARTNER = "partner@example.com"
+PARTNER_PASSWORD = "partner-pass-12"
+PARTNER_HASH = hash_password(PARTNER_PASSWORD)
 
 
 def run_with_repo[T](db_path: Path, action: Callable[[Repository], Awaitable[T]]) -> T:
@@ -80,6 +86,7 @@ def db(settings: AdminSettings) -> Path:
         )
         async with repo.sessions.begin() as session:
             session.add(Order(number="DE-1", customer_name="Ион", phone="+373 69 000 001", items="Чайник", total=399))
+            session.add(AdminUser(email=PARTNER, password_hash=PARTNER_HASH))
 
     run_with_repo(settings.db_path, prepare)
     return settings.db_path
@@ -165,6 +172,192 @@ class TestLoginProtection:
         with TestClient(create_app(changed, engine=create_engine(db))) as other:
             other.cookies.update(admin.cookies)
             assert other.get("/admin/lead/list", follow_redirects=False).status_code == 302
+
+
+def account_login(client: TestClient, email: str = PARTNER, password: str = PARTNER_PASSWORD) -> int:
+    return client.post("/admin/login", data={"username": email, "password": password}).status_code
+
+
+def get_account(db: Path, email: str = PARTNER) -> AdminUser | None:
+    async def find(repo: Repository) -> AdminUser | None:
+        return await repo.admin_user_by_email(email)
+
+    return run_with_repo(db, find)
+
+
+def change_partner(db: Path, **values: object) -> None:
+    async def change(repo: Repository) -> None:
+        async with repo.sessions.begin() as session:
+            await session.execute(update(AdminUser).where(AdminUser.email == PARTNER).values(**values))
+
+    run_with_repo(db, change)
+
+
+def opens_admin(client: TestClient) -> bool:
+    return client.get("/admin/lead/list", follow_redirects=False).status_code == 200
+
+
+class TestAdminAccounts:
+    """Extra accounts from «Administrators» log in with an email; the owner's login from .env keeps working."""
+
+    def test_account_logs_in_with_email_in_any_case(self, client: TestClient, db: Path) -> None:
+        partner = get_account(db)
+        assert partner is not None and partner.last_login_at is None
+
+        assert account_login(client, " Partner@Example.COM ") == 200
+
+        assert opens_admin(client)
+        partner = get_account(db)
+        assert partner is not None and partner.last_login_at is not None
+
+    def test_login_page_asks_for_username_or_email(self, client: TestClient) -> None:
+        assert "Логин или email" in client.get("/admin/login").text
+
+    def test_wrong_password_and_unknown_email_get_the_same_answer(self, client: TestClient) -> None:
+        wrong = client.post("/admin/login", data={"username": PARTNER, "password": "wrong-password"})
+        unknown = client.post("/admin/login", data={"username": "nobody@example.com", "password": PARTNER_PASSWORD})
+
+        assert wrong.status_code == unknown.status_code == 400
+        assert "Неверный логин или пароль." in wrong.text
+        assert "Неверный логин или пароль." in unknown.text
+        assert not opens_admin(client)
+
+    def test_inactive_account_cannot_log_in(self, client: TestClient, db: Path) -> None:
+        change_partner(db, is_active=False)
+
+        assert account_login(client) == 400
+        assert not opens_admin(client)
+
+    def test_turning_an_account_off_ends_its_open_session(self, client: TestClient, db: Path) -> None:
+        assert account_login(client) == 200
+
+        change_partner(db, is_active=False)
+
+        assert not opens_admin(client)
+
+    def test_new_password_ends_old_sessions(self, client: TestClient, db: Path) -> None:
+        assert account_login(client) == 200
+
+        change_partner(db, password_hash=hash_password("another-pass-123"))
+
+        assert not opens_admin(client)
+
+    def test_deleted_account_session_ends(self, client: TestClient, db: Path) -> None:
+        assert account_login(client) == 200
+
+        async def remove(repo: Repository) -> None:
+            async with repo.sessions.begin() as session:
+                await session.execute(delete(AdminUser))
+
+        run_with_repo(db, remove)
+        assert not opens_admin(client)
+
+    def test_failed_account_logins_count_towards_the_lockout(self, client: TestClient) -> None:
+        for _ in range(5):
+            assert account_login(client, password="wrong-password") == 400
+        assert account_login(client) == 400  # even the right password: brute force through accounts is pointless
+
+
+class TestAdminAccountForm:
+    """The «Administrators» section stores only a password hash and never shows it."""
+
+    def test_create_stores_a_hash_and_the_account_logs_in(self, admin: TestClient, db: Path) -> None:
+        response = admin.post(
+            "/admin/admin-user/create",
+            data={"email": " New.Admin@Example.com ", "password": "brand-new-pass-1"},
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 302
+        account = get_account(db, "new.admin@example.com")
+        assert account is not None
+        assert account.email == "new.admin@example.com"
+        assert account.is_active
+        assert "brand-new-pass-1" not in account.password_hash
+        assert verify_password("brand-new-pass-1", account.password_hash)
+        admin.get("/admin/logout")
+        assert account_login(admin, "new.admin@example.com", "brand-new-pass-1") == 200
+
+    def test_create_requires_a_password(self, admin: TestClient, db: Path) -> None:
+        response = admin.post("/admin/admin-user/create", data={"email": "new@example.com", "password": ""})
+
+        assert response.status_code == 400
+        assert "Задайте пароль новому администратору." in response.text
+        assert get_account(db, "new@example.com") is None
+
+    @pytest.mark.parametrize(
+        "form",
+        [
+            {"email": "new@example.com", "password": "too-short"},  # under 12 characters
+            {"email": "not-an-email", "password": "long-enough-pass"},
+        ],
+        ids=["short-password", "bad-email"],
+    )
+    def test_invalid_input_is_rejected(self, admin: TestClient, db: Path, form: dict[str, str]) -> None:
+        assert admin.post("/admin/admin-user/create", data=form).status_code == 400
+        assert get_account(db, form["email"]) is None
+
+    def test_bad_email_message_is_russian(self, admin: TestClient) -> None:
+        response = admin.post("/admin/admin-user/create", data={"email": "not-an-email", "password": "long-enough-pass"})
+        assert "Введите адрес электронной почты, например name@example.com." in response.text
+
+    def test_duplicate_email_in_any_case(self, admin: TestClient) -> None:
+        response = admin.post(
+            "/admin/admin-user/create", data={"email": "PARTNER@example.com", "password": "long-enough-pass"}
+        )
+
+        assert response.status_code == 400
+        assert "Администратор с таким email уже есть." in response.text
+
+    def test_edit_with_empty_password_keeps_it(self, admin: TestClient, db: Path) -> None:
+        partner = get_account(db)
+        assert partner is not None
+
+        response = admin.post(
+            f"/admin/admin-user/edit/{partner.id}",
+            data={"email": PARTNER, "is_active": "y", "password": ""},
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 302
+        assert (after := get_account(db)) is not None
+        assert after.password_hash == partner.password_hash
+
+    def test_edit_sets_a_new_password(self, admin: TestClient, db: Path) -> None:
+        partner = get_account(db)
+        assert partner is not None
+
+        admin.post(
+            f"/admin/admin-user/edit/{partner.id}",
+            data={"email": PARTNER, "is_active": "y", "password": "replaced-pass-123"},
+        )
+
+        assert (after := get_account(db)) is not None
+        assert verify_password("replaced-pass-123", after.password_hash)
+        assert not verify_password(PARTNER_PASSWORD, after.password_hash)
+
+    def test_hash_is_never_shown_or_exported(self, admin: TestClient, db: Path) -> None:
+        partner = get_account(db)
+        assert partner is not None
+        for url in (
+            "/admin/admin-user/list",
+            f"/admin/admin-user/details/{partner.id}",
+            f"/admin/admin-user/edit/{partner.id}",
+        ):
+            page = admin.get(url).text
+            assert PARTNER in page
+            assert "scrypt$" not in page
+        assert admin.get("/admin/admin-user/export/csv").status_code == 403
+
+    def test_password_field_is_not_filled_by_the_browser(self, admin: TestClient, db: Path) -> None:
+        # The browser would otherwise put the owner's saved password into the partner's form
+        partner = get_account(db)
+        assert partner is not None
+        page = admin.get(f"/admin/admin-user/edit/{partner.id}").text
+        assert re.search(
+            r'<input[^>]*autocomplete="new-password"[^>]*name="password"|<input[^>]*name="password"[^>]*autocomplete="new-password"',
+            page,
+        )
 
 
 class TestLoginThrottle:

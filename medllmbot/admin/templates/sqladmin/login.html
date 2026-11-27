@@ -1,4 +1,4 @@
-{# Copy of sqladmin/login.html (SQLAdmin 0.32): the login error text is in Russian, from AdminAuth (request.state.login_error) #}
+{# Copy of sqladmin/login.html (SQLAdmin 0.32): the login error text comes from AdminAuth (request.state.login_error), and the login field also takes the email of an account from «Administrators» #}
 {% extends "sqladmin/base.html" %}
 {% block body %}
 <div class="d-flex align-items-center justify-content-center vh-100">
@@ -6,13 +6,13 @@
     <div class="card-body">
       <h2 class="card-title text-center mb-4">{{ _("Login to %(title)s", title=admin.title) }}</h2>
       <div class="mb-3">
-        <label class="form-label">{{ _("Username") }}</label>
+        <label class="form-label">{{ _("Username or email") }}</label>
         {% if error %}
-        <input name="username" type="text" class="form-control is-invalid" placeholder="{{ _('Enter username') }}"
+        <input name="username" type="text" class="form-control is-invalid" placeholder="{{ _('Enter username or email') }}"
           autocomplete="off">
         <div class="invalid-feedback">{{ request.state.login_error if request.state.login_error is defined else error }}</div>
         {% else %}
-        <input name="username" type="text" class="form-control" placeholder="{{ _('Enter username') }}" autocomplete="off">
+        <input name="username" type="text" class="form-control" placeholder="{{ _('Enter username or email') }}" autocomplete="off">
         {% endif %}
       </div>
       <div class="mb-2">

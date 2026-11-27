@@ -1,10 +1,11 @@
-"""Admin sections: leads, clients, chat history, knowledge base, bot settings."""
+"""Admin sections: leads, clients, chat history, knowledge base, bot settings, administrators."""
 
 # SQLAdmin declares ModelView attributes with incomplete types (bare InstrumentedAttribute and list),
 # so their type in subclasses is always «partially unknown». This can only be fixed in the library
 # itself, so one rule is disabled, and only in this file.
 # pyright: reportUnknownVariableType=false
 
+import asyncio
 from datetime import UTC, datetime
 from typing import ClassVar, cast, final, override
 
@@ -16,14 +17,16 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from starlette.requests import Request
-from wtforms import Field, Form, SelectField
-from wtforms.validators import DataRequired, Length, NumberRange, ValidationError
+from wtforms import Field, Form, PasswordField, SelectField
+from wtforms.validators import DataRequired, Length, NumberRange, Optional, Regexp, ValidationError
 
 from medllmbot.admin.forms import AdminForm, CommaFloatField
 from medllmbot.admin.i18n import LOCALES, gettext, lazy_gettext, lazy_text
 from medllmbot.admin.live import NEW_AUDIT_EVENTS, NEW_LEADS, audit_chat_id_cell, lead_status_cell, sort_handle_cell
+from medllmbot.admin.passwords import hash_password
 from medllmbot.costs import format_usd, match_model
 from medllmbot.db.models import (
+    AdminUser,
     AuditEvent,
     AuditOutcome,
     BotConfig,
@@ -934,6 +937,88 @@ class BotConfigAdmin(AdminView, model=BotConfig):
     }
 
 
+# ---------- Administrators ----------
+
+# A light check: the login is compared as typed, a mistyped address simply does not log in
+EMAIL_PATTERN = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+MIN_PASSWORD_LENGTH = 12
+
+
+def _email(value: object) -> object:
+    return AdminUser.normalize_email(value) if isinstance(value, str) else value
+
+
+@final
+class AdminUserAdmin(AdminView, model=AdminUser):
+    """Extra accounts with their own email and password. The owner's login from .env is not listed here."""
+
+    name = lazy_gettext("Administrator")
+    name_plural = lazy_gettext("Administrators")
+    icon = "fa-solid fa-user-shield"
+    integrity_error = lazy_gettext("An administrator with this email already exists.")
+    can_export = False  # the export would include the password hashes
+
+    column_list = [AdminUser.email, AdminUser.is_active, AdminUser.created_at, AdminUser.last_login_at]
+    column_details_list = [AdminUser.email, AdminUser.is_active, AdminUser.created_at, AdminUser.last_login_at]
+    column_default_sort = [(AdminUser.email, False)]
+    column_searchable_list = [AdminUser.email]
+    column_filters = [YesNoFilter(AdminUser.is_active, title=lazy_gettext("Active"))]
+    form_columns = [AdminUser.email, AdminUser.is_active]
+    # A new account is active; whether it is active is chosen when editing. The password field is added in scaffold_form
+    form_create_rules = ["email", "password"]
+    form_edit_rules = ["email", "is_active", "password"]
+    form_args = {
+        "email": {
+            "validators": [
+                DataRequired(),
+                Length(max=254),
+                Regexp(EMAIL_PATTERN, message=lazy_gettext("Enter an email address, for example name@example.com.")),
+            ],
+            "filters": [_email],
+            "description": lazy_gettext("The login for the admin panel, in any case"),
+            "render_kw": {"autocomplete": "off"},
+        },
+        "is_active": {
+            "description": lazy_gettext("Off: the administrator cannot log in, and their open sessions end at once")
+        },
+    }
+    column_labels = {
+        AdminUser.email: lazy_gettext("Email"),
+        AdminUser.is_active: lazy_gettext("Active"),
+        AdminUser.created_at: lazy_gettext("Created"),
+        AdminUser.last_login_at: lazy_gettext("Last login"),
+    }
+
+    @override
+    async def scaffold_form(self, rules: list[str] | None = None) -> type[Form]:
+        model_form = await super().scaffold_form(rules)
+
+        @final
+        class AdminUserForm(model_form):
+            # Not a model column: on_model_change turns it into password_hash. «new-password» stops the browser
+            # from filling in the saved password of the person editing the form
+            password = PasswordField(
+                lazy_gettext("Password"),
+                validators=[Optional(), Length(min=MIN_PASSWORD_LENGTH, max=128)],
+                description=_sentences(
+                    lazy_gettext("At least 12 characters."),
+                    lazy_gettext("When editing, leave it empty to keep the current password"),
+                ),
+                render_kw={"autocomplete": "new-password"},
+            )
+
+        return AdminUserForm
+
+    @override
+    async def on_model_change(self, data: dict[str, object], model: object, is_created: bool, request: Request) -> None:
+        # The password itself is never saved: only its scrypt hash. Empty when editing means «keep the current one»
+        password = data.pop("password", None)
+        if isinstance(password, str) and password:
+            data["password_hash"] = await asyncio.to_thread(hash_password, password)
+        elif is_created:
+            raise ValueError(gettext("Set a password for the new administrator."))
+
+
 VIEWS = [
     LeadAdmin,
     OrderAdmin,
@@ -946,4 +1031,5 @@ VIEWS = [
     ModelPriceAdmin,
     UsageDailyAdmin,
     BotConfigAdmin,
+    AdminUserAdmin,
 ]

@@ -1,0 +1,33 @@
+{% from "help/_macros.html" import note, section_link with context %}
+<h3 id="{{ topic.anchor('kto') }}">Who is here</h3>
+<p>Extra admin panel accounts: for example, a partner or a manager who shows the demo to clients.
+Each person logs in with their own email and password, and one person's access can be turned off without changing
+anyone else's password.</p>
+<p>The owner is not in the list: their login and password are set in the server settings (<code>ADMIN_USERNAME</code>
+and <code>ADMIN_PASSWORD</code>), so the owner can be neither turned off nor deleted from this section.</p>
+
+<h3 id="{{ topic.anchor('dobavit') }}">How to add an administrator</h3>
+<ol>
+  <li>Click <b>+ New Administrator</b>.</li>
+  <li>Enter the email — it is the login. Upper or lower case does not matter.</li>
+  <li>Choose a password of at least 12 characters and click <b>Save</b>. The account is active at once.</li>
+  <li>Hand over the email and password in person or in a secure messenger, not in a group chat.</li>
+</ol>
+<p>On the login page the administrator types the email into the <b>Username or email</b> field.</p>
+
+<h3 id="{{ topic.anchor('otklyuchit') }}">How to turn off access or change the password</h3>
+<ul>
+  <li><b>Turn off:</b> open the record with the pencil icon, clear the <b>Active</b> box and save. All open sessions
+    of this administrator end at once, and the record stays — access can be restored with the same box.</li>
+  <li><b>Change the password:</b> type a new password into the <b>Password</b> field when editing. The administrator's
+    old sessions end. An empty field keeps the current password.</li>
+  <li><b>Delete</b> — if the access will not be needed any more.</li>
+</ul>
+
+{% call note("warning", "Everyone has the same rights") %}
+An administrator from this section sees and changes everything the owner does: leads, the knowledge base,
+{{ section_link('bot-config') }}, {{ section_link('model-price') }} and this section itself. Add only people you trust.
+{% endcall %}
+{% call note("info", "The password cannot be viewed") %}
+The admin panel stores not the password but its hash (scrypt). If an administrator forgot the password, set a new one.
+{% endcall %}

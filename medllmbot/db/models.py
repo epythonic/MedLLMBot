@@ -382,6 +382,36 @@ class Order(Base):
         return f"Заказ {self.number}"
 
 
+# ---------- Admin panel accounts ----------
+
+
+@final
+class AdminUser(Base):
+    """An extra admin panel account: a partner or a manager who shows the demo.
+
+    The owner's login comes from .env (ADMIN_USERNAME / ADMIN_PASSWORD) and is not stored here, so the owner
+    cannot be locked out from this table.
+    """
+
+    __tablename__ = "admin_users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(254), unique=True)  # the login, in lower case (normalize_email)
+    password_hash: Mapped[str] = mapped_column(String(256))  # scrypt with a salt: medllmbot/admin/passwords.py
+    is_active: Mapped[bool] = mapped_column(default=True, server_default=true())
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    last_login_at: Mapped[datetime | None] = mapped_column()
+
+    @staticmethod
+    def normalize_email(email: str) -> str:
+        """Emails are compared without regard to case and surrounding spaces: «Name@Mail.com » is name@mail.com."""
+        return email.strip().lower()
+
+    @override
+    def __str__(self) -> str:
+        return self.email
+
+
 # ---------- Bot settings ----------
 
 
