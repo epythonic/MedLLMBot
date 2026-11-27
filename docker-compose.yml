@@ -24,9 +24,11 @@ services:
     command: ["python", "-m", "medllmbot.admin"]
     environment:
       ADMIN_HOST: 0.0.0.0
-      # Trust X-Forwarded-For / -Proto from Caddy: otherwise all logins come "from one address"
-      # (brute-force protection would lock everyone out), and links would point to http://
-      FORWARDED_ALLOW_IPS: "*"
+      # Trust X-Forwarded-For / -Proto from Caddy or cloudflared: otherwise all logins come "from one address"
+      # (brute-force protection would lock everyone out), and links would point to http://.
+      # Only proxies on private networks (Docker's own) are trusted, not "*": Cloudflare appends the visitor's IP
+      # to the X-Forwarded-For the visitor sent, and with "*" uvicorn takes the leftmost, made-up address
+      FORWARDED_ALLOW_IPS: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
     # The admin is reachable only from this machine; from outside, via a reverse proxy with HTTPS
     ports:
       - "127.0.0.1:8000:8000"
@@ -43,7 +45,32 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
-  # Demo server only: docker compose --profile https up -d (needs DOMAIN in .env)
+  # The admin panel is published on the demo server by one of two profiles, chosen by COMPOSE_PROFILES in .env.
+  #
+  # tunnel: Cloudflare Tunnel (needs TUNNEL_TOKEN). cloudflared connects out to Cloudflare, so the server
+  # opens no ports but SSH and needs no certificates. Route in Cloudflare: Service URL http://admin:8000
+  cloudflared:
+    image: cloudflare/cloudflared:2026.11.2
+    profiles: ["tunnel"]
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      # Only the tunnel token, not the whole .env: this container does not need the bot's keys
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
+      # Both "run" and the healthcheck's "ready" read the metrics address from here
+      TUNNEL_METRICS: 127.0.0.1:20241
+    healthcheck:
+      # Healthy once the tunnel holds a connection to Cloudflare: a wrong token turns the deploy red
+      test: ["CMD", "cloudflared", "tunnel", "ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+      start_interval: 2s
+    depends_on:
+      - admin
+    restart: unless-stopped
+
+  # https: Caddy on ports 80 and 443 with a Let's Encrypt certificate (needs DOMAIN pointed at the server)
   caddy:
     image: caddy:2-alpine
     profiles: ["https"]

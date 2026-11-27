@@ -2,10 +2,13 @@ name: CI
 
 # Changes reach main only through a PR (branch protection on GitHub). Checks run on every PR,
 # and after a merge into main the same checks run, followed by a deploy to the demo server.
+# A manual run on main (Actions → CI → Run workflow, or gh workflow run ci.yml --ref main) redeploys without
+# a code change, for example after a secret of the «demo» environment was changed.
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   test:
@@ -41,14 +44,16 @@ jobs:
         run: docker build -t medllmbot .
 
   # Demo server keys from the GitHub Environment «demo» (Settings → Environments → demo):
-  # secrets TG_TOKEN, ADMIN_ID, ANTHROPIC_API_KEY, ADMIN_PASSWORD, ADMIN_SECRET_KEY and variable ADMIN_USERNAME.
+  # secrets TG_TOKEN, ADMIN_ID, ANTHROPIC_API_KEY, ADMIN_PASSWORD, ADMIN_SECRET_KEY and variable ADMIN_USERNAME;
+  # how the admin is published: variable COMPOSE_PROFILES (tunnel or https, https by default) with secret
+  # TUNNEL_TOKEN or variable DOMAIN.
   # The job checks that all keys are set and pass settings validation; values do not reach the log.
   # Tests do not need the keys: Anthropic and Telegram are replaced with fakes there.
   # Runs only before a deploy (after a merge into main): PRs are not blocked until the secrets are set up.
   # Deploy is enabled by the repository variable DEPLOY_ENABLED=true once the server and secrets are ready.
   config:
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
     needs: [test, docker]
     environment: demo
     env: &app_keys
@@ -59,6 +64,8 @@ jobs:
       ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
       ADMIN_SECRET_KEY: ${{ secrets.ADMIN_SECRET_KEY }}
       ADMIN_HTTPS_ONLY: "true"
+      COMPOSE_PROFILES: ${{ vars.COMPOSE_PROFILES || 'https' }}
+      TUNNEL_TOKEN: ${{ secrets.TUNNEL_TOKEN }}
       DOMAIN: ${{ vars.DOMAIN }}
     steps:
       - uses: actions/checkout@v5
@@ -73,11 +80,12 @@ jobs:
       - name: Check keys
         run: uv run python -m medllmbot.check_config
 
-  # Deploy to the demo server: only after a PR is merged into main and only if all checks are green.
+  # Deploy to the demo server: only after a PR is merged into main (or a manual run on main)
+  # and only if all checks are green.
   # Secrets of the «demo» environment: DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY (CI private key),
   # DEPLOY_KNOWN_HOSTS (ssh-keyscan output of the server; the connection fails without it). Setup: README_ru.md.
   deploy:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
     needs: config
     runs-on: ubuntu-latest
     environment: demo
@@ -91,7 +99,8 @@ jobs:
         # Values in single quotes: both docker compose and pydantic read them as is, without «$…» substitution
         run: |
           umask 077
-          for name in TG_TOKEN ADMIN_ID ANTHROPIC_API_KEY ADMIN_USERNAME ADMIN_PASSWORD ADMIN_SECRET_KEY ADMIN_HTTPS_ONLY DOMAIN; do
+          for name in TG_TOKEN ADMIN_ID ANTHROPIC_API_KEY ADMIN_USERNAME ADMIN_PASSWORD ADMIN_SECRET_KEY ADMIN_HTTPS_ONLY \
+              COMPOSE_PROFILES TUNNEL_TOKEN DOMAIN; do
             value="${!name}"
             if [[ "$value" == *"'"* || "$value" == *$'\n'* ]]; then
               echo "::error::$name contains a single quote or a newline" >&2

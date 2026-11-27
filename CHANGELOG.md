@@ -9,6 +9,16 @@ panel starts, and every schema change ships as an Alembic migration.
 
 ## [Unreleased]
 
+### Added
+
+- Cloudflare Tunnel as a second way to publish the admin panel on the demo server: `COMPOSE_PROFILES=tunnel` with
+  `TUNNEL_TOKEN` starts a `cloudflared` container, so the server opens no ports but SSH, needs no certificates, and
+  its IP stays hidden. Caddy remains available as the `https` profile. The README describes the Cloudflare setup.
+- CI can be run by hand on `main` (Actions → CI → Run workflow) to redeploy without a code change, for example
+  after a secret of the `demo` environment was changed.
+- The key check in CI also checks the deploy profile: a profile without its key (`TUNNEL_TOKEN` or `DOMAIN`) or an
+  unknown profile name stops the deploy before it reaches the server.
+
 ### Changed
 
 - The bot's canned replies to customers moved from the code to the translation catalogs, next to the admin texts.
@@ -19,6 +29,9 @@ panel starts, and every schema change ships as an Alembic migration.
   order statuses: “Acceptat”, “Confirmat”, “Livrat”, “Anulat”; log outcomes: “Conținut non-text”,
   “Solicitare operator”, “Transmis operatorului”; the analytics topic “Dureri și urgențe”. The Romanian help
   and README quote the new labels.
+- `deploy/deploy.sh` takes the compose profile from `COMPOSE_PROFILES` in `.env` instead of always starting Caddy,
+  and waits until every service is up and healthy, not only the admin panel and the bot. When the GitHub variable
+  `COMPOSE_PROFILES` is not set, CI uses `https`, as before.
 
 ### Fixed
 
@@ -40,6 +53,13 @@ panel starts, and every schema change ships as an Alembic migration.
   off the screen.
 - The “Logout” button no longer looks disabled, and the blank band above the tables and forms is gone.
 - The home page lists the sections in the sidebar's order: “Analytics” used to come after “Bot settings”.
+
+### Security
+
+- The admin panel trusts `X-Forwarded-For` only from proxies on private networks (Docker's own), not from any
+  address. Cloudflare appends the visitor's IP to the header the visitor sent, and with `"*"` uvicorn took the
+  leftmost, made-up address: behind the tunnel a visitor could dodge the login lockout by changing it, or lock out
+  someone else's address. Caddy overwrites the header, so the Caddy setup was not affected.
 
 ## [0.3.0] - 2026-11-22
 

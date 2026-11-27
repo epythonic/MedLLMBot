@@ -32,25 +32,32 @@ main() {
     git merge --ff-only --quiet origin/main
     echo "  version $(git rev-parse --short HEAD): $(git log -1 --format=%s)"
 
-    echo "→ Rebuilding and restarting containers"
-    docker compose --profile https up -d --build --remove-orphans
+    # The services of the profiles in COMPOSE_PROFILES (.env): tunnel → cloudflared, https → caddy.
+    # migrate is a one-shot job, and "up" has already waited for it to finish successfully
+    local services
+    services="$(docker compose config --services | grep -vx migrate | tr '\n' ' ')"
 
-    echo "→ Waiting for the admin to become healthy"
-    local health=""
+    echo "→ Rebuilding and restarting containers: ${services}"
+    docker compose up -d --build --remove-orphans
+
+    echo "→ Waiting for the services to come up"
+    local service status pending=""
     for _ in $(seq 1 45); do
-        health="$(docker compose ps admin --format '{{.Health}}')"
-        [[ "$health" == "healthy" ]] && break
+        pending=""
+        for service in $services; do
+            status="$(docker compose ps "$service" --format '{{.State}} {{.Health}}')"
+            # "running healthy" for a service with a healthcheck, "running " for one without
+            [[ "$status" == "running healthy" || "$status" == "running " ]] || pending+=" $service"
+        done
+        [[ -z "$pending" ]] && break
         sleep 2
     done
-    if [[ "$health" != "healthy" ]]; then
-        echo "✗ The admin did not come up (status: ${health:-none}). Last log lines:" >&2
-        docker compose logs --tail 50 admin >&2
-        exit 1
-    fi
-
-    if [[ "$(docker compose ps bot --format '{{.State}}')" != "running" ]]; then
-        echo "✗ The bot is not running. Last log lines:" >&2
-        docker compose logs --tail 50 bot >&2
+    if [[ -n "$pending" ]]; then
+        for service in $pending; do
+            status="$(docker compose ps "$service" --format '{{.State}} {{.Health}}')"
+            echo "✗ $service did not come up (status: ${status:-none}). Last log lines:" >&2
+            docker compose logs --tail 50 "$service" >&2
+        done
         exit 1
     fi
 

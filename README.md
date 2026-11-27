@@ -288,11 +288,18 @@ The admin panel is at <http://127.0.0.1:8000/admin>. The database lives in the `
 
 ## Demo server
 
-A small VPS (1 vCPU, 1 GB RAM) with Docker and a domain pointed at the server with an A record is enough for a demo.
-The bot uses long polling, so only ports 80 and 443 need to be reachable from outside — for the admin panel over HTTPS
-(Caddy obtains and renews the Let's Encrypt certificate itself). `deploy/deploy.sh` starts the stack with
-`docker compose --profile https up -d --build` (bot, admin panel and Caddy); to run that command by hand, put `DOMAIN`
-and `ADMIN_HTTPS_ONLY=true` in `.env`.
+A small VPS (1 vCPU, 1 GB RAM) with Docker is enough for a demo. The bot uses long polling, so only the admin panel
+needs incoming connections. A Docker Compose profile in `COMPOSE_PROFILES` chooses how it is published:
+
+- `tunnel` — Cloudflare Tunnel (the demo uses it). The `cloudflared` container connects out to Cloudflare: the server
+  opens no ports but SSH, needs no certificates, and its IP is not exposed. Needs a domain on Cloudflare
+  and the tunnel token `TUNNEL_TOKEN`.
+- `https` — Caddy on ports 80 and 443 obtains and renews the Let's Encrypt certificate itself. Needs a domain
+  pointed at the server with an A record (`DOMAIN`).
+
+`deploy/deploy.sh` starts the stack with `docker compose up -d --build` and takes the compose profile
+from `COMPOSE_PROFILES` in `.env`. With either profile, set `ADMIN_HTTPS_ONLY=true`. Without a profile the admin panel
+is reachable only on the server itself (`127.0.0.1:8000`).
 
 ### How changes reach the server
 
@@ -308,12 +315,14 @@ flowchart LR
 - You can't push to `main` directly — only merge a PR with green `test` and `docker` checks (branch protection).
 - After a merge, CI validates the keys from the GitHub Environment `demo`, builds `.env` from them and runs
   [deploy/deploy.sh](deploy/deploy.sh) on the server over SSH: the latest `main` (fast-forward only), a new `.env`,
-  a container rebuild, then waiting until the admin panel is healthy. If something did not come up, the deploy turns red,
+  a container rebuild, then waiting until all services are up and the admin panel and the tunnel pass their health
+  checks. If something did not come up, the deploy turns red,
   and the log shows the container's last lines.
 - The CI key on the server is bound to this script (`command=` in `authorized_keys`): no other command can be run with it.
   The server's host key fingerprint is pinned in a secret, so SSH will not accept a spoofed host.
 - Application secrets are stored only in the GitHub Environment `demo`; `.env` on the server is overwritten
-  on every deploy, so keys are changed in GitHub.
+  on every deploy, so keys are changed in GitHub. To get a new key to the server without a new PR, run the deploy
+  by hand: Actions → CI → Run workflow on the `main` branch, or `gh workflow run ci.yml --ref main`.
 
 ### Initial setup (one time)
 
@@ -339,6 +348,18 @@ Add the public key `medllmbot-deploy.pub` to `~/.ssh/authorized_keys` on the ser
 command="/opt/MedLLMBot/deploy/deploy.sh",no-port-forwarding,no-agent-forwarding,no-X11-forwarding,no-pty ssh-ed25519 AAAA… github-actions-deploy
 ```
 
+**Cloudflare Tunnel** (the `tunnel` profile) — in the Cloudflare dashboard of the account with the domain:
+
+1. Networking → Tunnels → **Create a tunnel**, with a name such as `medllmbot`.
+2. Copy the tunnel token: Cloudflare shows it when the tunnel is created, after `--token` in the connector install
+   command. This is the `TUNNEL_TOKEN` secret. Do not install the connector on the server — the `cloudflared`
+   container runs it; until the first deploy the tunnel is not connected, which is expected.
+3. The **Routes** tab → **Add route** → **Published application**: the demo's subdomain and domain, **Service URL** —
+   `http://admin:8000`. This is the Docker Compose service name, not `localhost`: `cloudflared` runs in its own
+   container. Cloudflare creates the DNS record for the subdomain itself.
+
+With the tunnel, the server only needs SSH from outside: a firewall can close every other incoming port.
+
 **In GitHub** — Settings → Environments → New environment `demo`, with these secrets:
 
 | Secret | Value |
@@ -348,8 +369,11 @@ command="/opt/MedLLMBot/deploy/deploy.sh",no-port-forwarding,no-agent-forwarding
 | `DEPLOY_HOST`, `DEPLOY_USER` | server address and the user from `authorized_keys` |
 | `DEPLOY_SSH_KEY` | contents of the private key `medllmbot-deploy` |
 | `DEPLOY_KNOWN_HOSTS` | the `ssh-keyscan` output from the step above |
+| `TUNNEL_TOKEN` | the Cloudflare Tunnel token (only for the `tunnel` profile) |
 
-And variables (Environment variables): `DOMAIN` — the demo domain, `ADMIN_USERNAME` — the admin login (`admin` by default).
+And variables (Environment variables): `COMPOSE_PROFILES` — `tunnel` or `https` (`https` by default),
+`DOMAIN` — the demo domain for Caddy (only for `https`), `ADMIN_USERNAME` — the admin login (`admin` by default).
+The key check in CI stops a profile without its key and an unknown profile name.
 
 **Branch protection** for `main` — Settings → Branches, or with one command:
 
@@ -369,7 +393,7 @@ JSON
 **Enable deployment**: Settings → Secrets and variables → Actions → Variables → `DEPLOY_ENABLED` = `true`.
 Until the variable exists, CI only checks the code, and `config` and `deploy` are skipped.
 
-The first deploy is any PR merged into `main`. Demo data after the first start:
+The first deploy is any PR merged into `main`, or a manual CI run. Demo data after the first start:
 
 ```bash
 cd /opt/MedLLMBot && docker compose run --rm migrate python -m medllmbot.db.seed
@@ -411,7 +435,9 @@ cd /opt/MedLLMBot && docker compose run --rm migrate python -m medllmbot.db.seed
 | `ADMIN_PASSWORD` | — | Admin panel password, at least 8 characters |
 | `ADMIN_SECRET_KEY` | — | Session cookie signing key, at least 32 characters |
 | `ADMIN_HOST` / `ADMIN_PORT` | `127.0.0.1` / `8000` | Admin panel address |
-| `DOMAIN` | — | Demo server domain for HTTPS via Caddy (only with `--profile https`) |
+| `COMPOSE_PROFILES` | — | How the admin panel is published on the server: `tunnel` (Cloudflare Tunnel) or `https` (Caddy); empty — only the bot and the admin panel on `127.0.0.1` |
+| `TUNNEL_TOKEN` | — | Cloudflare Tunnel token (the `tunnel` profile) |
+| `DOMAIN` | — | Demo server domain for HTTPS via Caddy (the `https` profile) |
 | `ADMIN_HTTPS_ONLY` | `false` | `true` if the admin panel is served over HTTPS through a reverse proxy: the session cookie gets the `Secure` flag |
 | `DB_PATH` | `storage/bot.db` | Path to the SQLite database |
 
