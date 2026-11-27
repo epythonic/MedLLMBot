@@ -11,6 +11,14 @@ panel starts, and every schema change ships as an Alembic migration.
 
 ### Added
 
+- The demo no longer starts empty: `seed` adds fictional customers with their chats, leads in every status and
+  a log for the past week (`medllmbot/db/demo_activity.py`), for the clinic and the shop. The demo shows an attack
+  attempt and a blocked spammer, the live operator, Romanian customers, a question the knowledge base cannot answer,
+  a replaced price, catalog searches and an order check, so “Clients”, “Leads”, “Log” and “Analytics” are filled from
+  the first minute. Canned replies, attack signs and the history rules come from the bot's own code; a test checks
+  every answer against the bot's price check and every logged search against the catalog. The entries have no model,
+  tokens or cost, so spending stays real. They are never added next to real customers, and `seed --reset` restores
+  them with fresh dates.
 - The “Administrators” section: extra admin panel accounts with their own email and password, for example for
   a partner who shows the demo to clients. The password is stored as a salted scrypt hash and is never shown;
   turning an account off, deleting it or setting a new password ends its open sessions at once. All accounts have

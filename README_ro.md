@@ -224,6 +224,7 @@ medllmbot/
 │   ├── migrate.py     # python -m medllmbot.db.migrate
 │   ├── seed.py        # python -m medllmbot.db.seed — date demo, --profile shop — magazinul
 │   ├── demo_shop.py   # datele demo ale magazinului fictiv de electronice
+│   ├── demo_activity.py # clienți fictivi, conversații, cereri și jurnal, ca panoul demo să nu fie gol
 │   └── migrations/    # Alembic
 └── admin/
     ├── __main__.py    # python -m medllmbot.admin
@@ -401,12 +402,18 @@ Primul deploy are loc la orice PR îmbinat în `main` sau la o rulare manuală a
 cd /opt/MedLLMBot && docker compose run --rm migrate python -m medllmbot.db.seed
 ```
 
+Pe lângă baza de cunoștințe, comanda adaugă clienți fictivi cu conversații, cereri în toate statusurile și jurnalul
+din ultima săptămână — „Clienți”, „Cereri”, „Jurnal” și „Analiză” sunt completate din primul minut. Clienții fictivi
+nu se adaugă lângă cei reali: dacă cineva i-a scris deja botului, comanda îi omite. Înregistrările din jurnal nu au
+model, tokeni sau cost, așa că cheltuielile din panou rămân reale.
+
 ### Cheltuieli și resetarea demo-ului
 
 - În panoul de administrare: „Setările botului” → **Limita de cheltuieli pe zi, $** (pentru demo ajung 1–2 $), iar în
   [Anthropic Console](https://console.anthropic.com) setați o limită lunară pentru cheie — a doua linie de apărare.
 - După demonstrație, readuceți demo-ul la starea inițială. Comanda șterge clienții, conversațiile, cererile, comenzile și jurnalul,
-  restabilește baza de cunoștințe, lista de prețuri a modelelor și setările; totalurile cheltuielilor și limita zilnică rămân:
+  restabilește baza de cunoștințe, lista de prețuri a modelelor, setările și clienții fictivi (cu date de la momentul
+  resetării); totalurile cheltuielilor și limita zilnică rămân:
 
   ```bash
   docker compose run --rm migrate python -m medllmbot.db.seed --reset

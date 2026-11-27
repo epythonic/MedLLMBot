@@ -14,7 +14,7 @@ the changes from the client's next message; there is no need to restart it.</p>
 on the server, so it is not in the form:</p>
 <pre><code>docker compose run --rm migrate python -m medllmbot.db.seed --reset --profile shop</code></pre>
 {% call note("warning", "The reset deletes the demo data") %}
-The command deletes clients, chat history, leads and the log and replaces the knowledge base with the profile's demo data.
+The command deletes clients, chat history, leads and the log and replaces the knowledge base with the profile's demo data, and the clients with fictional ones, with chats and leads from the past week.
 Cost totals and the daily limit remain. To switch back to the dental clinic, use <code>--profile clinic</code>.
 {% endcall %}
 

@@ -14,7 +14,7 @@ modificările de la următorul mesaj al clientului, nu trebuie repornit.</p>
 pe server, de aceea nu apare în formular:</p>
 <pre><code>docker compose run --rm migrate python -m medllmbot.db.seed --reset --profile shop</code></pre>
 {% call note("warning", "Resetarea șterge datele demo") %}
-Comanda șterge clienții, conversațiile, cererile și jurnalul și înlocuiește baza de cunoștințe cu datele demo ale profilului.
+Comanda șterge clienții, conversațiile, cererile și jurnalul și înlocuiește baza de cunoștințe cu datele demo ale profilului, iar clienții — cu unii fictivi, cu conversații și cereri din ultima săptămână.
 Totalurile cheltuielilor și limita zilnică rămân. Pentru a reveni la clinica stomatologică — <code>--profile clinic</code>.
 {% endcall %}
 
